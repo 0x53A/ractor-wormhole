@@ -1,0 +1,5 @@
+[workspace]
+resolver = "2"
+members = [
+    "simple_gateway"
+, "ws_gateway"]
