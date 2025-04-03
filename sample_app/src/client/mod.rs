@@ -37,13 +37,11 @@ pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
     // create a local actor and publish it on the connection
     let local_actor: ActorRef<ServerToClientMessage> = start_local_actor().await?;
 
-    connection
-        .send_message(WSConnectionMessage::PublishNamedActor(
-            "root".to_string(),
-            local_actor.get_cell(),
-            None,
-        ))
-        .unwrap();
+    connection.send_message(WSConnectionMessage::PublishNamedActor(
+        "root".to_string(),
+        local_actor.get_cell(),
+        None,
+    ))?;
 
     // the server also published an actor under the name "root" (note that these names are arbitrary)
     let server_root_id = connection

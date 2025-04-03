@@ -97,15 +97,17 @@ Adds ``ActorRef`` based transformations.
 Example:
 
 ```rust
-// todo
-
+let actor_ref: ActorRef<u32> = /* */;
+let (mapped_actor_ref, _handle) = actor_ref.map(|msg: u32| { msg * 2 }).await?;
 ```
+
+A more useful use case is mapping between different ``Msg`` types.
 
 ### Function Actors
 
 I'm a big fan of the pattern ractor uses for its actors, I believe it really makes things clear. With that said, sometimes you just want a small little actor without all the ceremony.
 
-Without further ado:
+Without further talk, the simplest example:
 
 ```rust
 // spawn actor
