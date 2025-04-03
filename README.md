@@ -103,9 +103,26 @@ Together with the Wormhole functionality, this project implements a grab bag of 
 
 This includes:
 
-### Map
+## Combinators
 
 Adds ``ActorRef`` based transformations.
+
+### Filter
+
+Example
+
+```rust
+    let actor_ref: ActorRef<u32> = /* */;
+    let (filtered_actor_ref, _handle) = actor_ref.filter(|msg| {
+        if msg % 2 == 0 {
+            FilterResult::Forward(msg)
+        } else {
+            FilterResult::Drop
+        }
+    }).await.unwrap();
+```
+
+### Map
 
 Example:
 

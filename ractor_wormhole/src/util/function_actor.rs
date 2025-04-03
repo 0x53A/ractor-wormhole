@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ractor::{
-    Actor, ActorProcessingErr, ActorRef, Message, SpawnErr, async_trait, concurrency::JoinHandle,
+    async_trait, concurrency::JoinHandle, Actor, ActorCell, ActorProcessingErr, ActorRef, Message, SpawnErr
 };
 
 // -------------------------------------------------------------------------------------------------------
@@ -70,14 +70,27 @@ pub struct FnActor<T> {
     _marker: PhantomData<T>,
 }
 
+// todo
+const MAX_CHANNEL_SIZE: usize = 2305843009213693951 - 1000; // todo lmao
+
 impl<T: Message + Sync> FnActor<T> {
     /// start a new actor, and returns a Receive handle to its message queue.
     /// It's the obligation of the caller to poll the receive handle.
     pub async fn start() -> Result<(FnActorCtx<T>, JoinHandle<()>), SpawnErr> {
-        let (tx, rx) = tokio::sync::mpsc::channel::<T>(2305843009213693951 - 1000); // todo lmao
+        let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE); // todo lmao
 
         let args = FnActorArgs { tx };
         let (actor_ref, handle) = Actor::spawn(None, FnActorImpl::new(), args).await?;
+        Ok((FnActorCtx { rx, actor_ref }, handle))
+    }
+
+        /// start a new actor, and returns a Receive handle to its message queue.
+    /// It's the obligation of the caller to poll the receive handle.
+    pub async fn start_linked(supervisor: ActorCell) -> Result<(FnActorCtx<T>, JoinHandle<()>), SpawnErr> {
+        let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE); // todo lmao
+
+        let args = FnActorArgs { tx };
+        let (actor_ref, handle) = Actor::spawn_linked(None, FnActorImpl::new(), args, supervisor).await?;
         Ok((FnActorCtx { rx, actor_ref }, handle))
     }
 
@@ -90,6 +103,24 @@ impl<T: Message + Sync> FnActor<T> {
         T: Message + Sync,
     {
         let (ctx, handle) = Self::start().await?;
+        let actor_ref = ctx.actor_ref.clone();
+
+        tokio::spawn(async move {
+            f(ctx).await;
+        });
+
+        Ok((actor_ref, handle))
+    }
+
+        /// starts a new actor based on a function that takes the Receive handle.
+    /// The function will be executed as a task, it should loop and poll the receive handle.
+    pub async fn start_fn_linked<F, Fut>(supervisor: ActorCell, f: F) -> Result<(ActorRef<T>, JoinHandle<()>), SpawnErr>
+    where
+        F: FnOnce(FnActorCtx<T>) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = ()> + Send,
+        T: Message + Sync,
+    {
+        let (ctx, handle) = Self::start_linked(supervisor).await?;
         let actor_ref = ctx.actor_ref.clone();
 
         tokio::spawn(async move {
