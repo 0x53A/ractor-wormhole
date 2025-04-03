@@ -1,16 +1,16 @@
                             
                             
-      x             x       
-     xxx           xxx      
-    xx xx         xx xx     
-    x   x  ─────  x   x     
-    x   x         x   x     
-    x   x         x   x     
-    x   x         x   x     
-    x   x  ─────  x   x     
-    xx xx         xx xx     
-     xxx           xxx      
-      x             x       
+      x~~            x~~     
+     xxx~~          xxx~~       
+    xx xx~~        xx xx~~   
+    x . x~~ ────── x . x~~      
+    x . x~~        x . x~~      
+    x . x~~        x . x~~      
+    x . x~~        x . x~~      
+    x . x~~ ────── x . x~~      
+    xx xx~~        xx xx~~   
+     xxx~~          xxx~~       
+      x~~            x~~   
 
 
 # Ractor Wormhole
