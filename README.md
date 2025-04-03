@@ -52,10 +52,14 @@ Common:
 
 ```rust
 // we have defined two enums which represent the communication from client to server and server to client
+
+/// Server To Client would otherwise typically be implemented through SSE or Websocket
 pub enum ServerToClientMessage {
     // cases
 }
-pub enum CleintToServerMessage {
+
+// Client to Server would otherwise typically be a REST Api
+pub enum ClientToServerMessage {
     // cases
 }
 ```
@@ -89,7 +93,11 @@ I'll investigate whether ``ractor`` can be used on a microcontroller like an ESP
 As the goal of this library is explicitly to allow connecting to untrusted peers, it's important to consider security implications.
 These range from remote code execution to (D)DOS to data leaks.
 
-A client can access: all Actors explicitly published to the connection, and all ``ActorRef``s that have been passed to it inside a ``Msg``. This Actor registration is per-connection, so an Actor published to one client is not automatically reachable from a different client.
+A client can access:  
+* all Actors explicitly published to the connection, and  
+* all ``ActorRef``s that have been passed to it inside a ``Msg``.
+
+This Actor registration is per-connection, so an Actor published to one client is not automatically reachable from a different client.
 
 When projected through the portal, the integer actor ids used by ractor are replaced with unique, randomly generated, uuids. This prevents a malicious client from blindly guessing actor ids. (ractor starts with 0 and counts up for its internal actor id)
 
