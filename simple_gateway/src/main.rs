@@ -56,6 +56,7 @@ impl Actor for Counter {
     }
 }
 
+#[derive(ractor::Message)]
 enum GatewayMessage {
     Counter(CounterMessage),
     // here would be the other message types

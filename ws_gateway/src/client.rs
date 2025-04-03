@@ -3,10 +3,12 @@ use log::{error, info};
 use ractor::{ActorRef, call_t};
 use std::{net::SocketAddr, time::Duration};
 use tokio::{net::TcpStream, time};
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{
+    MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message,
+};
 use url::Url;
 
-use crate::gateway::{self, start_gateway, RawMessage, WSGatewayMessage};
+use crate::gateway::{self, RawMessage, WSGatewayMessage, start_gateway};
 
 pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logger
@@ -82,13 +84,7 @@ async fn connect_to_server(
     let ws_receiver: gateway::WebSocketSource = Box::pin(ws_receiver);
 
     // Register the connection with the gateway actor
-    let connection = call_t!(
-        gateway,
-        WSGatewayMessage::Connected,
-        100,
-        addr,
-        ws_sender
-    );
+    let connection = call_t!(gateway, WSGatewayMessage::Connected, 100, addr, ws_sender);
 
     match connection {
         Ok(connection_actor) => {
@@ -102,21 +98,20 @@ async fn connect_to_server(
     Ok(())
 }
 
-
 fn get_peer_addr(ws_stream: &WebSocketStream<MaybeTlsStream<TcpStream>>) -> Option<SocketAddr> {
     // Access the inner MaybeTlsStream
     let maybe_tls_stream = ws_stream.get_ref();
-    
+
     match maybe_tls_stream {
         MaybeTlsStream::Plain(tcp_stream) => {
             // If it's a plain TCP stream
             tcp_stream.peer_addr().ok()
-        },
+        }
         #[cfg(feature = "tokio-tungstenite/native-tls")]
         MaybeTlsStream::NativeTls(tls_stream) => {
             // If it's a TLS stream
             tls_stream.get_ref().peer_addr().ok()
-        },
+        }
         // Handle other variants based on what's available in your tokio-tungstenite version
         _ => None,
     }

@@ -12,6 +12,9 @@ futures = "0.3.31"
 log = "0.4.27"
 ractor = { version = "0.15.2", features = ["async-trait", "cluster"] }
 ractor_cluster_derive = { version = "0.15.2" }
+rand = "0.9.0"
+serde = { version = "1.0.219", features = ["serde_derive"] }
+serde_json = "1.0.140"
 tokio = { version = "1.44.1", features = ["full"] }
 tokio-tungstenite = "0.26.2"
 tower-http = { version = "0.6.2", features = [ "trace" ] }
