@@ -19,17 +19,70 @@ Ractor Wormhole connects two actor systems and allows selectively exposing speci
 
 It very explicitly supports connecting to untrusted peers and is meant to be a replacement for HTTP/REST for full-stack rust applications.
 
-Though the low-level connection does not have roles, most applications will have one server and multiple clients.
+Though the low-level connection does not have roles, most applications will likely have one server and multiple clients.
 
 ## Transport
 
 Ractor Wormhole requires a trusted, bidirectional, reliable, non-fragmenting, byte-channel.
-This repository implements a Websocket transport. Websockets are ideal because the web layer already handles all the annoying bits like routing, authentication, authorization, encryption. It would be trivial to implement transports for TCP or stdio. With a bit of additional logic for retransmission etc it should be possible to take advantage of lower-level non-reliable transports like UDP (without modifictations required to Ractor Wormhole itself).
 
+This repository implements a Websocket transport. Websockets are ideal because the web layer already handles all the annoying bits like routing, authentication, authorization, encryption.
+
+It would be trivial to implement transports for TCP or stdio.
+
+## Serialization
+
+Ractor Wormhole uses a custom serialization scheme. This is required because it enables fishing ``ActorRef``s and ``RpcReplyChannel``s out of deeply nested enums and structs, and then reconstructing everything on the other side.
+
+Unfortunately, this means all types that should be passed through the portal need to implement the custom trait ``ContextSerializable``.
+
+I plan to add adapters to serde.
                             
 ## Relationship to Ractor Cluster
 
 This project is not related to, and does not depend on, the ractor native clustering. It can be used in conjunction with a cluster on one or both sides.
+
+
+## Example
+
+With all that out of the way, let's see an example:
+
+(please also take a look at the sample_app in this repo)
+
+Common:
+
+```rust
+// we have defined two enums which represent the communication from client to server and server to client
+pub enum ServerToClientMessage {
+    // cases
+}
+pub enum CleintToServerMessage {
+    // cases
+}
+```
+
+Server:
+
+```rust
+// todo
+```
+
+Client:
+```rust
+// todo
+```
+
+## Use cases
+
+The goal of this library is to make another small step in the direction of global rust domination. It should be possible to connect any and all arbitrary systems.
+
+Specific use cases are communication between a wasm web app and its webserver (over a Websocket), communication between microcontrollers (over uart), between a hardware gadget and a smartphone app (over Bluetooth), between a USB device and a host computer (over USB), ...
+
+Because the library transparently proxies actors, it's possible to create a multi-hop route by just forwarding the ``ActorRef`` through multiple portals.
+
+There is work in progress to enable compiling and running ``ractor`` in wasm/web. Based on this I'll make sure ``ractor_wormhole`` also runs on wasm.
+
+I'll investigate whether ``ractor`` can be used on a microcontroller like an ESP32 or STM32. The ``embedded-rust`` people have been hard at work creating [``embassy-rs``](https://github.com/embassy-rs/embassy), which is, besides other things, an async runtime for microcontrollers.
+
 
 # Utilities
 

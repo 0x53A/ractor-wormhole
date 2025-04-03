@@ -100,7 +100,7 @@ pub enum WSConnectionMessage {
     PublishActor(ActorCell, RpcReplyPort<RemoteActorId>),
 
     /// looks up an actor by name on the **remote** side of the connection. Returns None if no actor was registered under that name.
-    QueryNamedRemoteActor(String, RpcReplyPort<Option<RemoteActorId>>),
+    QueryNamedRemoteActor(String, RpcReplyPort<Result<RemoteActorId, SomeError>>),
 
     /// instantiate (a proxy of) the remote actor into the local system
     GetRemoteActorById(RemoteActorId, RpcReplyPort<Result<ActorCell, SomeError>>),
@@ -154,7 +154,7 @@ impl Actor for WSConnection {
         const MOTIVATIONAL_MESSAGES: [&str; 5] = [
             "Lookin' good!",
             "Beep Boop",
-            "It's a beautiful day!",
+            "It's a beautiful day",
             "Did you know: Koalas have fingerprints so similar to humans that they've occasionally confused crime scene investigators.",
             "Gentoo penguins propose to their mates with a pebble.",
         ];

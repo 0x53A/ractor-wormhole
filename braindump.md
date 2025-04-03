@@ -1,0 +1,1 @@
+* optionally use a string name for the actor ref in the ``RemoteActorId`` instead of the uuid. This would allow to reconnect to an Actor after a connection is broken and re-established.

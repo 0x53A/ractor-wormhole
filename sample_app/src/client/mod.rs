@@ -1,15 +1,17 @@
 mod connection;
 
-use ractor_wormhole::{gateway::WSConnectionMessage, util::FnActor};
+use ractor::ActorRef;
+use ractor_wormhole::{
+    gateway::WSConnectionMessage,
+    util::{ActorRef_Ask, FnActor},
+};
 use std::time::Duration;
 use tokio::time;
 
-use crate::common::ServerToClientMessage;
+use crate::common::{ClientToServerMessage, ServerToClientMessage};
 
-pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
-    let (gateway, connection) = connection::establish_connection(server_url).await?;
-
-    // create a local actor and publish it on the connection
+pub async fn start_local_actor()
+-> Result<ActorRef<ServerToClientMessage>, Box<dyn std::error::Error>> {
     let (local_actor, _) = FnActor::<ServerToClientMessage>::start_fn(async |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
             match msg {
@@ -26,6 +28,15 @@ pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
     })
     .await?;
 
+    Ok(local_actor)
+}
+
+pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
+    let (_gateway, connection) = connection::establish_connection(server_url).await?;
+
+    // create a local actor and publish it on the connection
+    let local_actor: ActorRef<ServerToClientMessage> = start_local_actor().await?;
+
     connection
         .send_message(WSConnectionMessage::PublishNamedActor(
             "root".to_string(),
@@ -33,6 +44,23 @@ pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
             None,
         ))
         .unwrap();
+
+    // the server also published an actor under the name "root" (note that these names are arbitrary)
+    let server_root_id = connection
+        .ask(
+            |rpc| WSConnectionMessage::QueryNamedRemoteActor("root".to_string(), rpc),
+            None,
+        )
+        .await??;
+    let server_root_cell: ractor::ActorCell = connection
+        .ask(
+            |rpc| WSConnectionMessage::GetRemoteActorById(server_root_id, rpc),
+            None,
+        )
+        .await??;
+    let server_root_actor_ref: ActorRef<ClientToServerMessage> = ActorRef::from(server_root_cell);
+
+    // we can now use `server_root_actor_ref` to send messages through the portal to the server.
 
     // Keep the main task alive
     loop {

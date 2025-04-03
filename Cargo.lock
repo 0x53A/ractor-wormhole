@@ -1207,6 +1207,11 @@ dependencies = [
 [[package]]
 name = "ractor_wormhole_derive"
 version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "ractor_wormhole_sample_app"

@@ -27,9 +27,9 @@ pub struct SerializedRpcReplyPort {
 // -------------------------------------------------------------------------------------------------------
 
 pub struct ActorSerializationContext {
-    connection_key: ConnectionKey,
-    local_connection_side: LocalConnectionId,
-    remote_connection_side: LocalConnectionId,
+    pub connection_key: ConnectionKey,
+    pub local_connection_side: LocalConnectionId,
+    pub remote_connection_side: LocalConnectionId,
     connection: ActorRef<WSConnectionMessage>,
     /// which timeout to use if the RpcReplyPort doesn't have a timeout set
     default_rpc_port_timeout: Duration,
@@ -83,7 +83,7 @@ impl ActorSerializationContext {
             .connection
             .ask(
                 |rpc| WSConnectionMessage::PublishActor(local_actor.get_cell(), rpc),
-                Some(timeout),
+                None,
             )
             .await?;
 
@@ -100,7 +100,17 @@ impl ActorSerializationContext {
         &self,
         actor_ref: ActorRef<T>,
     ) -> SerializationResult<Vec<u8>> {
-        todo!()
+        let published_id = self
+            .connection
+            .ask(
+                |rpc| WSConnectionMessage::PublishActor(actor_ref.get_cell(), rpc),
+                None,
+            )
+            .await?;
+
+        let serialized = bincode::encode_to_vec(&published_id, bincode::config::standard())?;
+
+        Ok(serialized)
     }
 
     pub async fn deserialize_replychannel<T: Send + Sync + 'static>(
@@ -108,8 +118,14 @@ impl ActorSerializationContext {
         buffer: &[u8],
     ) -> SerializationResult<RpcReplyPort<T>> {
         // deserialize from bytes
-        let timeout: Option<Duration> = todo!(); // todo
-        let remote_actor_ref: RemoteActorId = todo!();
+        let (structured, consumed): (SerializedRpcReplyPort, _) =
+            bincode::decode_from_slice(buffer, bincode::config::standard())?;
+        assert!(consumed == buffer.len());
+
+        let timeout: Option<Duration> = structured
+            .timeout_ms
+            .map(|ms| ractor::concurrency::Duration::from_millis(ms as u64));
+        let remote_actor_ref: RemoteActorId = structured.remote_actor_id;
 
         let actor_cell = self
             .connection
@@ -119,24 +135,39 @@ impl ActorSerializationContext {
             )
             .await??;
 
-        let actor_ref = ActorRef::<RpcProxyMsg<T>>::from(actor_cell.clone());
+        let actor_ref = ActorRef::<RpcProxyMsg<T>>::from(actor_cell);
 
         let rpc_port = rpc_reply_port_from_actor_ref(actor_ref, timeout);
 
         Ok(rpc_port)
     }
+
     pub async fn deserialize_actor_ref<T>(
         &self,
         buffer: &[u8],
     ) -> SerializationResult<ActorRef<T>> {
-        todo!()
+        let (remote_actor_id, consumed): (RemoteActorId, _) =
+            bincode::decode_from_slice(buffer, bincode::config::standard())?;
+        assert!(consumed == buffer.len());
+
+        let actor_cell = self
+            .connection
+            .ask(
+                |rpc| WSConnectionMessage::GetRemoteActorById(remote_actor_id, rpc),
+                None,
+            )
+            .await??;
+
+        let actor_ref = ActorRef::<T>::from(actor_cell);
+
+        Ok(actor_ref)
     }
 }
 
 // -------------------------------------------------------------------------------------------------------
 
 /// Handles (de)serialization of messages to bytes.
-/// All serialization schemes must be platform independent, strings will be serialized in utf8, all numbers are little endian.
+/// All serialization schemes must be platform independent.
 #[async_trait]
 pub trait ContextSerializable {
     async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>>;
