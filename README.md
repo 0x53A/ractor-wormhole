@@ -84,6 +84,19 @@ There is work in progress to enable compiling and running ``ractor`` in wasm/web
 I'll investigate whether ``ractor`` can be used on a microcontroller like an ESP32 or STM32. The ``embedded-rust`` people have been hard at work creating [``embassy-rs``](https://github.com/embassy-rs/embassy), which is, besides other things, an async runtime for microcontrollers.
 
 
+# Security
+
+As the goal of this library is explicitly to allow connecting to untrusted peers, it's important to consider security implications.
+These range from remote code execution to (D)DOS to data leaks.
+
+A client can access: all Actors explicitly published to the connection, and all ``ActorRef``s that have been passed to it inside a ``Msg``. This Actor registration is per-connection, so an Actor published to one client is not automatically reachable from a different client.
+
+When projected through the portal, the integer actor ids used by ractor are replaced with unique, randomly generated, uuids. This prevents a malicious client from blindly guessing actor ids. (ractor starts with 0 and counts up for its internal actor id)
+
+Serialization and Deserialization is as safe as the routines used. The default implementations, and the automatically derived ones should be safe.
+
+There is no specific protection against Denial Of Service attacks yet. Time permitting, I'd like to implement a general per-connection rate-limiting and then a user can implement specific, per-actor logic.
+
 # Utilities
 
 Together with the Wormhole functionality, this project implements a grab bag of utility functionality on top of ractor.
