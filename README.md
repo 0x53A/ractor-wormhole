@@ -56,8 +56,8 @@ Without further ado:
 
 ```rust
 // spawn actor
-let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut rx| async move {
-    while let Some(msg) = rx.recv().await {
+let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
+    while let Some(msg) = ctx.rx.recv().await {
         println!("Received message: {}", msg);
     }
 })
@@ -100,11 +100,11 @@ impl Actor for MyActor {
 // is equivalent to:
 
 pub async fn start_actor(args: MyArgs) -> Result<ActorRef<MyMessage>, SpawnErr> {
-    let (actor_ref, _handle) = FnActor::<MyMessage>::start_fn(|mut rx| async move {
+    let (actor_ref, _handle) = FnActor::<MyMessage>::start_fn(|mut ctx| async move {
         // [pre_start]
         let mut state: MyState = MyState {};
 
-        while let Some(msg) = rx.recv().await {
+        while let Some(msg) = ctx.rx.recv().await {
             // [handle]
             println!("Received message: {:?}", msg);
         }

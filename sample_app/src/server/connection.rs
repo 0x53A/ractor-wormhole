@@ -6,9 +6,14 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
 
-use ractor_wormhole::gateway::{self, RawMessage, WSGatewayMessage, start_gateway};
+use ractor_wormhole::gateway::{
+    self, OnActorConnectedMessage, RawMessage, WSGatewayMessage, start_gateway,
+};
 
-pub async fn run(bind: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(
+    bind: SocketAddr,
+    on_client_connected: ActorRef<OnActorConnectedMessage>,
+) -> Result<ActorRef<WSGatewayMessage>, Box<dyn std::error::Error>> {
     // Initialize logger
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -18,16 +23,19 @@ pub async fn run(bind: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(&bind).await?;
     info!("WebSocket server listening on: {}", bind);
 
-    let gateway = start_gateway(None).await.unwrap();
+    let gateway = start_gateway(Some(on_client_connected)).await.unwrap();
 
     // Accept connections
-    while let Ok((stream, addr)) = listener.accept().await {
-        info!("New connection from: {}", addr);
-        // Handle each connection in a separate task
-        tokio::spawn(handle_connection(stream, addr, gateway.clone()));
-    }
+    let gateway_copy = gateway.clone();
+    tokio::spawn(async move {
+        while let Ok((stream, addr)) = listener.accept().await {
+            info!("New connection from: {}", addr);
+            // Handle each connection in a separate task
+            tokio::spawn(handle_connection(stream, addr, gateway_copy.clone()));
+        }
+    });
 
-    Ok(())
+    Ok(gateway)
 }
 
 async fn handle_connection(

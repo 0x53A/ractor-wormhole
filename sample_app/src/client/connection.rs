@@ -1,16 +1,21 @@
 use futures::{SinkExt, StreamExt};
 use log::{error, info};
 use ractor::{ActorRef, call_t};
-use std::{net::SocketAddr, time::Duration};
-use tokio::{net::TcpStream, time};
+use std::net::SocketAddr;
+use tokio::net::TcpStream;
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message,
 };
 use url::Url;
 
-use ractor_wormhole::gateway::{self, RawMessage, WSGatewayMessage, start_gateway};
+use ractor_wormhole::gateway::{
+    self, RawMessage, WSConnectionMessage, WSGatewayMessage, start_gateway,
+};
 
-pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn establish_connection(
+    server_url: String,
+) -> Result<(ActorRef<WSGatewayMessage>, ActorRef<WSConnectionMessage>), Box<dyn std::error::Error>>
+{
     // Initialize logger
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -24,18 +29,15 @@ pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
     let gateway = start_gateway(None).await.unwrap();
 
     // Connect to the server
-    connect_to_server(url, gateway.clone()).await?;
+    let connection = connect_to_server(url, gateway.clone()).await?;
 
-    // Keep the main task alive
-    loop {
-        time::sleep(Duration::from_secs(1)).await;
-    }
+    Ok((gateway, connection))
 }
 
 async fn connect_to_server(
     url: Url,
     gateway: ActorRef<WSGatewayMessage>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<ActorRef<WSConnectionMessage>, Box<dyn std::error::Error>> {
     // Connect to the WebSocket server
     let (ws_stream, _) = match connect_async(url.as_str()).await {
         Ok(conn) => {
@@ -87,12 +89,15 @@ async fn connect_to_server(
         Ok(connection_actor) => {
             info!("Connection actor started for: {}", addr);
 
-            gateway::receive_loop(ws_receiver, addr, connection_actor).await
-        }
-        Err(e) => error!("Error starting connection actor: {}", e),
-    }
+            gateway::receive_loop(ws_receiver, addr, connection_actor.clone()).await;
 
-    Ok(())
+            Ok(connection_actor)
+        }
+        Err(e) => {
+            error!("Error starting connection actor: {}", e);
+            Err(e.into())
+        }
+    }
 }
 
 fn get_peer_addr(ws_stream: &WebSocketStream<MaybeTlsStream<TcpStream>>) -> Option<SocketAddr> {

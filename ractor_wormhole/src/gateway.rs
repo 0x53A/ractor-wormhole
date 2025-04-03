@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display, marker::PhantomData, net::SocketAddr, pin::Pin};
 
 use crate::{serialization::ContextSerializable, util::FnActor};
-// use tokio::net::TcpStream;
-// use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Message};
+
+// -------------------------------------------------------------------------------------------------------
 
 pub enum RawMessage {
     Text(String),
@@ -38,11 +38,12 @@ pub struct GetNextConnectionId {
 impl ConnectionId {
     async fn start_id_handler() -> Result<ActorRef<GetNextConnectionId>, Box<dyn std::error::Error>>
     {
-        let (mut rx, actor_ref, _handle) = FnActor::<GetNextConnectionId>::start().await?;
+        let (mut ctx, _handle) = FnActor::<GetNextConnectionId>::start().await?;
+        let actor_ref = ctx.actor_ref.clone();
 
         tokio::spawn(async move {
             let mut next_id = 1;
-            while let Some(msg) = rx.recv().await {
+            while let Some(msg) = ctx.rx.recv().await {
                 msg.reply.send(ConnectionId(next_id));
                 next_id += 1;
             }
@@ -94,7 +95,7 @@ pub enum WSConnectionMessage {
 
     /// publish a local actor under a known name, making it available to the remote side of the connection.
     /// On the remote side, it can be looked up by name.
-    PublishNamedActor(String, ActorCell, RpcReplyPort<RemoteActorId>),
+    PublishNamedActor(String, ActorCell, Option<RpcReplyPort<RemoteActorId>>),
 
     /// publish a local actor, making it available to the remote side of the connection.
     /// It is published under a random id, which would need to be passed to the remote side through some kind of existing channel.
@@ -259,7 +260,10 @@ impl Actor for WSConnection {
                     connection_id: channel_id.clone(),
                     id: opaque_actor_id,
                 };
-                reply.send(remote_actor_id)?;
+
+                if let Some(rpc) = reply {
+                    rpc.send(remote_actor_id)?;
+                }
             }
 
             WSConnectionMessage::PublishActor(_, _) => {
@@ -310,13 +314,14 @@ pub struct WSGatewayState {
     connections: HashMap<ActorId, (SocketAddr, ActorRef<WSConnectionMessage>, JoinHandle<()>)>,
 }
 
+#[derive(RactorMessage)]
 pub struct OnActorConnectedMessage {
-    addr: SocketAddr,
-    actor_ref: ActorRef<WSConnectionMessage>,
+    pub addr: SocketAddr,
+    pub actor_ref: ActorRef<WSConnectionMessage>,
 }
 
 pub struct WSGatewayArgs {
-    on_client_connected: Option<ActorRef<OnActorConnectedMessage>>,
+    pub on_client_connected: Option<ActorRef<OnActorConnectedMessage>>,
 }
 
 // Gateway actor implementation

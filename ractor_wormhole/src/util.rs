@@ -113,7 +113,7 @@ pub mod test_map {
 
     #[tokio::main]
     pub async fn test_map_int() {
-        let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().1;
+        let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().0.actor_ref;
 
         let (mapped_actor_ref, handle) = actor_ref.map(|msg: u32| msg * 2).await.unwrap();
     }
@@ -188,6 +188,12 @@ impl<TMessage: ractor::Message + 'static> ActorRef_Ask<TMessage> for ActorRef<TM
 
 // --------------------------------------
 
+/// this context is passed to the function that runs the actor.
+pub struct FnActorCtx<T> {
+    pub rx: ractor::concurrency::MpscReceiver<T>,
+    pub actor_ref: ActorRef<T>,
+}
+
 pub struct FnActor<T> {
     _a: PhantomData<T>,
 }
@@ -198,33 +204,27 @@ impl<T: Message + Sync> FnActor<T> {
 
     /// start a new actor, and returns a Receive handle to its message queue.
     /// It's the obligation of the caller to poll the receive handle.
-    pub async fn start() -> Result<
-        (
-            ractor::concurrency::MpscReceiver<T>,
-            ActorRef<T>,
-            JoinHandle<()>,
-        ),
-        SpawnErr,
-    > {
-        let (tx, rx) = tokio::sync::mpsc::channel::<T>(usize::MAX);
+    pub async fn start() -> Result<(FnActorCtx<T>, JoinHandle<()>), SpawnErr> {
+        let (tx, rx) = tokio::sync::mpsc::channel::<T>(2305843009213693951 - 1000); // todo lmao
 
         let args = FnActorArgs { tx };
         let (actor_ref, handle) = Actor::spawn(None, FnActor::new(), args).await?;
-        Ok((rx, actor_ref, handle))
+        Ok((FnActorCtx { rx, actor_ref }, handle))
     }
 
     /// starts a new actor based on a function that takes the Receive handle.
     /// The function will be executed as a task, it should loop and poll the receive handle.
     pub async fn start_fn<F, Fut>(f: F) -> Result<(ActorRef<T>, JoinHandle<()>), SpawnErr>
     where
-        F: FnOnce(tokio::sync::mpsc::Receiver<T>) -> Fut + Send + 'static,
+        F: FnOnce(FnActorCtx<T>) -> Fut + Send + 'static,
         Fut: std::future::Future<Output = ()> + Send,
         T: Message + Sync,
     {
-        let (rx, actor_ref, handle) = Self::start().await?;
+        let (ctx, handle) = Self::start().await?;
+        let actor_ref = ctx.actor_ref.clone();
 
         tokio::spawn(async move {
-            f(rx).await;
+            f(ctx).await;
         });
 
         Ok((actor_ref, handle))
@@ -239,13 +239,13 @@ pub mod fn_actor_tests {
 
     #[tokio::main]
     pub async fn test_start() {
-        let (mut rx, actor_ref, _handle) = FnActor::<u32>::start().await.unwrap();
+        let (mut ctx, _handle) = FnActor::<u32>::start().await.unwrap();
 
         // Send a message to the actor
-        actor_ref.send_message(42).unwrap();
+        ctx.actor_ref.send_message(42).unwrap();
 
         // Receive the message
-        let msg = rx.recv().await.unwrap();
+        let msg = ctx.rx.recv().await.unwrap();
         assert_eq!(msg, 42);
     }
 
@@ -254,8 +254,8 @@ pub mod fn_actor_tests {
         let i = Arc::new(Mutex::new(0));
 
         let i_clone = i.clone();
-        let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut rx| async move {
-            while let Some(msg) = rx.recv().await {
+        let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
+            while let Some(msg) = ctx.rx.recv().await {
                 *i_clone.lock().unwrap() = msg;
             }
         })
@@ -272,8 +272,8 @@ pub mod fn_actor_tests {
 
     #[tokio::main]
     pub async fn start_fn_example() {
-        let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut rx| async move {
-            while let Some(msg) = rx.recv().await {
+        let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
+            while let Some(msg) = ctx.rx.recv().await {
                 println!("Received message: {}", msg);
             }
         })
