@@ -55,27 +55,46 @@ I'm a big fan of the pattern ractor uses for its actors, I believe it really mak
 Without further ado:
 
 ```rust
+// spawn actor
+let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut rx| async move {
+    while let Some(msg) = rx.recv().await {
+        println!("Received message: {}", msg);
+    }
+})
+.await?;
 
-        let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut rx| async move {
-            while let Some(msg) = rx.recv().await {
-                println!("Received message: {}", msg);
-            }
-        })
-        .await
-        .unwrap();
-
-        // Send a message to the actor
-        actor_ref.send_message(42).unwrap();
+// Send a message to the actor
+actor_ref.send_message(42)?;
 
 ```
 
 To compare it to the normal ractor pattern:
 
+
 ```rust
+#[async_trait]
 impl Actor for MyActor {
-    type Msg = MyMsg;
+    type Msg = MyMessage;
     type State = MyState;
     type Arguments = MyArgs;
+
+    async fn pre_start(
+        &self,
+        myself: ActorRef<Self::Msg>,
+        args: Self::Arguments,
+    ) -> Result<Self::State, ActorProcessingErr> {
+        Ok(Self::State {})
+    }
+
+    async fn handle(
+        &self,
+        myself: ActorRef<Self::Msg>,
+        message: Self::Msg,
+        state: &mut Self::State,
+    ) -> Result<(), ActorProcessingErr> {
+        println!("Received message: {:?}", message);
+        Ok(())
+    }
 }
 
 // is equivalent to:

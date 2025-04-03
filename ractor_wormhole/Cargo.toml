@@ -1,5 +1,5 @@
 [package]
-name = "ws_gateway"
+name = "ractor_wormhole"
 version = "0.1.0"
 edition = "2024"
 
@@ -25,8 +25,3 @@ tracing-test = "0.2.5"
 tungstenite = "0.26.2"
 url = "2.5.4"
 uuid = { version = "1.16.0", features = ["rng", "v4"] }
-
-
-[patch.crates-io]
-#ractor = { git = "https://github.com/Officeyutong/ractor", branch = "support-for-wasm-in-browser" }
-#ractor_cluster_derive = { git = "https://github.com/Officeyutong/ractor", branch = "support-for-wasm-in-browser" }

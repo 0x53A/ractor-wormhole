@@ -1157,15 +1157,92 @@ dependencies = [
 ]
 
 [[package]]
-name = "ractor_test"
+name = "ractor_wormhole"
 version = "0.1.0"
 dependencies = [
+ "axum",
+ "bytes",
+ "clap",
+ "env_logger",
+ "futures",
+ "log",
  "ractor",
+ "ractor_cluster_derive",
+ "rand",
+ "serde",
+ "serde_json",
  "tokio",
+ "tokio-tungstenite",
+ "tower-http",
  "tracing",
  "tracing-glog",
  "tracing-subscriber",
  "tracing-test",
+ "tungstenite",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "ractor_wormhole_derive"
+version = "0.1.0"
+
+[[package]]
+name = "ractor_wormhole_sample_app"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "clap",
+ "env_logger",
+ "futures",
+ "log",
+ "ractor",
+ "ractor_cluster_derive",
+ "ractor_wormhole",
+ "ractor_wormhole_derive",
+ "rand",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+ "tower-http",
+ "tracing",
+ "tracing-glog",
+ "tracing-subscriber",
+ "tracing-test",
+ "tungstenite",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "ractor_wormhole_tests"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "clap",
+ "env_logger",
+ "futures",
+ "log",
+ "ractor",
+ "ractor_cluster_derive",
+ "ractor_wormhole",
+ "ractor_wormhole_derive",
+ "rand",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+ "tower-http",
+ "tracing",
+ "tracing-glog",
+ "tracing-subscriber",
+ "tracing-test",
+ "tungstenite",
+ "url",
+ "uuid",
 ]
 
 [[package]]
@@ -2027,33 +2104,6 @@ name = "writeable"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
-
-[[package]]
-name = "ws_gateway"
-version = "0.1.0"
-dependencies = [
- "axum",
- "bytes",
- "clap",
- "env_logger",
- "futures",
- "log",
- "ractor",
- "ractor_cluster_derive",
- "rand",
- "serde",
- "serde_json",
- "tokio",
- "tokio-tungstenite",
- "tower-http",
- "tracing",
- "tracing-glog",
- "tracing-subscriber",
- "tracing-test",
- "tungstenite",
- "url",
- "uuid",
-]
 
 [[package]]
 name = "yoke"

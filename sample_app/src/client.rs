@@ -8,7 +8,7 @@ use tokio_tungstenite::{
 };
 use url::Url;
 
-use crate::gateway::{self, RawMessage, WSGatewayMessage, start_gateway};
+use ractor_wormhole::gateway::{self, RawMessage, WSGatewayMessage, start_gateway};
 
 pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logger

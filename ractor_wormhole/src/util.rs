@@ -68,26 +68,18 @@ impl<TFrom: Send + Sync + ractor::Message + 'static, TTo: Send + Sync + ractor::
 pub trait ActorRef_Map<TFrom, TTo> {
     /// passing in an `ActorRef<TFrom>` and returns an `ActorRef<TTo>`
     /// ```
-    /// # let actor_ref: ActorRef<u32> = todo!();
-    ///
+    /// # use ractor::{ActorRef, Message};
+    /// # use ractor_wormhole::util::{ActorRef_Map, FnActor};
+    /// #
+    /// # let _ = async {
+    /// # let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().1;
     /// let (mapped_actor_ref, handle) = actor_ref.map(|msg: u32| { msg * 2 }).await.unwrap();
+    /// # };
     /// ```
     async fn map(
         self,
         to: impl Fn(TTo) -> TFrom + Send + 'static,
     ) -> Result<(ActorRef<TTo>, JoinHandle<()>), SpawnErr>;
-}
-
-#[cfg(test)]
-pub mod test_map {
-    use super::*;
-
-    #[tokio::main]
-    pub async fn test_map_int() {
-        let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().1;
-
-        let (mapped_actor_ref, handle) = actor_ref.map(|msg: u32| msg * 2).await.unwrap();
-    }
 }
 
 #[async_trait]
@@ -104,6 +96,18 @@ impl<TFrom: Send + Sync + ractor::Message + 'static, TTo: Send + Sync + ractor::
         };
         let result = Actor::spawn_linked(None, MappedActor::new(), args, self.get_cell()).await;
         result
+    }
+}
+
+#[cfg(test)]
+pub mod test_map {
+    use super::*;
+
+    #[tokio::main]
+    pub async fn test_map_int() {
+        let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().1;
+
+        let (mapped_actor_ref, handle) = actor_ref.map(|msg: u32| msg * 2).await.unwrap();
     }
 }
 
@@ -272,29 +276,6 @@ pub mod fn_actor_tests {
 
         // Send a message to the actor
         actor_ref.send_message(42).unwrap();
-    }
-
-    #[tokio::main]
-    pub async fn start_fn_example_2() {
-        #[derive(RactorMessage, Debug)]
-        struct MyMessage {}
-        struct MyArgs {}
-        struct MyState {}
-
-        pub async fn start_actor(args: MyArgs) -> Result<ActorRef<MyMessage>, SpawnErr> {
-            let (actor_ref, _handle) = FnActor::<MyMessage>::start_fn(|mut rx| async move {
-                // [pre_start]
-                let mut state: MyState = MyState {};
-
-                while let Some(msg) = rx.recv().await {
-                    // [handle]
-                    println!("Received message: {:?}", msg);
-                }
-            })
-            .await?;
-
-            Ok(actor_ref)
-        }
     }
 }
 

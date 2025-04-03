@@ -1,12 +1,10 @@
 #![feature(fn_traits)]
 #![feature(try_find)]
 
-mod client;
 mod common;
-mod gateway;
-mod serialization;
-mod server;
-mod util;
+
+pub mod client;
+pub mod server;
 
 use clap::{Parser, Subcommand};
 use std::net::SocketAddr;

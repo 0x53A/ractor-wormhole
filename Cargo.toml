@@ -1,5 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "simple_gateway"
-, "ws_gateway"]
+    "ractor_wormhole",
+    "ractor_wormhole_derive",
+    "ractor_wormhole_tests",
+    "sample_app"
+]
+

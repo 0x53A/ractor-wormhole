@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
 
-use crate::gateway::{self, RawError, RawMessage, WSGatewayMessage, start_gateway};
+use ractor_wormhole::gateway::{self, RawError, RawMessage, WSGatewayMessage, start_gateway};
 
 pub async fn run(bind: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logger
