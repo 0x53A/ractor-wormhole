@@ -110,7 +110,7 @@ pub mod fn_actor_tests {
 
     use super::*;
 
-    #[tokio::main]
+    #[tokio::test]
     pub async fn test_start() {
         let (mut ctx, _handle) = FnActor::<u32>::start().await.unwrap();
 
@@ -122,8 +122,8 @@ pub mod fn_actor_tests {
         assert_eq!(msg, 42);
     }
 
-    #[tokio::main]
-    pub async fn test_start_fn() {
+    #[tokio::test]
+    pub async fn test_start_fn() -> Result<(), Box<dyn std::error::Error>> {
         let i = Arc::new(Mutex::new(0));
 
         let i_clone = i.clone();
@@ -136,14 +136,18 @@ pub mod fn_actor_tests {
         .unwrap();
 
         // Send a message to the actor
-        actor_ref.send_message(42).unwrap();
+        actor_ref.send_message(42)?;
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         assert!(*i.lock().unwrap() == 42);
 
         actor_ref.send_message(666).unwrap();
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         assert!(*i.lock().unwrap() == 666);
+
+        Ok(())
     }
 
-    #[tokio::main]
+    #[tokio::test]
     pub async fn start_fn_example() {
         let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
             while let Some(msg) = ctx.rx.recv().await {

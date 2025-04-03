@@ -83,7 +83,7 @@ pub trait ActorRef_Map<TFrom, TTo> {
     /// # use ractor_wormhole::util::{ActorRef_Map, FnActor};
     /// #
     /// # let _ = async {
-    /// # let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().1;
+    /// # let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().0.actor_ref;
     /// let (mapped_actor_ref, handle) = actor_ref.map(|msg: u32| { msg * 2 }).await.unwrap();
     /// # };
     /// ```
@@ -120,7 +120,7 @@ pub mod test_map {
 
     use super::*;
 
-    #[tokio::main]
+    #[tokio::test]
     pub async fn test_map_int() {
         let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().0.actor_ref;
 

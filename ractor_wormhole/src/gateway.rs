@@ -8,7 +8,7 @@ use ractor_cluster_derive::RactorMessage;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display, marker::PhantomData, net::SocketAddr, pin::Pin};
 
-use crate::{serialization::ContextSerializable, util::FnActor};
+use crate::serialization::ContextSerializable;
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -27,36 +27,13 @@ pub type WebSocketSource = Pin<Box<dyn Stream<Item = Result<RawMessage, RawError
 // -------------------------------------------------------------------------------------------------------
 
 /// The **local** connection identifier
-#[derive(RactorMessage)]
-pub struct ConnectionId(pub u64);
-
-#[derive(RactorMessage)]
-pub struct GetNextConnectionId {
-    pub reply: RpcReplyPort<ConnectionId>,
-}
-
-impl ConnectionId {
-    async fn start_id_handler() -> Result<ActorRef<GetNextConnectionId>, Box<dyn std::error::Error>>
-    {
-        let (mut ctx, _handle) = FnActor::<GetNextConnectionId>::start().await?;
-        let actor_ref = ctx.actor_ref.clone();
-
-        tokio::spawn(async move {
-            let mut next_id = 1;
-            while let Some(msg) = ctx.rx.recv().await {
-                msg.reply.send(ConnectionId(next_id));
-                next_id += 1;
-            }
-        });
-
-        Ok(actor_ref)
-    }
-}
+#[derive(RactorMessage, Debug, bincode::Encode, bincode::Decode)]
+pub struct LocalConnectionId(pub u128);
 
 /// A shared identifier for the connection. The id is the same on both sides of the connection.
 /// It is created by both sides generating a random uuid and then xoring both.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ConnectionKey(pub uuid::Uuid);
+#[derive(Clone, Debug, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct ConnectionKey(pub u128);
 
 impl Display for ConnectionKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -67,8 +44,8 @@ impl Display for ConnectionKey {
 // -------------------------------------------------------------------------------------------------------
 
 /// Hide the internal actor id behind a uuid; only the connection has the mapping between uuid and real actor id
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OpaqueActorId(pub uuid::Uuid);
+#[derive(Clone, Debug, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct OpaqueActorId(pub u128);
 
 impl Display for OpaqueActorId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -82,6 +59,27 @@ pub enum CrossGatewayMessage {}
 
 // Connection
 // -------------------------------------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SomeError {
+    ToDo,
+}
+
+impl Display for SomeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SomeError::ToDo => write!(f, "ToDo"),
+        }
+    }
+}
+
+impl std::error::Error for SomeError {
+    fn description(&self) -> &str {
+        match self {
+            SomeError::ToDo => "ToDo",
+        }
+    }
+}
 
 // Messages for the connection actor
 #[derive(RactorMessage)]
@@ -105,7 +103,7 @@ pub enum WSConnectionMessage {
     QueryNamedRemoteActor(String, RpcReplyPort<Option<RemoteActorId>>),
 
     /// instantiate (a proxy of) the remote actor into the local system
-    GetRemoteActorById(RemoteActorId, RpcReplyPort<Option<ActorCell>>),
+    GetRemoteActorById(RemoteActorId, RpcReplyPort<Result<ActorCell, SomeError>>),
 }
 
 // Connection actor state
@@ -231,7 +229,7 @@ impl Actor for WSConnection {
                         k.clone()
                     }
                     None => {
-                        let new_id = OpaqueActorId(uuid::Uuid::new_v4());
+                        let new_id = OpaqueActorId(uuid::Uuid::new_v4().to_u128_le());
                         info!(
                             "Actor with id {} published as {}",
                             actor_cell.get_id(),
@@ -257,7 +255,8 @@ impl Actor for WSConnection {
                 }
 
                 let remote_actor_id = RemoteActorId {
-                    connection_id: channel_id.clone(),
+                    connection_key: channel_id.clone(),
+                    side: todo!(),
                     id: opaque_actor_id,
                 };
 
@@ -486,9 +485,13 @@ impl<T: Send + Sync + ractor::Message + 'static> ProxyActor<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(bincode::Encode, bincode::Decode, Debug)]
 pub struct RemoteActorId {
-    pub connection_id: ConnectionKey,
+    /// the connection key uniquely identifies the connection, it is the same ID on both sides
+    pub connection_key: ConnectionKey,
+    /// this id identifies the side, it is different between the two sides of a single connection
+    pub side: LocalConnectionId,
+    /// the unique id of the actor
     pub id: OpaqueActorId,
 }
 
