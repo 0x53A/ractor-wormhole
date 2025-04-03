@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
 
-use ractor_wormhole::gateway::{self, RawError, RawMessage, WSGatewayMessage, start_gateway};
+use ractor_wormhole::gateway::{self, RawMessage, WSGatewayMessage, start_gateway};
 
 pub async fn run(bind: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logger
@@ -48,21 +48,18 @@ async fn handle_connection(
 
     let (ws_sender, ws_receiver) = ws_stream.split();
 
-    let ws_receiver = ws_receiver.map(|element| {
-        let result = match element {
-            Ok(msg) => {
-                let msg = match msg {
-                    Message::Text(text) => gateway::RawMessage::Text(text.to_string()),
-                    Message::Binary(bin) => gateway::RawMessage::Binary(bin.into()),
-                    Message::Close(_) => gateway::RawMessage::Close(None),
-                    _ => gateway::RawMessage::Other,
-                };
+    let ws_receiver = ws_receiver.map(|element| match element {
+        Ok(msg) => {
+            let msg = match msg {
+                Message::Text(text) => gateway::RawMessage::Text(text.to_string()),
+                Message::Binary(bin) => gateway::RawMessage::Binary(bin.into()),
+                Message::Close(_) => gateway::RawMessage::Close(None),
+                _ => gateway::RawMessage::Other,
+            };
 
-                Ok(msg)
-            }
-            Err(e) => Err(gateway::RawError::from(e)),
-        };
-        result
+            Ok(msg)
+        }
+        Err(e) => Err(gateway::RawError::from(e)),
     });
 
     let ws_sender = ws_sender.with(|element: RawMessage| async {

@@ -1,8 +1,8 @@
-use std::{fmt::Display, marker::PhantomData};
+use std::marker::PhantomData;
 
 use ractor::{
-    Actor, ActorId, ActorProcessingErr, ActorRef, Message, MessagingErr, RpcReplyPort, SpawnErr,
-    SupervisionEvent, actor, async_trait,
+    Actor, ActorProcessingErr, ActorRef, Message, MessagingErr, RpcReplyPort, SpawnErr,
+    async_trait,
     concurrency::{Duration, JoinHandle},
     rpc::CallResult,
 };
@@ -13,6 +13,14 @@ pub struct MappedActor<
 > {
     _a: PhantomData<TFrom>,
     _b: PhantomData<TTo>,
+}
+
+impl<TFrom: Send + Sync + ractor::Message + 'static, TTo: Send + Sync + ractor::Message + 'static>
+    Default for MappedActor<TFrom, TTo>
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<TFrom: Send + Sync + ractor::Message + 'static, TTo: Send + Sync + ractor::Message + 'static>
@@ -94,8 +102,8 @@ impl<TFrom: Send + Sync + ractor::Message + 'static, TTo: Send + Sync + ractor::
             from: self.clone(),
             to: Box::new(to),
         };
-        let result = Actor::spawn_linked(None, MappedActor::new(), args, self.get_cell()).await;
-        result
+
+        Actor::spawn_linked(None, MappedActor::new(), args, self.get_cell()).await
     }
 }
 
@@ -168,12 +176,12 @@ impl<TMessage: ractor::Message + 'static> ActorRef_Ask<TMessage> for ActorRef<TM
     where
         TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage,
     {
-        let call_result = self.call(|rpc| msg_builder(rpc), timeout_option).await?;
+        let call_result = self.call(msg_builder, timeout_option).await?;
 
         match call_result {
-            CallResult::Success(result) => return Ok(result),
-            CallResult::Timeout => return Err(AskError::Timeout),
-            CallResult::SenderError => return Err(AskError::SenderError),
+            CallResult::Success(result) => Ok(result),
+            CallResult::Timeout => Err(AskError::Timeout),
+            CallResult::SenderError => Err(AskError::SenderError),
         }
     }
 }
@@ -226,8 +234,6 @@ impl<T: Message + Sync> FnActor<T> {
 #[cfg(test)]
 pub mod fn_actor_tests {
     use std::sync::{Arc, Mutex};
-
-    use ractor_cluster_derive::RactorMessage;
 
     use super::*;
 

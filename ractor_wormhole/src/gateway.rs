@@ -1,20 +1,12 @@
-use futures::{
-    Sink, SinkExt, Stream, StreamExt,
-    future::Remote,
-    stream::{SplitSink, SplitStream},
-};
+use futures::{Sink, SinkExt, Stream, StreamExt};
 use log::{error, info};
 use ractor::{
-    Actor, ActorCell, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, actor,
-    async_trait, concurrency::JoinHandle, message::BoxedMessage,
+    Actor, ActorCell, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
+    async_trait, concurrency::JoinHandle,
 };
 use ractor_cluster_derive::RactorMessage;
 use serde::{Deserialize, Serialize};
-use std::{
-    any::Any, collections::HashMap, fmt::Display, marker::PhantomData, net::SocketAddr, pin::Pin,
-};
-use tungstenite::Message;
-use uuid::Uuid;
+use std::{collections::HashMap, fmt::Display, marker::PhantomData, net::SocketAddr, pin::Pin};
 
 use crate::{serialization::ContextSerializable, util::FnActor};
 // use tokio::net::TcpStream;
@@ -477,6 +469,12 @@ pub async fn receive_loop(
 pub struct ProxyActor<T: Send + Sync + ractor::Message + 'static> {
     _a: PhantomData<T>,
 }
+impl<T: Send + Sync + ractor::Message + 'static> Default for ProxyActor<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Send + Sync + ractor::Message + 'static> ProxyActor<T> {
     pub fn new() -> Self {
         ProxyActor { _a: PhantomData }

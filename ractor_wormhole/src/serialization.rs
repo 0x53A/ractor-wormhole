@@ -1,12 +1,11 @@
 use std::marker::PhantomData;
 
 use ractor::{
-    Actor, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, async_trait, concurrency::Duration,
+    Actor, ActorProcessingErr, ActorRef, RpcReplyPort, async_trait, concurrency::Duration,
 };
-use ractor_cluster_derive::RactorMessage;
 
 use crate::{
-    gateway::{ConnectionId, OpaqueActorId, RemoteActorId, WSConnectionMessage},
+    gateway::{ConnectionId, RemoteActorId, WSConnectionMessage},
     util::ActorRef_Ask,
 };
 
@@ -212,6 +211,12 @@ impl<T: Send + Sync + 'static> ractor::Message for RpcProxyMsg<T> {}
 pub struct RpcProxyActor<T: Send + Sync + 'static> {
     _a: PhantomData<T>,
 }
+impl<T: Send + Sync + 'static> Default for RpcProxyActor<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Send + Sync + 'static> RpcProxyActor<T> {
     pub fn new() -> Self {
         RpcProxyActor { _a: PhantomData }
