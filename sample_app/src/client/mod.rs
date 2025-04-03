@@ -1,6 +1,5 @@
 mod connection;
 
-use ractor::RpcReplyPort;
 use ractor_wormhole::{gateway::WSConnectionMessage, util::FnActor};
 use std::time::Duration;
 use tokio::time;
