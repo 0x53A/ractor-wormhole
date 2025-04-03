@@ -1,9 +1,12 @@
 #![feature(fn_traits)]
+#![feature(try_find)]
+
 
 mod client;
 mod gateway;
 mod server;
 mod util;
+mod serialization;
 
 use clap::{Parser, Subcommand};
 use std::net::SocketAddr;
