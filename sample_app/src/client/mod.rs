@@ -32,7 +32,7 @@ pub async fn start_local_actor() -> Result<ActorRef<ServerToClientMessage>, anyh
 }
 
 pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
-    let (gateway, connection) = connection::establish_connection(server_url).await?;
+    let (_gateway, connection) = connection::establish_connection(server_url).await?;
 
     // create a local actor and publish it on the connection
     let local_actor: ActorRef<ServerToClientMessage> = start_local_actor().await?;

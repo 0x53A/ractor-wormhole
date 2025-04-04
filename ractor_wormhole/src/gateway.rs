@@ -101,8 +101,7 @@ impl From<ActorRequestError> for anyhow::Error {
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum CrossGatewayMessage {
     RequestActorByName(CrossGatewayMessageId, String),
-    RequestActorById(CrossGatewayMessageId, OpaqueActorId),
-
+    // RequestActorById(CrossGatewayMessageId, OpaqueActorId),
     ResponseActorByName(
         CrossGatewayMessageId,
         Result<RemoteActorId, ActorRequestError>,
@@ -274,8 +273,8 @@ enum ChannelState {
         self_introduction: Introduction,
     },
     Open {
-        self_introduction: Introduction,
-        remote_introduction: Introduction,
+        // self_introduction: Introduction,
+        // remote_introduction: Introduction,
         channel_id: ConnectionKey,
     },
 }
@@ -381,8 +380,8 @@ impl Actor for WSConnection {
                         )));
 
                         state.channel_state = ChannelState::Open {
-                            self_introduction: self_introduction.clone(),
-                            remote_introduction,
+                            // self_introduction: self_introduction.clone(),
+                            // remote_introduction,
                             channel_id,
                         };
                     }
@@ -448,35 +447,34 @@ impl Actor for WSConnection {
                                 state.args.sender.flush().await?;
                             }
 
-                            CrossGatewayMessage::RequestActorById(id, opaque_id) => {
-                                // Look up the actor in our registry
-                                let published_actor = state.published_actors.get(&opaque_id);
+                            // CrossGatewayMessage::RequestActorById(id, opaque_id) => {
+                            //     // Look up the actor in our registry
+                            //     let published_actor = state.published_actors.get(&opaque_id);
 
-                                let response = match published_actor {
-                                    Some(actor_id) => {
-                                        // Construct a RemoteActorId for the actor
-                                        let remote_id = RemoteActorId {
-                                            connection_key: *channel_id,
-                                            side: state.args.local_id,
-                                            id: opaque_id,
-                                        };
+                            //     let response = match published_actor {
+                            //         Some(actor_id) => {
+                            //             // Construct a RemoteActorId for the actor
+                            //             let remote_id = RemoteActorId {
+                            //                 connection_key: *channel_id,
+                            //                 side: state.args.local_id,
+                            //                 id: opaque_id,
+                            //             };
 
-                                        Ok(remote_id)
-                                    }
-                                    None => Err(ActorRequestError::ActorNotFound),
-                                };
+                            //             Ok(remote_id)
+                            //         }
+                            //         None => Err(ActorRequestError::ActorNotFound),
+                            //     };
 
-                                // Send response back
-                                let response_msg =
-                                    CrossGatewayMessage::ResponseActorById(id, response);
-                                let data = bincode::encode_to_vec(
-                                    response_msg,
-                                    bincode::config::standard(),
-                                )?;
-                                state.args.sender.send(RawMessage::Binary(data)).await?;
-                                state.args.sender.flush().await?;
-                            }
-
+                            //     // Send response back
+                            //     let response_msg =
+                            //         CrossGatewayMessage::ResponseActorById(id, response);
+                            //     let data = bincode::encode_to_vec(
+                            //         response_msg,
+                            //         bincode::config::standard(),
+                            //     )?;
+                            //     state.args.sender.send(RawMessage::Binary(data)).await?;
+                            //     state.args.sender.flush().await?;
+                            // }
                             CrossGatewayMessage::ResponseActorByName(id, response) => {
                                 // Handle response to our earlier request
                                 if let Some(reply_port) = state.open_requests.remove(&id) {
@@ -547,10 +545,10 @@ impl Actor for WSConnection {
                 let existing = state
                     .published_actors
                     .iter()
-                    .find(|(k, (v, _))| v.get_id() == actor_cell.get_id());
+                    .find(|(_k, (v, _))| v.get_id() == actor_cell.get_id());
 
                 let opaque_actor_id = match existing {
-                    Some((k, v)) => {
+                    Some((k, _v)) => {
                         info!(
                             "Actor with id {} was already published under {}",
                             actor_cell.get_id(),
@@ -601,10 +599,10 @@ impl Actor for WSConnection {
                 let existing = state
                     .published_actors
                     .iter()
-                    .find(|(k, (v, _))| v.get_id() == actor_cell.get_id());
+                    .find(|(_k, (v, _))| v.get_id() == actor_cell.get_id());
 
                 let opaque_actor_id = match existing {
-                    Some((k, v)) => {
+                    Some((k, _v)) => {
                         info!(
                             "Actor with id {} was already published under {}",
                             actor_cell.get_id(),
@@ -704,7 +702,7 @@ impl Actor for WSConnection {
         &self,
         _myself: ActorRef<Self::Msg>,
         event: SupervisionEvent,
-        state: &mut Self::State,
+        _state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match event {
             SupervisionEvent::ActorTerminated(actor, last_state, reason) => {
