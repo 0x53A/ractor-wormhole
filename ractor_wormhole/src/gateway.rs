@@ -1,5 +1,4 @@
-use bincode::{de, error};
-use futures::{Sink, SinkExt, Stream, StreamExt, future::BoxFuture};
+use futures::{Sink, SinkExt, Stream, StreamExt};
 use log::{error, info};
 use ractor::{
     Actor, ActorCell, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
@@ -8,7 +7,7 @@ use ractor::{
 };
 use ractor_cluster_derive::RactorMessage;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display, marker::PhantomData, net::SocketAddr, pin::Pin};
+use std::{collections::HashMap, fmt::Display, net::SocketAddr, pin::Pin};
 
 use crate::{
     serialization::{ActorSerializationContext, ContextSerializable, GetReceiver},
@@ -87,9 +86,9 @@ pub enum ActorRequestError {
     TransmissionError,
 }
 
-impl Into<anyhow::Error> for ActorRequestError {
-    fn into(self) -> anyhow::Error {
-        match self {
+impl From<ActorRequestError> for anyhow::Error {
+    fn from(val: ActorRequestError) -> Self {
+        match val {
             ActorRequestError::ActorNotFound => anyhow::anyhow!("Actor not found"),
             ActorRequestError::TransmissionError => anyhow::anyhow!("Transmission error"),
         }
@@ -215,7 +214,7 @@ impl UserFriendlyConnection for ActorRef<WSConnectionMessage> {
 
                 while let Some(msg) = ctx.rx.recv().await {
                     info!("Proxy actor received msg: {:#?} [{}]", msg, type_str);
-                    let remote_id = remote_actor_id.clone();
+                    let remote_id = remote_actor_id;
 
                     let f: TransmitMessageF = Box::new(move |ctx| {
                         info!("f inside Proxy Actor was called: {:#?} [{}]", msg, type_str);
@@ -340,7 +339,7 @@ impl Actor for WSConnection {
             channel_id_contribution: uuid::Uuid::new_v4().to_bytes_le(),
             version: "0.1".to_string(),
             info_text: msg.to_string(),
-            this_side_id: args.local_id.clone(),
+            this_side_id: args.local_id,
         };
         let text = serde_json::to_string_pretty(&introduction)?;
 
@@ -384,7 +383,7 @@ impl Actor for WSConnection {
                         state.channel_state = ChannelState::Open {
                             self_introduction: self_introduction.clone(),
                             remote_introduction,
-                            channel_id: channel_id.clone(),
+                            channel_id,
                         };
                     }
                     ChannelState::Open { .. } => {
@@ -406,11 +405,7 @@ impl Actor for WSConnection {
                             data.len()
                         );
                     }
-                    ChannelState::Open {
-                        remote_introduction,
-                        channel_id,
-                        ..
-                    } => {
+                    ChannelState::Open { channel_id, .. } => {
                         let (msg, consumed) = bincode::decode_from_slice::<CrossGatewayMessage, _>(
                             &data,
                             bincode::config::standard(),
@@ -432,9 +427,9 @@ impl Actor for WSConnection {
                                     Some(opaque_id) => {
                                         // Construct a RemoteActorId for the actor
                                         let remote_id = RemoteActorId {
-                                            connection_key: channel_id.clone(),
-                                            side: state.args.local_id.clone(),
-                                            id: opaque_id.clone(),
+                                            connection_key: *channel_id,
+                                            side: state.args.local_id,
+                                            id: opaque_id,
                                         };
 
                                         Ok(remote_id)
@@ -461,9 +456,9 @@ impl Actor for WSConnection {
                                     Some(actor_id) => {
                                         // Construct a RemoteActorId for the actor
                                         let remote_id = RemoteActorId {
-                                            connection_key: channel_id.clone(),
-                                            side: state.args.local_id.clone(),
-                                            id: opaque_id.clone(),
+                                            connection_key: *channel_id,
+                                            side: state.args.local_id,
+                                            id: opaque_id,
                                         };
 
                                         Ok(remote_id)
@@ -544,12 +539,7 @@ impl Actor for WSConnection {
             }
 
             WSConnectionMessage::PublishNamedActor(name, actor_cell, receiver, reply) => {
-                let ChannelState::Open {
-                    channel_id,
-                    remote_introduction,
-                    ..
-                } = &state.channel_state
-                else {
+                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
                     error!("PublishNamedActor called before handshake");
                     return Ok(());
                 };
@@ -566,7 +556,7 @@ impl Actor for WSConnection {
                             actor_cell.get_id(),
                             k.clone()
                         );
-                        k.clone()
+                        *k
                     }
                     None => {
                         let new_id = OpaqueActorId(uuid::Uuid::new_v4().to_u128_le());
@@ -577,16 +567,13 @@ impl Actor for WSConnection {
                         );
                         state
                             .published_actors
-                            .insert(new_id.clone(), (actor_cell, receiver));
+                            .insert(new_id, (actor_cell, receiver));
                         new_id
                     }
                 };
 
                 // note: this overrides an already published actor of the same name.
-                match state
-                    .named_actors
-                    .insert(name.clone(), opaque_actor_id.clone())
-                {
+                match state.named_actors.insert(name.clone(), opaque_actor_id) {
                     Some(_) => info!(
                         "Actor with name {} already existed and was overwritten",
                         name
@@ -595,8 +582,8 @@ impl Actor for WSConnection {
                 }
 
                 let remote_actor_id = RemoteActorId {
-                    connection_key: channel_id.clone(),
-                    side: state.args.local_id.clone(),
+                    connection_key: *channel_id,
+                    side: state.args.local_id,
                     id: opaque_actor_id,
                 };
 
@@ -606,12 +593,7 @@ impl Actor for WSConnection {
             }
 
             WSConnectionMessage::PublishActor(actor_cell, receiver, rpc) => {
-                let ChannelState::Open {
-                    channel_id,
-                    remote_introduction,
-                    ..
-                } = &state.channel_state
-                else {
+                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
                     error!("PublishActor called before handshake");
                     return Ok(());
                 };
@@ -628,7 +610,7 @@ impl Actor for WSConnection {
                             actor_cell.get_id(),
                             k.clone()
                         );
-                        k.clone()
+                        *k
                     }
                     None => {
                         let new_id = OpaqueActorId(uuid::Uuid::new_v4().to_u128_le());
@@ -639,14 +621,14 @@ impl Actor for WSConnection {
                         );
                         state
                             .published_actors
-                            .insert(new_id.clone(), (actor_cell, receiver));
+                            .insert(new_id, (actor_cell, receiver));
                         new_id
                     }
                 };
 
                 let remote_actor_id = RemoteActorId {
-                    connection_key: channel_id.clone(),
-                    side: state.args.local_id.clone(),
+                    connection_key: *channel_id,
+                    side: state.args.local_id,
                     id: opaque_actor_id,
                 };
 
@@ -654,7 +636,7 @@ impl Actor for WSConnection {
             }
 
             WSConnectionMessage::QueryNamedRemoteActor(name, reply) => {
-                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
+                let ChannelState::Open { .. } = &state.channel_state else {
                     error!("QueryNamedRemoteActor called before handshake");
                     return Ok(());
                 };
@@ -671,7 +653,7 @@ impl Actor for WSConnection {
             }
 
             WSConnectionMessage::SerializeMessage(target, msg_f) => {
-                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
+                let ChannelState::Open { .. } = &state.channel_state else {
                     error!("TransmitMessage called before handshake");
                     return Ok(());
                 };
@@ -685,12 +667,12 @@ impl Actor for WSConnection {
 
                 let myself_copy = myself.clone();
                 let default_rpc_port_timeout = state.args.config.default_rpc_port_timeout;
-                let target_copy = target.clone();
+                let target_copy = target;
                 tokio::spawn(async move {
                     let bytes = msg_f(ActorSerializationContext {
                         // connection_key: channel_id.clone(),
                         connection: myself_copy.clone(),
-                        default_rpc_port_timeout: default_rpc_port_timeout,
+                        default_rpc_port_timeout,
                         // local_connection_side: state.args.local_id.clone(),
                         // remote_connection_side: target.side.clone(),
                     })
@@ -704,7 +686,7 @@ impl Actor for WSConnection {
             }
 
             WSConnectionMessage::TransmitMessage(target, bytes) => {
-                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
+                let ChannelState::Open { .. } = &state.channel_state else {
                     error!("TransmitMessage called before handshake");
                     return Ok(());
                 };

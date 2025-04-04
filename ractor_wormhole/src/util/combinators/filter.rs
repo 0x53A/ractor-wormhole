@@ -1,6 +1,4 @@
-use std::marker::PhantomData;
-
-use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr, async_trait, concurrency::JoinHandle};
+use ractor::{ActorRef, SpawnErr, async_trait, concurrency::JoinHandle};
 
 use crate::util::FnActor;
 

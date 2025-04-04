@@ -5,12 +5,11 @@ pub use rpc_proxy::*;
 
 // -------------------------------------------------------------------------------------------------------
 
-use ractor::{Actor, ActorRef, RpcReplyPort, actor::actor_ref, async_trait, concurrency::Duration};
+use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
 
 use crate::{
     gateway::{
-        ConnectionKey, GatewayResult, LocalConnectionId, MsgReceiver, RemoteActorId,
-        UserFriendlyConnection, WSConnectionMessage,
+        GatewayResult, MsgReceiver, RemoteActorId, UserFriendlyConnection, WSConnectionMessage,
     },
     util::ActorRef_Ask,
 };
@@ -154,7 +153,7 @@ impl ActorSerializationContext {
             )
             .await?;
 
-        let serialized = bincode::encode_to_vec(&published_id, bincode::config::standard())?;
+        let serialized = bincode::encode_to_vec(published_id, bincode::config::standard())?;
 
         Ok(serialized)
     }
@@ -180,7 +179,7 @@ impl ActorSerializationContext {
             .instantiate_proxy_for_remote_actor(remote_actor_ref)
             .await?;
 
-        let actor_ref = ActorRef::<RpcProxyMsg<T>>::from(actor_cell);
+        let actor_ref = actor_cell;
 
         let rpc_port = rpc_reply_port_from_actor_ref(actor_ref, timeout);
 
@@ -202,7 +201,7 @@ impl ActorSerializationContext {
             .instantiate_proxy_for_remote_actor(remote_actor_id)
             .await?;
 
-        let actor_ref = ActorRef::<T>::from(actor_cell);
+        let actor_ref = actor_cell;
 
         Ok(actor_ref)
     }

@@ -69,7 +69,7 @@ pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
     // we can now use `server_root_actor_ref` to send messages through the portal to the server.
     let remote_pingpong = server_root_actor_ref
         .ask(
-            |rpc| ClientToServerMessage::GetPingPong(rpc),
+            ClientToServerMessage::GetPingPong,
             Some(Duration::from_secs(5)),
         )
         .await?;

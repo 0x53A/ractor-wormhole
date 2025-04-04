@@ -391,7 +391,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
     // Generate match arms for deserialization
     let mut deserialize_arms = Vec::new();
 
-    for (variant, _) in input.variants.into_iter() {
+    for (variant, _) in input.variants.iter() {
         let variant_name = &variant.name;
         let variant_name_str = variant_name.to_string();
 
