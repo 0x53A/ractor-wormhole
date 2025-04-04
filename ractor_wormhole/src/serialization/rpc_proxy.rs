@@ -75,7 +75,9 @@ impl<T: Send + Sync + 'static> Actor for RpcProxyActor<T> {
         if let Some(supe) = myself.get_cell().try_get_supervisor() {
             myself.unlink(supe);
         }
-        myself.stop(Some("my job is done here, see you later cowboy".to_string()));
+        myself.stop(Some(
+            "my job is done here, see you later cowboy".to_string(),
+        ));
         Ok(())
     }
 }

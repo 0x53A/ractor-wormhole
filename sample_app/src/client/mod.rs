@@ -104,5 +104,4 @@ pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
     loop {
         time::sleep(Duration::from_secs(1)).await;
     }
-
 }

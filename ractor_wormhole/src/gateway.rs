@@ -735,8 +735,8 @@ impl Actor for WSConnection {
             }
             SupervisionEvent::ActorFailed(actor, err) => {
                 info!("Actor {} failed: {:?}", actor.get_id(), err);
-            },
-            _ => { }
+            }
+            _ => {}
         }
 
         Ok(())
@@ -854,14 +854,20 @@ impl Actor for WSGateway {
         match &event {
             SupervisionEvent::ActorTerminated(actor, last_state, reason) => {
                 if let Some((addr, _, _)) = state.connections.remove(&actor.get_id()) {
-                    info!("Connection to {} terminated: {:?}, last_state={:#?}", addr, reason, last_state);
+                    info!(
+                        "Connection to {} terminated: {:?}, last_state={:#?}",
+                        addr, reason, last_state
+                    );
                 }
             }
             SupervisionEvent::ActorFailed(actor, err) => {
                 info!("Actor failed: {:?} - {:?}", actor.get_id(), err);
 
                 if let Some((addr, _, _)) = state.connections.remove(&actor.get_id()) {
-                    info!("Connection to {} terminated because actor failed: {:?}", addr, err);
+                    info!(
+                        "Connection to {} terminated because actor failed: {:?}",
+                        addr, err
+                    );
                 }
             }
             _ => (),

@@ -39,7 +39,9 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
                 ClientToServerMessage::GetPingPong(rpc_reply_port) => {
                     let _ = rpc_reply_port.send(*pingpong_box.clone());
                 }
-                ClientToServerMessage::Print(text) => println!("Received text from Client: {}", text),
+                ClientToServerMessage::Print(text) => {
+                    println!("Received text from Client: {}", text)
+                }
             }
         }
     })
