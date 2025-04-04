@@ -5,7 +5,9 @@ use super::*;
 // -------------------------------------------------------------------------------------------------------
 
 #[async_trait]
-impl<T: ContextSerializable + ractor::Message + Send + Sync + 'static> ContextSerializable for ActorRef<T> {
+impl<T: ContextSerializable + ractor::Message + Send + Sync + 'static + std::fmt::Debug>
+    ContextSerializable for ActorRef<T>
+{
     async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
         ctx.serialize_actor_ref(&self).await
     }
@@ -19,7 +21,9 @@ impl<T: ContextSerializable + ractor::Message + Send + Sync + 'static> ContextSe
 }
 
 #[async_trait]
-impl<T: ContextSerializable + Send + Sync + 'static> ContextSerializable for RpcReplyPort<T> {
+impl<T: ContextSerializable + Send + Sync + 'static + std::fmt::Debug> ContextSerializable
+    for RpcReplyPort<T>
+{
     async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
         ctx.serialize_replychannel(self).await
     }

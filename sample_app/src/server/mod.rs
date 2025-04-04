@@ -2,7 +2,10 @@ mod connection;
 
 use std::net::SocketAddr;
 
-use ractor_wormhole::{gateway::WSConnectionMessage, util::FnActor};
+use ractor_wormhole::{
+    gateway::{UserFriendlyConnection, WSConnectionMessage},
+    util::FnActor,
+};
 
 use crate::common::{ClientToServerMessage, PingPongMsg};
 
@@ -36,7 +39,7 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
                 ClientToServerMessage::GetPingPong(rpc_reply_port) => {
                     let _ = rpc_reply_port.send(*pingpong_box.clone());
                 }
-                ClientToServerMessage::Print(_) => todo!(),
+                ClientToServerMessage::Print(text) => println!("Received text from Client: {}", text),
             }
         }
     })
@@ -44,13 +47,12 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
 
     // loop around the client connection receiver
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
         // new connection, publish our main actor on it
         msg.actor_ref
-            .send_message(WSConnectionMessage::PublishNamedActor(
-                "root".to_string(),
-                local_actor.get_cell(),
-                None,
-            ))?;
+            .publish_named_actor("root".to_string(), local_actor.clone())
+            .await?;
     }
 
     Ok(())

@@ -5,10 +5,13 @@ pub use rpc_proxy::*;
 
 // -------------------------------------------------------------------------------------------------------
 
-use ractor::{actor::actor_ref, async_trait, concurrency::Duration, Actor, ActorRef, RpcReplyPort};
+use ractor::{Actor, ActorRef, RpcReplyPort, actor::actor_ref, async_trait, concurrency::Duration};
 
 use crate::{
-    gateway::{ConnectionKey, GatewayResult, LocalConnectionId, MsgReceiver, RemoteActorId, UserFriendlyConnection, WSConnectionMessage},
+    gateway::{
+        ConnectionKey, GatewayResult, LocalConnectionId, MsgReceiver, RemoteActorId,
+        UserFriendlyConnection, WSConnectionMessage,
+    },
     util::ActorRef_Ask,
 };
 
@@ -29,9 +32,9 @@ pub struct SerializedRpcReplyPort {
 // -------------------------------------------------------------------------------------------------------
 
 pub struct ActorSerializationContext {
-    pub connection_key: ConnectionKey,
-    pub local_connection_side: LocalConnectionId,
-    pub remote_connection_side: LocalConnectionId,
+    // pub connection_key: ConnectionKey,
+    // pub local_connection_side: LocalConnectionId,
+    // pub remote_connection_side: LocalConnectionId,
     pub connection: ActorRef<WSConnectionMessage>,
     /// which timeout to use if the RpcReplyPort doesn't have a timeout set
     pub default_rpc_port_timeout: Duration,
@@ -55,7 +58,12 @@ impl<TMessage> Default for Receiver<TMessage> {
 
 #[async_trait]
 impl<TMessage: ContextSerializable + ractor::Message + Sync> MsgReceiver for Receiver<TMessage> {
-    async fn receive(&self, actor: ractor::ActorCell, data: &[u8], ctx: ActorSerializationContext) -> GatewayResult<()> {
+    async fn receive(
+        &self,
+        actor: ractor::ActorCell,
+        data: &[u8],
+        ctx: ActorSerializationContext,
+    ) -> GatewayResult<()> {
         let msg = <TMessage as ContextSerializable>::deserialize(&ctx, data).await?;
         let actor_ref = ActorRef::<TMessage>::from(actor);
         actor_ref.send_message(msg)?;
@@ -136,7 +144,6 @@ impl ActorSerializationContext {
         &self,
         actor_ref: &ActorRef<T>,
     ) -> SerializationResult<Vec<u8>> {
-
         let receiver = actor_ref.get_receiver();
 
         let published_id = self
@@ -152,7 +159,9 @@ impl ActorSerializationContext {
         Ok(serialized)
     }
 
-    pub async fn deserialize_replychannel<T: ContextSerializable + Send + Sync + 'static>(
+    pub async fn deserialize_replychannel<
+        T: ContextSerializable + Send + Sync + 'static + std::fmt::Debug,
+    >(
         &self,
         buffer: &[u8],
     ) -> SerializationResult<RpcReplyPort<T>> {
@@ -167,7 +176,9 @@ impl ActorSerializationContext {
         let remote_actor_ref: RemoteActorId = structured.remote_actor_id;
 
         let actor_cell = self
-            .connection.instantiate_proxy_for_remote_actor(remote_actor_ref).await?;
+            .connection
+            .instantiate_proxy_for_remote_actor(remote_actor_ref)
+            .await?;
 
         let actor_ref = ActorRef::<RpcProxyMsg<T>>::from(actor_cell);
 
@@ -176,7 +187,9 @@ impl ActorSerializationContext {
         Ok(rpc_port)
     }
 
-    pub async fn deserialize_actor_ref<T: ContextSerializable + ractor::Message + Send + Sync + 'static>(
+    pub async fn deserialize_actor_ref<
+        T: ContextSerializable + ractor::Message + Send + Sync + 'static + std::fmt::Debug,
+    >(
         &self,
         buffer: &[u8],
     ) -> SerializationResult<ActorRef<T>> {
@@ -186,7 +199,8 @@ impl ActorSerializationContext {
 
         let actor_cell = self
             .connection
-            .instantiate_proxy_for_remote_actor(remote_actor_id).await?;
+            .instantiate_proxy_for_remote_actor(remote_actor_id)
+            .await?;
 
         let actor_ref = ActorRef::<T>::from(actor_cell);
 

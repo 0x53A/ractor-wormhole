@@ -7,7 +7,7 @@ use ractor::{
 // -------------------------------------------------------------------------------------------------------
 
 //#[derive(RactorMessage)]
-#[derive(ractor_wormhole_derive::WormholeSerializable)]
+#[derive(ractor_wormhole_derive::WormholeSerializable, Debug)]
 pub struct RpcProxyMsg<T: Send + Sync + 'static> {
     pub data: T,
 }
@@ -72,7 +72,10 @@ impl<T: Send + Sync + 'static> Actor for RpcProxyActor<T> {
                 tracing::info!("Message sent to RpcReplyPort successfully");
             }
         }
-        myself.stop(None);
+        if let Some(supe) = myself.get_cell().try_get_supervisor() {
+            myself.unlink(supe);
+        }
+        myself.stop(Some("my job is done here, see you later cowboy".to_string()));
         Ok(())
     }
 }

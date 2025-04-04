@@ -33,7 +33,14 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), anyhow::Error> {
+async fn main() {
+    if let Err(e) = run().await {
+        eprintln!("ERROR: {:#}", e); // Pretty format with all causes
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
     match cli.command {

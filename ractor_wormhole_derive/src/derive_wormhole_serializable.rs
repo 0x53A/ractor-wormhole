@@ -311,7 +311,6 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
 
     // Extract generic parameters
     let generic_params = input.generic_params.clone();
-    let where_clause = input.where_clause.clone();
 
     // Generate impl generics and type generics
     let impl_generics = if let Some(generic_params) = &generic_params {
@@ -332,8 +331,9 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
     };
 
     // Generate trait bounds for generic parameters
-    let extended_where_clause = input.create_derive_where_clause(quote!{::ractor_wormhole::serialization::ContextSerializable});
-    
+    let extended_where_clause = input
+        .create_derive_where_clause(quote! {::ractor_wormhole::serialization::ContextSerializable});
+
     let venial::Fields::Named(named_fields) = input.fields else {
         return bail!(
             input,
@@ -582,9 +582,10 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let result = match variant_name.as_str() {
                     #(#deserialize_arms)*
                     _ => {
-                        return Err(::ractor_wormhole::serialization::SerializationError::DeserializationError(
-                            format!("Unknown variant: {}", variant_name)
-                        ));
+                        panic!("Unknown variant: {}", variant_name)
+                        // return Err(::ractor_wormhole::serialization::SerializationError::DeserializationError(
+                        //     format!("Unknown variant: {}", variant_name)
+                        // ));
                     }
                 };
 

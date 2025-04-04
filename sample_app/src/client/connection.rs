@@ -14,8 +14,7 @@ use ractor_wormhole::gateway::{
 
 pub async fn establish_connection(
     server_url: String,
-) -> Result<(ActorRef<WSGatewayMessage>, ActorRef<WSConnectionMessage>), anyhow::Error>
-{
+) -> Result<(ActorRef<WSGatewayMessage>, ActorRef<WSConnectionMessage>), anyhow::Error> {
     // Initialize logger
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -89,7 +88,10 @@ async fn connect_to_server(
         Ok(connection_actor) => {
             info!("Connection actor started for: {}", addr);
 
-            gateway::receive_loop(ws_receiver, addr, connection_actor.clone()).await;
+            let connection_actor_copy = connection_actor.clone();
+            tokio::spawn(async move {
+                gateway::receive_loop(ws_receiver, addr, connection_actor_copy).await
+            });
 
             Ok(connection_actor)
         }

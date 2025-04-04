@@ -5,3 +5,5 @@
 * implement per-connection limits (rate limiting, max number of rpc-ports, max number of projected actors.)
 
 * add a more generic ``SerializationAdapter`` option to the derive macro
+
+* make it possible to publish actors on the **Gateway**, not the connection, so they are immediatly available to all clients

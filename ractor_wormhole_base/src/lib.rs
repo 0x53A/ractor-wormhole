@@ -3,7 +3,6 @@
 #![feature(negative_impls)]
 #![feature(min_specialization)]
 
-
 pub fn hello() -> String {
     "Hello, world!".to_string()
 }

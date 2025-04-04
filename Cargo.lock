@@ -1289,6 +1289,7 @@ dependencies = [
 name = "ractor_wormhole_tests"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "bytes",
  "clap",

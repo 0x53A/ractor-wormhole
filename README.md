@@ -263,3 +263,28 @@ pub struct SomeMessage<T: Send + Sync + 'static> {
 
 fails with ``Missing generics for struct `SomeMessage` `` because the derive macro doesn't properly handle the generic parameter. A manual implementation is possible.
 
+### More details when supervision event kills parent
+
+The default implementation looks like this:
+
+```rust
+    #[allow(unused_variables)]
+    #[cfg(feature = "async-trait")]
+    async fn handle_supervisor_evt(
+        &self,
+        myself: ActorRef<Self::Msg>,
+        message: SupervisionEvent,
+        state: &mut Self::State,
+    ) -> Result<(), ActorProcessingErr> {
+        match message {
+            SupervisionEvent::ActorTerminated(who, _, _)
+            | SupervisionEvent::ActorFailed(who, _) => {
+                myself.stop(None);
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+```
+
+It would be great if instead of ``None`` it wrote **why** it stopped itself.
