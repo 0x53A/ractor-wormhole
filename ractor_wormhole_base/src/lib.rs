@@ -3,8 +3,7 @@
 #![feature(negative_impls)]
 #![feature(min_specialization)]
 
-pub mod gateway;
-pub mod serialization;
-pub mod util;
 
-extern crate self as ractor_wormhole;
+pub fn hello() -> String {
+    "Hello, world!".to_string()
+}

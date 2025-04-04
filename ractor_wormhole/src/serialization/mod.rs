@@ -5,16 +5,18 @@ pub use rpc_proxy::*;
 
 // -------------------------------------------------------------------------------------------------------
 
-use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
+use ractor::{actor::actor_ref, async_trait, concurrency::Duration, Actor, ActorRef, RpcReplyPort};
 
 use crate::{
-    gateway::{ConnectionKey, LocalConnectionId, RemoteActorId, WSConnectionMessage},
+    gateway::{ConnectionKey, GatewayResult, LocalConnectionId, MsgReceiver, RemoteActorId, UserFriendlyConnection, WSConnectionMessage},
     util::ActorRef_Ask,
 };
 
 // -------------------------------------------------------------------------------------------------------
 
-type SerializationResult<T> = Result<T, Box<dyn std::error::Error>>;
+pub type SerializationError = anyhow::Error;
+
+pub type SerializationResult<T> = Result<T, SerializationError>;
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -30,13 +32,45 @@ pub struct ActorSerializationContext {
     pub connection_key: ConnectionKey,
     pub local_connection_side: LocalConnectionId,
     pub remote_connection_side: LocalConnectionId,
-    connection: ActorRef<WSConnectionMessage>,
+    pub connection: ActorRef<WSConnectionMessage>,
     /// which timeout to use if the RpcReplyPort doesn't have a timeout set
-    default_rpc_port_timeout: Duration,
+    pub default_rpc_port_timeout: Duration,
+}
+
+pub trait GetReceiver {
+    fn get_receiver(&self) -> Box<dyn MsgReceiver + Send>;
+}
+
+pub struct Receiver<TMessage> {
+    _marker: std::marker::PhantomData<TMessage>,
+}
+
+impl<TMessage> Default for Receiver<TMessage> {
+    fn default() -> Self {
+        Self {
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+#[async_trait]
+impl<TMessage: ContextSerializable + ractor::Message + Sync> MsgReceiver for Receiver<TMessage> {
+    async fn receive(&self, actor: ractor::ActorCell, data: &[u8], ctx: ActorSerializationContext) -> GatewayResult<()> {
+        let msg = <TMessage as ContextSerializable>::deserialize(&ctx, data).await?;
+        let actor_ref = ActorRef::<TMessage>::from(actor);
+        actor_ref.send_message(msg)?;
+        Ok(())
+    }
+}
+
+impl<TMessage: ContextSerializable + ractor::Message + Sync> GetReceiver for ActorRef<TMessage> {
+    fn get_receiver(&self) -> Box<dyn MsgReceiver + Send> {
+        Box::new(Receiver::<TMessage>::default())
+    }
 }
 
 impl ActorSerializationContext {
-    pub async fn serialize_replychannel<T: Send + Sync + 'static>(
+    pub async fn serialize_replychannel<T: ContextSerializable + Send + Sync + 'static>(
         &self,
         rpc: RpcReplyPort<T>,
     ) -> SerializationResult<Vec<u8>> {
@@ -79,10 +113,12 @@ impl ActorSerializationContext {
 
         ractor::time::kill_after(timeout, local_actor.get_cell());
 
+        let receiver = local_actor.get_receiver();
+
         let published_id = self
             .connection
             .ask(
-                |rpc| WSConnectionMessage::PublishActor(local_actor.get_cell(), rpc),
+                |rpc| WSConnectionMessage::PublishActor(local_actor.get_cell(), receiver, rpc),
                 None,
             )
             .await?;
@@ -96,14 +132,17 @@ impl ActorSerializationContext {
         Ok(serialized)
     }
 
-    pub async fn serialize_actor_ref<T>(
+    pub async fn serialize_actor_ref<T: ContextSerializable + ractor::Message + Sync>(
         &self,
-        actor_ref: ActorRef<T>,
+        actor_ref: &ActorRef<T>,
     ) -> SerializationResult<Vec<u8>> {
+
+        let receiver = actor_ref.get_receiver();
+
         let published_id = self
             .connection
             .ask(
-                |rpc| WSConnectionMessage::PublishActor(actor_ref.get_cell(), rpc),
+                |rpc| WSConnectionMessage::PublishActor(actor_ref.get_cell(), receiver, rpc),
                 None,
             )
             .await?;
@@ -113,7 +152,7 @@ impl ActorSerializationContext {
         Ok(serialized)
     }
 
-    pub async fn deserialize_replychannel<T: Send + Sync + 'static>(
+    pub async fn deserialize_replychannel<T: ContextSerializable + Send + Sync + 'static>(
         &self,
         buffer: &[u8],
     ) -> SerializationResult<RpcReplyPort<T>> {
@@ -128,12 +167,7 @@ impl ActorSerializationContext {
         let remote_actor_ref: RemoteActorId = structured.remote_actor_id;
 
         let actor_cell = self
-            .connection
-            .ask(
-                |rpc| WSConnectionMessage::GetRemoteActorById(remote_actor_ref, rpc),
-                None,
-            )
-            .await??;
+            .connection.instantiate_proxy_for_remote_actor(remote_actor_ref).await?;
 
         let actor_ref = ActorRef::<RpcProxyMsg<T>>::from(actor_cell);
 
@@ -142,7 +176,7 @@ impl ActorSerializationContext {
         Ok(rpc_port)
     }
 
-    pub async fn deserialize_actor_ref<T>(
+    pub async fn deserialize_actor_ref<T: ContextSerializable + ractor::Message + Send + Sync + 'static>(
         &self,
         buffer: &[u8],
     ) -> SerializationResult<ActorRef<T>> {
@@ -152,11 +186,7 @@ impl ActorSerializationContext {
 
         let actor_cell = self
             .connection
-            .ask(
-                |rpc| WSConnectionMessage::GetRemoteActorById(remote_actor_id, rpc),
-                None,
-            )
-            .await??;
+            .instantiate_proxy_for_remote_actor(remote_actor_id).await?;
 
         let actor_ref = ActorRef::<T>::from(actor_cell);
 
@@ -177,3 +207,44 @@ pub trait ContextSerializable {
 }
 
 // -------------------------------------------------------------------------------------------------------
+
+pub mod serialization_proxies {
+
+    pub use ::ractor::async_trait;
+
+    use super::*;
+
+    #[cfg(feature = "serde")]
+    pub mod serde_proxy {
+
+        use super::*;
+
+        pub fn serialize<T: serde::Serialize>(data: T) -> SerializationResult<Vec<u8>> {
+            let json = serde_json::to_vec(&data)?;
+            Ok(json)
+        }
+
+        pub fn deserialize<T: serde::de::DeserializeOwned>(data: &[u8]) -> SerializationResult<T> {
+            let deserialized = serde_json::from_slice(data)?;
+            Ok(deserialized)
+        }
+    }
+
+    #[cfg(feature = "bincode")]
+    pub mod bincode_proxy {
+
+        use super::*;
+
+        pub fn serialize<T: bincode::Encode>(data: T) -> SerializationResult<Vec<u8>> {
+            let json = bincode::encode_to_vec(data, bincode::config::standard())?;
+            Ok(json)
+        }
+
+        pub fn deserialize<T: bincode::Decode<()>>(data: &[u8]) -> SerializationResult<T> {
+            let (deserialized, consumed) =
+                bincode::decode_from_slice::<T, _>(data, bincode::config::standard())?;
+            assert!(consumed == data.len());
+            Ok(deserialized)
+        }
+    }
+}

@@ -11,7 +11,7 @@ use tokio::time;
 use crate::common::{ClientToServerMessage, ServerToClientMessage};
 
 pub async fn start_local_actor()
--> Result<ActorRef<ServerToClientMessage>, Box<dyn std::error::Error>> {
+-> Result<ActorRef<ServerToClientMessage>, anyhow::Error> {
     let (local_actor, _) = FnActor::<ServerToClientMessage>::start_fn(async |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
             match msg {
@@ -31,7 +31,7 @@ pub async fn start_local_actor()
     Ok(local_actor)
 }
 
-pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
     let (_gateway, connection) = connection::establish_connection(server_url).await?;
 
     // create a local actor and publish it on the connection
@@ -40,6 +40,7 @@ pub async fn run(server_url: String) -> Result<(), Box<dyn std::error::Error>> {
     connection.send_message(WSConnectionMessage::PublishNamedActor(
         "root".to_string(),
         local_actor.get_cell(),
+        local_actor.rece
         None,
     ))?;
 

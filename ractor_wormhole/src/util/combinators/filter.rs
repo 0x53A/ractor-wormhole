@@ -13,7 +13,7 @@ use crate::util::FnActor;
 #[derive(Debug, Clone, Copy)]
 pub enum FilterResult<T: Send + Sync + ractor::Message + 'static> {
     Forward(T),
-    Drop
+    Drop,
 }
 
 #[allow(non_camel_case_types)]
@@ -36,26 +36,29 @@ pub trait ActorRef_Filter<TMessage: Send + Sync + ractor::Message + 'static> {
 }
 
 #[async_trait]
-impl<TMessage: Send + Sync + ractor::Message + 'static>
-ActorRef_Filter<TMessage> for ActorRef<TMessage>
+impl<TMessage: Send + Sync + ractor::Message + 'static> ActorRef_Filter<TMessage>
+    for ActorRef<TMessage>
 {
     async fn filter(
         self,
         f: impl Fn(TMessage) -> FilterResult<TMessage> + Send + Sync + 'static,
     ) -> Result<(ActorRef<TMessage>, JoinHandle<()>), SpawnErr> {
-
-        let (actor_ref, handle) = FnActor::<TMessage>::start_fn_linked(self.get_cell(), async move |mut ctx| {
-            while let Some(msg) = ctx.rx.recv().await {
-                match f(msg) {
-                    FilterResult::Forward(msg) => { if let Err(err) = self.send_message(msg) {
-                        tracing::error!("FnActor: Failed to forward message: {}", err);
-                        //ctx.actor_ref.stop(None);
-                        // todo: decide what to do on error. Stop?
-                    } },
-                    FilterResult::Drop => { /* todo: logging */ },
+        let (actor_ref, handle) =
+            FnActor::<TMessage>::start_fn_linked(self.get_cell(), async move |mut ctx| {
+                while let Some(msg) = ctx.rx.recv().await {
+                    match f(msg) {
+                        FilterResult::Forward(msg) => {
+                            if let Err(err) = self.send_message(msg) {
+                                tracing::error!("FnActor: Failed to forward message: {}", err);
+                                //ctx.actor_ref.stop(None);
+                                // todo: decide what to do on error. Stop?
+                            }
+                        }
+                        FilterResult::Drop => { /* todo: logging */ }
+                    }
                 }
-            }
-        }).await?;
+            })
+            .await?;
 
         Ok((actor_ref, handle))
     }
@@ -74,12 +77,15 @@ pub mod test_filter {
     #[tokio::test]
     pub async fn test_filter_int() {
         let actor_ref: ActorRef<u32> = FnActor::start().await.unwrap().0.actor_ref;
-        let (_filtered_actor_ref, _handle) = actor_ref.filter(|msg| {
-            if msg % 2 == 0 {
-                FilterResult::Forward(msg)
-            } else {
-                FilterResult::Drop
-            }
-        }).await.unwrap();
+        let (_filtered_actor_ref, _handle) = actor_ref
+            .filter(|msg| {
+                if msg % 2 == 0 {
+                    FilterResult::Forward(msg)
+                } else {
+                    FilterResult::Drop
+                }
+            })
+            .await
+            .unwrap();
     }
 }

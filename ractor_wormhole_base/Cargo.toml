@@ -1,13 +1,11 @@
 [package]
-name = "ractor_wormhole_sample_app"
+name = "ractor_wormhole_base"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ractor_wormhole = { path = "../ractor_wormhole" }
-ractor_wormhole_derive = { path = "../ractor_wormhole_derive" }
-
 axum = { version = "0.8.3", features = [ "tokio", "http1", "http2" ] }
+bincode = { version = "2.0.1", features = [] }
 bytes = "1.10.1"
 clap = { version = "4.5.35", features = ["derive"] }
 env_logger = "0.11.8"
@@ -28,4 +26,8 @@ tracing-test = "0.2.5"
 tungstenite = "0.26.2"
 url = "2.5.4"
 uuid = { version = "1.16.0", features = ["rng", "v4"] }
-anyhow = { version = "1.0.97", features = ["backtrace"] }
+
+[features]
+default = ["serde", "bincode"]
+serde = []
+bincode = []

@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 
 use ractor::{
-    async_trait, concurrency::JoinHandle, Actor, ActorCell, ActorProcessingErr, ActorRef, Message, SpawnErr
+    Actor, ActorCell, ActorProcessingErr, ActorRef, Message, SpawnErr, async_trait,
+    concurrency::JoinHandle,
 };
 
 // -------------------------------------------------------------------------------------------------------
@@ -84,13 +85,16 @@ impl<T: Message + Sync> FnActor<T> {
         Ok((FnActorCtx { rx, actor_ref }, handle))
     }
 
-        /// start a new actor, and returns a Receive handle to its message queue.
+    /// start a new actor, and returns a Receive handle to its message queue.
     /// It's the obligation of the caller to poll the receive handle.
-    pub async fn start_linked(supervisor: ActorCell) -> Result<(FnActorCtx<T>, JoinHandle<()>), SpawnErr> {
+    pub async fn start_linked(
+        supervisor: ActorCell,
+    ) -> Result<(FnActorCtx<T>, JoinHandle<()>), SpawnErr> {
         let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE); // todo lmao
 
         let args = FnActorArgs { tx };
-        let (actor_ref, handle) = Actor::spawn_linked(None, FnActorImpl::new(), args, supervisor).await?;
+        let (actor_ref, handle) =
+            Actor::spawn_linked(None, FnActorImpl::new(), args, supervisor).await?;
         Ok((FnActorCtx { rx, actor_ref }, handle))
     }
 
@@ -112,9 +116,12 @@ impl<T: Message + Sync> FnActor<T> {
         Ok((actor_ref, handle))
     }
 
-        /// starts a new actor based on a function that takes the Receive handle.
+    /// starts a new actor based on a function that takes the Receive handle.
     /// The function will be executed as a task, it should loop and poll the receive handle.
-    pub async fn start_fn_linked<F, Fut>(supervisor: ActorCell, f: F) -> Result<(ActorRef<T>, JoinHandle<()>), SpawnErr>
+    pub async fn start_fn_linked<F, Fut>(
+        supervisor: ActorCell,
+        f: F,
+    ) -> Result<(ActorRef<T>, JoinHandle<()>), SpawnErr>
     where
         F: FnOnce(FnActorCtx<T>) -> Fut + Send + 'static,
         Fut: std::future::Future<Output = ()> + Send,
@@ -154,7 +161,7 @@ pub mod fn_actor_tests {
     }
 
     #[tokio::test]
-    pub async fn test_start_fn() -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn test_start_fn() -> Result<(), anyhow::Error> {
         let i = Arc::new(Mutex::new(0));
 
         let i_clone = i.clone();

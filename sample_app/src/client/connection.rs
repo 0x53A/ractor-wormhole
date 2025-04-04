@@ -14,7 +14,7 @@ use ractor_wormhole::gateway::{
 
 pub async fn establish_connection(
     server_url: String,
-) -> Result<(ActorRef<WSGatewayMessage>, ActorRef<WSConnectionMessage>), Box<dyn std::error::Error>>
+) -> Result<(ActorRef<WSGatewayMessage>, ActorRef<WSConnectionMessage>), anyhow::Error>
 {
     // Initialize logger
     env_logger::init_from_env(
@@ -37,7 +37,7 @@ pub async fn establish_connection(
 async fn connect_to_server(
     url: Url,
     gateway: ActorRef<WSGatewayMessage>,
-) -> Result<ActorRef<WSConnectionMessage>, Box<dyn std::error::Error>> {
+) -> Result<ActorRef<WSConnectionMessage>, anyhow::Error> {
     // Connect to the WebSocket server
     let (ws_stream, _) = match connect_async(url.as_str()).await {
         Ok(conn) => {

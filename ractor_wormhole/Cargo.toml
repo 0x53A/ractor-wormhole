@@ -26,3 +26,14 @@ tracing-test = "0.2.5"
 tungstenite = "0.26.2"
 url = "2.5.4"
 uuid = { version = "1.16.0", features = ["rng", "v4"] }
+
+ractor_wormhole_base = { path = "../ractor_wormhole_base" }
+ractor_wormhole_derive = { path = "../ractor_wormhole_derive" }
+thiserror = "2.0.12"
+anyhow = { version = "1.0.97", features = ["backtrace"] }
+
+
+[features]
+default = ["serde", "bincode"]
+serde = ["ractor_wormhole_base/serde"]
+bincode = ["ractor_wormhole_base/bincode"]

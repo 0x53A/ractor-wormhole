@@ -1,14 +1,18 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+#![feature(cfg_boolean_literals)]
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+mod derive_wormhole_serializable;
+mod util;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
+
+use derive_wormhole_serializable::derive_wormhole_serializable_impl;
+
+#[proc_macro_derive(WormholeSerializable, attributes(serde, bincode))]
+pub fn derive_wormhole_serializable(input: TokenStream) -> TokenStream {
+    let result = derive_wormhole_serializable_impl(TokenStream2::from(input));
+    match result {
+        Ok(ts) => TokenStream::from(ts),
+        Err(e) => TokenStream::from(e.to_compile_error()),
     }
 }

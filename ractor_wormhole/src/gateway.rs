@@ -1,14 +1,14 @@
-use futures::{Sink, SinkExt, Stream, StreamExt};
+use bincode::de;
+use futures::{future::BoxFuture, Sink, SinkExt, Stream, StreamExt};
 use log::{error, info};
 use ractor::{
-    Actor, ActorCell, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
-    async_trait, concurrency::JoinHandle,
+    async_trait, concurrency::{Duration, JoinHandle}, Actor, ActorCell, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent
 };
 use ractor_cluster_derive::RactorMessage;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display, marker::PhantomData, net::SocketAddr, pin::Pin};
 
-use crate::serialization::ContextSerializable;
+use crate::{serialization::{ActorSerializationContext, ContextSerializable}, util::FnActor};
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ pub enum RawMessage {
     Other,
 }
 
-pub type RawError = Box<dyn std::error::Error + Send + Sync>;
+pub type RawError = anyhow::Error;
 
 pub type WebSocketSink = Pin<Box<dyn Sink<RawMessage, Error = RawError> + Send>>;
 pub type WebSocketSource = Pin<Box<dyn Stream<Item = Result<RawMessage, RawError>> + Send>>;
@@ -27,7 +27,7 @@ pub type WebSocketSource = Pin<Box<dyn Stream<Item = Result<RawMessage, RawError
 // -------------------------------------------------------------------------------------------------------
 
 /// The **local** connection identifier
-#[derive(RactorMessage, Debug, bincode::Encode, bincode::Decode)]
+#[derive(RactorMessage, Debug, bincode::Encode, bincode::Decode, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LocalConnectionId(pub u128);
 
 /// A shared identifier for the connection. The id is the same on both sides of the connection.
@@ -43,6 +43,14 @@ impl Display for ConnectionKey {
 
 // -------------------------------------------------------------------------------------------------------
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct PortalConfig {
+    pub default_rpc_port_timeout: Duration,
+}
+
+// -------------------------------------------------------------------------------------------------------
+
+
 /// Hide the internal actor id behind a uuid; only the connection has the mapping between uuid and real actor id
 #[derive(Clone, Debug, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct OpaqueActorId(pub u128);
@@ -55,55 +63,104 @@ impl Display for OpaqueActorId {
 
 // -------------------------------------------------------------------------------------------------------
 
-pub enum CrossGatewayMessage {}
+pub type CrossGatewayMessageId = u64;
+
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum ActorRequestError {
+    ActorNotFound,
+    TransmissionError
+}
+
+impl Into<anyhow::Error> for ActorRequestError {
+    fn into(self) -> anyhow::Error {
+        match self {
+            ActorRequestError::ActorNotFound => anyhow::anyhow!("Actor not found"),
+            ActorRequestError::TransmissionError => anyhow::anyhow!("Transmission error"),
+        }
+    }
+}
+
+/// these are the raw messages that are actually sent over the wire.
+/// Note that these are sent **after** the initial handshake.
+/// (the initial handshake is a json serialized `Introduction`)
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum CrossGatewayMessage {
+    RequestActorByName(CrossGatewayMessageId, String),
+    RequestActorById(CrossGatewayMessageId, OpaqueActorId),
+
+    ResponseActorByName(
+        CrossGatewayMessageId,
+        Result<RemoteActorId, ActorRequestError>,
+    ),
+    ResponseActorById(CrossGatewayMessageId, Result<RemoteActorId, ActorRequestError>),
+
+    SendMessage(RemoteActorId, Box<[u8]>),
+}
 
 // Connection
 // -------------------------------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum SomeError {
-    ToDo,
+pub type GatewayResult<T> = Result<T, anyhow::Error>;
+
+#[async_trait]
+pub trait MsgReceiver {
+    async fn receive(&self, actor: ActorCell, data: &[u8], ctx: ActorSerializationContext) -> GatewayResult<()>;
 }
 
-impl Display for SomeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SomeError::ToDo => write!(f, "ToDo"),
-        }
-    }
-}
-
-impl std::error::Error for SomeError {
-    fn description(&self) -> &str {
-        match self {
-            SomeError::ToDo => "ToDo",
-        }
-    }
-}
+type TransmitMessageF = Box<(dyn FnOnce(ActorSerializationContext) -> Pin<Box<(dyn futures::Future<Output = GatewayResult<Vec<u8>>> + std::marker::Send + 'static)>> + std::marker::Send + 'static)>;
 
 // Messages for the connection actor
-#[derive(RactorMessage)]
 pub enum WSConnectionMessage {
     // data received from websocket
     Text(String),
     Binary(Vec<u8>),
     Close,
 
-    TransmitMessage(RemoteActorId, Box<dyn ContextSerializable + Send>),
+    TransmitMessage(RemoteActorId, TransmitMessageF),
 
     /// publish a local actor under a known name, making it available to the remote side of the connection.
     /// On the remote side, it can be looked up by name.
-    PublishNamedActor(String, ActorCell, Option<RpcReplyPort<RemoteActorId>>),
+    PublishNamedActor(String, ActorCell, Box<dyn MsgReceiver + Send>, Option<RpcReplyPort<RemoteActorId>>),
 
     /// publish a local actor, making it available to the remote side of the connection.
     /// It is published under a random id, which would need to be passed to the remote side through some kind of existing channel.
-    PublishActor(ActorCell, RpcReplyPort<RemoteActorId>),
+    PublishActor(ActorCell, Box<dyn MsgReceiver + Send>, RpcReplyPort<RemoteActorId>),
 
     /// looks up an actor by name on the **remote** side of the connection. Returns None if no actor was registered under that name.
-    QueryNamedRemoteActor(String, RpcReplyPort<Result<RemoteActorId, SomeError>>),
+    QueryNamedRemoteActor(String, RpcReplyPort<GatewayResult<RemoteActorId>>),
+}
 
-    /// instantiate (a proxy of) the remote actor into the local system
-    GetRemoteActorById(RemoteActorId, RpcReplyPort<Result<ActorCell, SomeError>>),
+impl ractor::Message for WSConnectionMessage { }
+
+
+pub trait UserFriendlyConnection {
+    async fn instantiate_proxy_for_remote_actor<T: ContextSerializable + ractor::Message + Send + Sync>(&self, remote_actor_id: RemoteActorId) -> GatewayResult<ActorRef<T>>;
+}
+
+impl UserFriendlyConnection for ActorRef<WSConnectionMessage> {
+    async fn instantiate_proxy_for_remote_actor<T: ContextSerializable + ractor::Message + Send + Sync>(&self, remote_actor_id: RemoteActorId) -> GatewayResult<ActorRef<T>> {
+        let connection_ref = self.clone();
+        
+        let (proxy_actor_ref, _handle) =
+            FnActor::<T>::start_fn_linked(self.get_cell(), async move |mut ctx| {
+                while let Some(msg) = ctx.rx.recv().await {
+                    let msg_clone = msg;
+                    let remote_id = remote_actor_id.clone();
+                    
+                    let f: TransmitMessageF = Box::new(move |ctx| {
+                        // Create a regular closure that returns a boxed and pinned future
+                        Box::pin(async move {
+                            let bytes: Vec<u8> = crate::serialization::ContextSerializable::serialize(msg_clone, &ctx).await?;
+                            Ok(bytes)
+                        })
+                    });
+                    
+                    let _ = connection_ref.send_message(WSConnectionMessage::TransmitMessage(remote_id, f));
+                }
+            }).await?;
+
+        Ok(proxy_actor_ref)
+    }
 }
 
 // Connection actor state
@@ -125,18 +182,32 @@ pub struct Introduction {
     pub channel_id_contribution: uuid::Bytes,
     pub version: String,
     pub info_text: String,
+    pub this_side_id: LocalConnectionId
 }
 
 pub struct WSConnectionState {
     args: WSConnectionArgs,
     channel_state: ChannelState,
-    published_actors: HashMap<OpaqueActorId, ActorId>,
+    published_actors: HashMap<OpaqueActorId, (ActorCell, Box<dyn MsgReceiver + Send>)>,
     named_actors: HashMap<String, OpaqueActorId>,
+
+    next_request_id: u64,
+    open_requests: HashMap<CrossGatewayMessageId, RpcReplyPort<GatewayResult<RemoteActorId>>>,
 }
 
 pub struct WSConnectionArgs {
     addr: SocketAddr,
     sender: WebSocketSink,
+    local_id: LocalConnectionId,
+    config: PortalConfig
+}
+
+fn xor_arrays(a: [u8; 16], b: [u8; 16]) -> [u8; 16] {
+    let mut result = [0u8; 16];
+    for i in 0..16 {
+        result[i] = a[i] ^ b[i];
+    }
+    result
 }
 
 // Connection actor implementation
@@ -165,6 +236,7 @@ impl Actor for WSConnection {
             channel_id_contribution: uuid::Uuid::new_v4().to_bytes_le(),
             version: "0.1".to_string(),
             info_text: msg.to_string(),
+            this_side_id: args.local_id.clone(),
         };
         let text = serde_json::to_string_pretty(&introduction)?;
 
@@ -178,6 +250,8 @@ impl Actor for WSConnection {
             },
             published_actors: HashMap::new(),
             named_actors: HashMap::new(),
+            open_requests: HashMap::new(),
+            next_request_id: 1,
         })
     }
 
@@ -192,8 +266,26 @@ impl Actor for WSConnection {
                 info!("Received text message from {}: {}", state.args.addr, text);
 
                 match &state.channel_state {
-                    ChannelState::Opening { self_introduction } => todo!(),
-                    ChannelState::Open { .. } => todo!(),
+                    ChannelState::Opening { self_introduction } => {
+                        let remote_introduction: Introduction = serde_json::from_str(&text)?;
+                        info!(
+                            "Received introduction from {}: {:?}",
+                            state.args.addr, remote_introduction
+                        );
+                        let channel_id = ConnectionKey(u128::from_le_bytes(xor_arrays(
+                            self_introduction.channel_id_contribution,
+                            remote_introduction.channel_id_contribution,
+                        )));
+
+                        state.channel_state = ChannelState::Open {
+                            self_introduction: self_introduction.clone(),
+                            remote_introduction,
+                            channel_id: channel_id.clone(),
+                        };
+                    }
+                    ChannelState::Open { .. } => {
+                        panic!("Received text message after handshake: {}", text);
+                    }
                 }
             }
             WSConnectionMessage::Binary(data) => {
@@ -202,14 +294,115 @@ impl Actor for WSConnection {
                     state.args.addr,
                     data.len()
                 );
+
+                match &state.channel_state {
+                    ChannelState::Opening { .. } => {
+                        panic!("Received binary message before handshake: {} bytes", data.len());
+                    }
+                    ChannelState::Open { remote_introduction, channel_id, .. } => {
+                        let (msg, consumed) = bincode::decode_from_slice::<CrossGatewayMessage, _>(&data, bincode::config::standard())                            ?;
+                        assert!(consumed == data.len(), "Consumed {} bytes, but {} bytes were sent", consumed, data.len());
+                        info!("Received message from {}: {:?}", state.args.addr, msg);
+
+                        match msg {
+                            CrossGatewayMessage::RequestActorByName(id, name) => {
+
+                                // Look up the named actor in our local registry
+                                let opaque_id = state.named_actors.get(&name).cloned();
+                                
+                                let response = match opaque_id {
+                                    Some(opaque_id) => {
+                                        // Construct a RemoteActorId for the actor
+                                        let remote_id = RemoteActorId {
+                                            connection_key: channel_id.clone(),
+                                            side: state.args.local_id.clone(), 
+                                            id: opaque_id.clone(),
+                                        };
+                                        
+                                        Ok(remote_id)
+                                    }
+                                    None => Err(ActorRequestError::ActorNotFound),
+                                };
+                                
+                                // Send response back
+                                let response_msg = CrossGatewayMessage::ResponseActorByName(id, response);
+                                let data = bincode::encode_to_vec(response_msg, bincode::config::standard())?;
+                                state.args.sender.send(RawMessage::Binary(data)).await?;
+                            }
+                            
+                            CrossGatewayMessage::RequestActorById(id, opaque_id) => {
+                                // Look up the actor in our registry
+                                let actor_id = state.published_actors.get(&opaque_id);
+                                
+                                let response = match actor_id {
+                                    Some(actor_id) => {
+                                        // Construct a RemoteActorId for the actor
+                                        let remote_id = RemoteActorId {
+                                            connection_key:  channel_id.clone(),
+                                            side: state.args.local_id.clone(),
+                                            id: opaque_id.clone(),
+                                        };
+                                        
+                                        Ok(remote_id)
+                                    }
+                                    None => Err(ActorRequestError::ActorNotFound),
+                                };
+                                
+                                // Send response back
+                                let response_msg = CrossGatewayMessage::ResponseActorById(id, response);
+                                let data = bincode::encode_to_vec(response_msg, bincode::config::standard())?;
+                                state.args.sender.send(RawMessage::Binary(data)).await?;
+                            }
+                            
+                            CrossGatewayMessage::ResponseActorByName(id, response) => {
+                                // Handle response to our earlier request
+                                if let Some(reply_port) = state.open_requests.remove(&id) {
+                                    let mapped: GatewayResult<RemoteActorId> = response.map_err(|err|err.into());
+                                    reply_port.send(mapped)?;
+                                } else {
+                                    error!("Received response for unknown request ID: {}", id);
+                                }
+                            }
+                            
+                            CrossGatewayMessage::ResponseActorById(id, response) => {
+                                // Handle response to our earlier request
+                                if let Some(reply_port) = state.open_requests.remove(&id) {
+                                    let mapped: GatewayResult<RemoteActorId> = response.map_err(|err|err.into());
+                                    reply_port.send(mapped)?;
+                                } else {
+                                    error!("Received response for unknown request ID: {}", id);
+                                }
+                            }
+                            
+                            CrossGatewayMessage::SendMessage(target_id, data) => {
+                                // Find the local actor from the remote target
+                                if let Some((local_actor_cell, receiver)) = state.published_actors.get(&target_id.id) {
+                                    receiver.receive(
+                                        local_actor_cell.clone(),
+                                        &data,
+                                        ActorSerializationContext {
+                                            connection_key: target_id.connection_key.clone(),
+                                            connection: myself.clone(),
+                                            default_rpc_port_timeout: state.args.config.default_rpc_port_timeout,
+                                            local_connection_side: state.args.local_id.clone(),
+                                            remote_connection_side: remote_introduction.this_side_id.clone(),
+                                        },
+                                    ).await?;
+                                } else {
+                                    error!("Remote actor ID {} not found in published actors", target_id.id);
+                                }
+                            }
+                        }
+                    }
+                }
             }
             WSConnectionMessage::Close => {
                 info!("Closing connection to {}", state.args.addr);
                 myself.stop(Some("Connection closed".into()));
             }
 
-            WSConnectionMessage::PublishNamedActor(name, actor_cell, reply) => {
-                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
+            WSConnectionMessage::PublishNamedActor(name, actor_cell, receiver, reply) => {
+                let ChannelState::Open { channel_id, remote_introduction, .. } = &state.channel_state else {
                     // todo: actually handle error state
                     return Ok(());
                 };
@@ -217,8 +410,8 @@ impl Actor for WSConnection {
                 let existing = state
                     .published_actors
                     .iter()
-                    .try_find(|(k, v)| Some(**v == actor_cell.get_id()))
-                    .flatten();
+                    .find(|(k, (v, _))| v.get_id() == actor_cell.get_id());
+                
                 let opaque_actor_id = match existing {
                     Some((k, v)) => {
                         info!(
@@ -237,7 +430,7 @@ impl Actor for WSConnection {
                         );
                         state
                             .published_actors
-                            .insert(new_id.clone(), actor_cell.get_id());
+                            .insert(new_id.clone(), (actor_cell, receiver));
                         new_id
                     }
                 };
@@ -256,7 +449,7 @@ impl Actor for WSConnection {
 
                 let remote_actor_id = RemoteActorId {
                     connection_key: channel_id.clone(),
-                    side: todo!(),
+                    side: remote_introduction.this_side_id.clone(),
                     id: opaque_actor_id,
                 };
 
@@ -265,25 +458,48 @@ impl Actor for WSConnection {
                 }
             }
 
-            WSConnectionMessage::PublishActor(_, _) => {
+            WSConnectionMessage::PublishActor(actor_cell, receiver, rpc) => {
+                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
+                    // todo: actually handle error state
+                    return Ok(());
+                };
+
+
                 todo!()
             }
 
             WSConnectionMessage::QueryNamedRemoteActor(name, reply) => {
-                // need to send a message to the other side of the gateway
+                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
+                    // todo: actually handle error state
+                    return Ok(());
+                };
 
-                let bytes: Vec<u8> = todo!();
-
+                let request_id = state.next_request_id;
+                state.next_request_id += 1;
+                
+                state.open_requests.insert(request_id, reply);
+                
+                let request = CrossGatewayMessage::RequestActorByName(request_id, name);
+                let bytes = bincode::encode_to_vec(request, bincode::config::standard())?;
                 state.args.sender.send(RawMessage::Binary(bytes)).await?;
             }
 
-            WSConnectionMessage::TransmitMessage(target, msg) => {
-                todo!()
-            }
+            WSConnectionMessage::TransmitMessage(target, msg_f) => {
+                let ChannelState::Open { channel_id, .. } = &state.channel_state else {
+                    // todo: actually handle error state
+                    return Ok(());
+                };
 
-            WSConnectionMessage::GetRemoteActorById(_, _) => {
-                // need to send a message to the other side of the gateway
-                let bytes: Vec<u8> = todo!();
+                let bytes = msg_f(ActorSerializationContext {
+                    connection_key: channel_id.clone(),
+                    connection: myself.clone(),
+                    default_rpc_port_timeout: state.args.config.default_rpc_port_timeout,
+                    local_connection_side: state.args.local_id.clone(),
+                    remote_connection_side: target.side.clone(),
+                }).await?;
+
+                let request = CrossGatewayMessage::SendMessage(target, bytes.into_boxed_slice());
+                let bytes = bincode::encode_to_vec(request, bincode::config::standard())?;
                 state.args.sender.send(RawMessage::Binary(bytes)).await?;
             }
         }
@@ -359,6 +575,10 @@ impl Actor for WSGateway {
                     WSConnectionArgs {
                         addr,
                         sender: ws_stream,
+                        local_id: LocalConnectionId(rand::random()),
+                        config: PortalConfig {
+                            default_rpc_port_timeout: Duration::from_secs(120),
+                        },
                     },
                     myself.get_cell(),
                 )
@@ -485,7 +705,7 @@ impl<T: Send + Sync + ractor::Message + 'static> ProxyActor<T> {
     }
 }
 
-#[derive(bincode::Encode, bincode::Decode, Debug)]
+#[derive(bincode::Encode, bincode::Decode, Debug, Clone)]
 pub struct RemoteActorId {
     /// the connection key uniquely identifies the connection, it is the same ID on both sides
     pub connection_key: ConnectionKey,

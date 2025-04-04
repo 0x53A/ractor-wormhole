@@ -4,3 +4,4 @@
 
 * implement per-connection limits (rate limiting, max number of rpc-ports, max number of projected actors.)
 
+* add a more generic ``SerializationAdapter`` option to the derive macro

@@ -92,6 +92,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.97"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
+dependencies = [
+ "backtrace",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1180,6 +1189,38 @@ dependencies = [
 name = "ractor_wormhole"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "axum",
+ "bincode",
+ "bytes",
+ "clap",
+ "env_logger",
+ "futures",
+ "log",
+ "ractor",
+ "ractor_cluster_derive",
+ "ractor_wormhole_base",
+ "ractor_wormhole_derive",
+ "rand",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-tungstenite",
+ "tower-http",
+ "tracing",
+ "tracing-glog",
+ "tracing-subscriber",
+ "tracing-test",
+ "tungstenite",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "ractor_wormhole_base"
+version = "0.1.0"
+dependencies = [
  "axum",
  "bincode",
  "bytes",
@@ -1210,13 +1251,15 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "ractor_wormhole_base",
+ "venial",
 ]
 
 [[package]]
 name = "ractor_wormhole_sample_app"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "bytes",
  "clap",
@@ -1873,6 +1916,16 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "venial"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a42528baceab6c7784446df2a10f4185078c39bf73dc614f154353f1a6b1229"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
 
 [[package]]
 name = "version_check"

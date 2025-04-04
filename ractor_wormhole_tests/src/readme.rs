@@ -6,6 +6,8 @@
 
 // -------------------------------------------------
 
+use std::any;
+
 use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr, async_trait};
 use ractor_cluster_derive::RactorMessage;
 use ractor_wormhole::util::FnActor;
@@ -19,7 +21,7 @@ pub struct MyState {}
 
 // -------------------------------------------------
 
-pub async fn example_1() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn example_1() -> Result<(), anyhow::Error> {
     let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
         while let Some(msg) = ctx.rx.recv().await {
             println!("Received message: {}", msg);

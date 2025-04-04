@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "ractor_wormhole",
+    "ractor_wormhole", "ractor_wormhole_base",
     "ractor_wormhole_derive",
     "ractor_wormhole_tests",
     "sample_app"

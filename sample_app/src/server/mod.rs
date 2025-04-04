@@ -6,7 +6,7 @@ use ractor_wormhole::{gateway::WSConnectionMessage, util::FnActor};
 
 use crate::common::{ClientToServerMessage, PingPongMsg};
 
-pub async fn run(bind: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
     // create a callback for when a client connects
     let (mut ctx_on_client_connected, _) = FnActor::start().await?;
 

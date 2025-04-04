@@ -1,7 +1,7 @@
 mod ask;
-mod function_actor;
 mod combinators;
+mod function_actor;
 
 pub use ask::*;
-pub use function_actor::*;
 pub use combinators::*;
+pub use function_actor::*;

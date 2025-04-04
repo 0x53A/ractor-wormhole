@@ -7,6 +7,7 @@ use ractor::{
 // -------------------------------------------------------------------------------------------------------
 
 //#[derive(RactorMessage)]
+#[derive(ractor_wormhole_derive::WormholeSerializable)]
 pub struct RpcProxyMsg<T: Send + Sync + 'static> {
     pub data: T,
 }
@@ -117,7 +118,7 @@ pub mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_rpc_proxy_actor() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_rpc_proxy_actor() -> Result<(), anyhow::Error> {
         // construct a new RpcReplyPort
         let (tx, rx) = ractor::concurrency::oneshot();
         let rpc_reply_port: RpcReplyPort<u32> = tx.into();

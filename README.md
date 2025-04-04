@@ -31,11 +31,44 @@ It would be trivial to implement transports for TCP or stdio.
 
 ## Serialization
 
-Ractor Wormhole uses a custom serialization scheme. This is required because it enables fishing ``ActorRef``s and ``RpcReplyChannel``s out of deeply nested enums and structs, and then reconstructing everything on the other side.
+Ractor Wormhole uses a custom serialization scheme. This is required because it enables fishing ``ActorRef``s and ``RpcReplyPort``s out of deeply nested enums and structs, and then reconstructing everything on the other side.
 
-Unfortunately, this means all types that should be passed through the portal need to implement the custom trait ``ContextSerializable``.
+This means all types that should be passed through the portal need to implement the custom trait ``ContextSerializable``.
 
-I plan to add adapters to serde.
+Unfortunately, because Ractor Wormhole is a seperate crate from ractor, and the lack of specialisation, and the damned orphan roles, I found it impossible to write a fully generic automatic adapter for existing serialization libraries (serde and/or bincode).
+
+The top level Message type needs to be either a primitive type for which this crate already provides an implementation, or a user defined type with the trait ``ContextSerializable`` implemented.
+
+For individual fields, you can use automatic adaption when using our ``derive`` macro.
+
+Example:
+
+```rust
+
+// these types already have serialization logic defined
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SomeData { 
+    // ...
+}
+
+#[derive(bincode::Encode, bincode::Decode)]
+pub struct OtherData {
+    // ...
+}
+
+
+// the actual message type needs our derive macro ...
+#[derive(WormholeSerializable)]
+pub struct WormholeMessage {
+    // .. but we can use annotations that for the fields, it should delegate to an existing serialization library
+    #[serde] pub a: SomeData,
+    #[bincode] pub b: OtherData
+}
+```
+
+This strongly couples this crate to serde and bincode, which i'm not exactly happy about, but well, better than nothing.
+
+It's important that both ``ActorRef<T>`` and ``RpcReplyPort<T>`` MUST **always** be serialized through the ``ContextSerializable`` interface!
                             
 ## Relationship to Ractor Cluster
 

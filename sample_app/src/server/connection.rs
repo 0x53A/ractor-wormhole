@@ -13,7 +13,7 @@ use ractor_wormhole::gateway::{
 pub async fn start_server(
     bind: SocketAddr,
     on_client_connected: ActorRef<OnActorConnectedMessage>,
-) -> Result<ActorRef<WSGatewayMessage>, Box<dyn std::error::Error>> {
+) -> Result<ActorRef<WSGatewayMessage>, anyhow::Error> {
     // Initialize logger
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),

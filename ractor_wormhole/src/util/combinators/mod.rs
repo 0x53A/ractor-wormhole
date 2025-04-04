@@ -1,5 +1,5 @@
-mod map;
 mod filter;
+mod map;
 
-pub use map::*;
 pub use filter::*;
+pub use map::*;

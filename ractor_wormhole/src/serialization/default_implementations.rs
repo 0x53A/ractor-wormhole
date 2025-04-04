@@ -5,9 +5,9 @@ use super::*;
 // -------------------------------------------------------------------------------------------------------
 
 #[async_trait]
-impl<T> ContextSerializable for ActorRef<T> {
+impl<T: ContextSerializable + ractor::Message + Send + Sync + 'static> ContextSerializable for ActorRef<T> {
     async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
-        ctx.serialize_actor_ref(self).await
+        ctx.serialize_actor_ref(&self).await
     }
 
     async fn deserialize(
@@ -19,7 +19,7 @@ impl<T> ContextSerializable for ActorRef<T> {
 }
 
 #[async_trait]
-impl<T: Send + Sync + 'static> ContextSerializable for RpcReplyPort<T> {
+impl<T: ContextSerializable + Send + Sync + 'static> ContextSerializable for RpcReplyPort<T> {
     async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
         ctx.serialize_replychannel(self).await
     }
@@ -74,6 +74,8 @@ impl<T: ContextSerializable + Send + Sync + 'static> ContextSerializable for Vec
     }
 }
 
+// -------------------------------------------------------------------------------------------------------
+
 #[async_trait]
 impl ContextSerializable for Vec<u8> {
     async fn serialize(self, _ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
@@ -94,3 +96,42 @@ impl ContextSerializable for Vec<u8> {
 }
 
 // -------------------------------------------------------------------------------------------------------
+
+#[async_trait]
+impl ContextSerializable for u32 {
+    async fn serialize(self, _ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+        let mut buffer = Vec::with_capacity(4);
+        buffer.extend_from_slice(&self.to_le_bytes());
+        Ok(buffer)
+    }
+
+    async fn deserialize(
+        _ctx: &ActorSerializationContext,
+        data: &[u8],
+    ) -> SerializationResult<Self> {
+        assert_eq!(data.len(), 4);
+        Ok(u32::from_le_bytes(data[0..4].try_into()?))
+    }
+}
+
+// -------------------------------------------------------------------------------------------------------
+
+#[async_trait]
+impl ContextSerializable for String {
+    async fn serialize(self, _ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+        let mut buffer = Vec::with_capacity(8 + self.len());
+        let length = self.len() as u64;
+        buffer.extend_from_slice(&length.to_le_bytes());
+        buffer.extend_from_slice(self.as_bytes());
+        Ok(buffer)
+    }
+
+    async fn deserialize(
+        _ctx: &ActorSerializationContext,
+        data: &[u8],
+    ) -> SerializationResult<Self> {
+        let length = u64::from_le_bytes(data[0..8].try_into()?) as usize;
+        let string_data = &data[8..8 + length];
+        Ok(String::from_utf8(string_data.to_vec())?)
+    }
+}
