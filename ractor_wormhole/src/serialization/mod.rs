@@ -12,7 +12,8 @@ pub use rpc_proxy::*;
 use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
 
 use crate::{
-    gateway::{MsgReceiver, NexusResult, PortalActorMessage, RemoteActorId, UserFriendlyPortal},
+    gateway::RemoteActorId,
+    portal::{MsgReceiver, NexusResult, PortalActorMessage, UserFriendlyPortal},
     util::ActorRef_Ask,
 };
 

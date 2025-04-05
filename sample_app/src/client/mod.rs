@@ -2,7 +2,7 @@ mod connection;
 
 use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
-    gateway::{PortalActorMessage, UserFriendlyPortal},
+    portal::{PortalActorMessage, UserFriendlyPortal},
     serialization::GetReceiver,
     util::{ActorRef_Ask, FnActor},
 };

@@ -2,7 +2,7 @@
 
 use ractor::{ActorRef, RpcReplyPort, concurrency::Duration};
 use ractor_cluster_derive::RactorMessage;
-use ractor_wormhole::{gateway::NexusResult, util::FnActor};
+use ractor_wormhole::{portal::NexusResult, util::FnActor};
 use ractor_wormhole_derive::WormholeTransmaterializable;
 
 #[derive(Debug, Clone, WormholeTransmaterializable)]

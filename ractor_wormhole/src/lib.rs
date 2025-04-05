@@ -7,6 +7,7 @@
 
 pub mod conduit;
 pub mod gateway;
+pub mod portal;
 pub mod serialization;
 pub mod util;
 

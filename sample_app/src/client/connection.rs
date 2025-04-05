@@ -10,7 +10,8 @@ use url::Url;
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
-    gateway::{self, NexusActorMessage, PortalActorMessage, start_nexus},
+    gateway::{self, NexusActorMessage, start_nexus},
+    portal::PortalActorMessage,
 };
 
 pub async fn establish_connection(
