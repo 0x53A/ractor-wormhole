@@ -66,11 +66,15 @@ impl ::ractor_wormhole::serialization::ContextSerializable for Dummy {
             )
             .await?;
 
-        assert_eq!(
-            offset,
-            data.len(),
-            "Deserialization did not consume all data"
-        );
+        if data.len() != offset {
+            return Err(
+                ::ractor_wormhole::serialization::serialization_proxies::anyhow!(
+                    "Deserialization did not consume all data! Buffer length: {}, consumed: {}",
+                    data.len(),
+                    offset
+                ),
+            );
+        }
 
         Ok(Self { dummy: field_dummy })
     }
@@ -234,15 +238,24 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
                 Self::Case3 { field1, field2 }
             }
             _ => {
-                panic!("Unknown variant: {}", variant_name)
+                return Err(
+                    ::ractor_wormhole::serialization::serialization_proxies::anyhow!(
+                        "Unknown variant: {}",
+                        variant_name
+                    ),
+                );
             }
         };
 
-        assert_eq!(
-            offset,
-            data.len(),
-            "Deserialization did not consume all data"
-        );
+        if data.len() != offset {
+            return Err(
+                ::ractor_wormhole::serialization::serialization_proxies::anyhow!(
+                    "Deserialization did not consume all data! Buffer length: {}, consumed: {}",
+                    data.len(),
+                    offset
+                ),
+            );
+        }
 
         Ok(result)
     }
@@ -334,52 +347,146 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
     let extended_where_clause = input
         .create_derive_where_clause(quote! {::ractor_wormhole::serialization::ContextSerializable});
 
-    let venial::Fields::Named(named_fields) = input.fields else {
-        return bail!(
-            input,
-            "WormholeSerializable can only be derived for structs with named fields."
-        );
-    };
+    match &input.fields {
+        venial::Fields::Named(named_fields) => {
+            let fields = named_fields
+                .fields
+                .iter()
+                .map(|(field, _)| for_field(field))
+                .collect::<Result<Vec<_>, _>>()?;
 
-    let fields = named_fields
-        .fields
-        .iter()
-        .map(|(field, _)| for_field(field))
-        .collect::<Result<Vec<_>, _>>()?;
+            let (serialize, deserialize): (Vec<_>, Vec<_>) = fields.into_iter().unzip();
 
-    let (serialize, deserialize): (Vec<_>, Vec<_>) = fields.into_iter().unzip();
+            // Create the struct reconstruction with all fields
+            let field_names = named_fields.fields.iter().map(|(field, _)| {
+                let field_name = field.name.clone();
+                let ident_field = format_ident!("field_{field_name}");
+                quote! { #field_name: #ident_field }
+            });
 
-    // Create the struct reconstruction with all fields
-    let field_names = named_fields.fields.iter().map(|(field, _)| {
-        let field_name = field.name.clone();
-        let ident_field = format_ident!("field_{field_name}");
-        quote! { #field_name: #ident_field }
-    });
+            let q = quote! {
+                #[::ractor_wormhole::serialization::serialization_proxies::async_trait]
+                impl #impl_generics ::ractor_wormhole::serialization::ContextSerializable for #struct_name #type_generics #extended_where_clause {
+                    async fn serialize(self, ctx: &::ractor_wormhole::serialization::ActorSerializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
+                        let mut buffer = Vec::new();
 
-    let q = quote! {
-        #[::ractor_wormhole::serialization::serialization_proxies::async_trait]
-        impl #impl_generics ::ractor_wormhole::serialization::ContextSerializable for #struct_name #type_generics #extended_where_clause {
-            async fn serialize(self, ctx: &::ractor_wormhole::serialization::ActorSerializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
-                let mut buffer = Vec::new();
+                        #(#serialize)*
 
-                #(#serialize)*
+                        Ok(buffer)
+                    }
 
-                Ok(buffer)
-            }
+                    async fn deserialize(ctx: &::ractor_wormhole::serialization::ActorSerializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
+                        let mut offset = 0;
 
-            async fn deserialize(ctx: &::ractor_wormhole::serialization::ActorSerializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
-                let mut offset = 0;
+                        #(#deserialize)*
 
-                #(#deserialize)*
+                        if data.len() != offset {
+                            return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Deserialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
+                        }
 
-                assert_eq!(offset, data.len(), "Deserialization did not consume all data");
+                        Ok(Self { #(#field_names),* })
+                    }
+                }
+            };
 
-                Ok(Self { #(#field_names),* })
-            }
+            Ok(q)
         }
-    };
+        venial::Fields::Tuple(tuple_fields) => {
+            // Handle tuple structs like `struct UserAlias(String)`
+            let field_count = tuple_fields.fields.len();
+            let field_types: Vec<_> = tuple_fields.fields.iter().map(|(f, _)| f.clone()).collect();
 
-    Ok(q)
+            // Generate serialization code for tuple fields
+            let mut serialize_fields = Vec::new();
+            for i in 0..field_count {
+                let field_type = &field_types[i];
+                let field_bytes_ident = format_ident!("field_bytes_{}", i);
+                let index = proc_macro2::Literal::usize_unsuffixed(i);
+
+                let serialize_field = quote! {
+                    let #field_bytes_ident = <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::serialize(
+                        self.#index, ctx
+                    ).await?;
+                    buffer.extend_from_slice(&(#field_bytes_ident.len() as u64).to_le_bytes());
+                    buffer.extend_from_slice(&#field_bytes_ident);
+                };
+                serialize_fields.push(serialize_field);
+            }
+
+            // Generate deserialization code for tuple fields
+            let mut deserialize_fields = Vec::new();
+            let mut field_value_idents = Vec::new();
+            for i in 0..field_count {
+                let field_type = &field_types[i];
+                let field_len_ident = format_ident!("field{}_len", i);
+                let field_bytes_ident = format_ident!("field{}_bytes", i);
+                let field_value_ident = format_ident!("field{}_value", i);
+                field_value_idents.push(field_value_ident.clone());
+
+                deserialize_fields.push(quote! {
+                    let #field_len_ident = u64::from_le_bytes(
+                        data[offset..offset + 8].try_into()?
+                    ) as usize;
+                    offset += 8;
+                    let #field_bytes_ident = &data[offset..offset + #field_len_ident];
+                    offset += #field_len_ident;
+                    let #field_value_ident =
+                        <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+                            ctx, #field_bytes_ident
+                        ).await?;
+                });
+            }
+
+            let q = quote! {
+                #[::ractor_wormhole::serialization::serialization_proxies::async_trait]
+                impl #impl_generics ::ractor_wormhole::serialization::ContextSerializable for #struct_name #type_generics #extended_where_clause {
+                    async fn serialize(self, ctx: &::ractor_wormhole::serialization::ActorSerializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
+                        let mut buffer = Vec::new();
+
+                        #(#serialize_fields)*
+
+                        Ok(buffer)
+                    }
+
+                    async fn deserialize(ctx: &::ractor_wormhole::serialization::ActorSerializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
+                        let mut offset = 0;
+
+                        #(#deserialize_fields)*
+
+                        if data.len() != offset {
+                            return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Deserialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
+                        }
+
+                        Ok(Self(#(#field_value_idents),*))
+                    }
+                }
+            };
+
+            Ok(q)
+        }
+        venial::Fields::Unit => {
+            // Handle unit structs like `struct EmptyStruct;`
+            let q = quote! {
+                #[::ractor_wormhole::serialization::serialization_proxies::async_trait]
+                impl #impl_generics ::ractor_wormhole::serialization::ContextSerializable for #struct_name #type_generics #extended_where_clause {
+                    async fn serialize(self, _ctx: &::ractor_wormhole::serialization::ActorSerializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
+                        // Unit structs have no data to serialize
+                        Ok(Vec::new())
+                    }
+
+                    async fn deserialize(_ctx: &::ractor_wormhole::serialization::ActorSerializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
+                        // Ensure we received empty data
+                        if data.len() != 0 {
+                            return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Unit struct should have no data to deserialize, but buffer has len={}", data.len()));
+                        }
+                        Ok(Self)
+                    }
+                }
+            };
+
+            Ok(q)
+        }
+    }
 }
 
 fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::Error> {
@@ -582,18 +689,13 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let result = match variant_name.as_str() {
                     #(#deserialize_arms)*
                     _ => {
-                        panic!("Unknown variant: {}", variant_name)
-                        // return Err(::ractor_wormhole::serialization::SerializationError::DeserializationError(
-                        //     format!("Unknown variant: {}", variant_name)
-                        // ));
+                        return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Unknown variant: {}", variant_name));
                     }
                 };
 
-                assert_eq!(
-                    offset,
-                    data.len(),
-                    "Deserialization did not consume all data"
-                );
+                if data.len() != offset {
+                    return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Deserialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
+                }
 
                 Ok(result)
             }

@@ -1,3 +1,4 @@
+mod alias_gen;
 mod connection;
 
 use std::net::SocketAddr;

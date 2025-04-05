@@ -14,6 +14,8 @@ use crate::{
     util::{ActorRef_Ask, FnActor},
 };
 
+use crate::serialization::internal_serializations::SimpleByteSerializable;
+
 // -------------------------------------------------------------------------------------------------------
 
 pub enum RawMessage {
@@ -405,16 +407,7 @@ impl Actor for WSConnection {
                         );
                     }
                     ChannelState::Open { channel_id, .. } => {
-                        let (msg, consumed) = bincode::decode_from_slice::<CrossGatewayMessage, _>(
-                            &data,
-                            bincode::config::standard(),
-                        )?;
-                        assert!(
-                            consumed == data.len(),
-                            "Consumed {} bytes, but {} bytes were sent",
-                            consumed,
-                            data.len()
-                        );
+                        let msg = CrossGatewayMessage::deserialize(&data)?;
                         info!("Received message from {}: {:?}", state.args.addr, msg);
 
                         match msg {
@@ -645,7 +638,7 @@ impl Actor for WSConnection {
                 state.open_requests.insert(request_id, reply);
 
                 let request = CrossGatewayMessage::RequestActorByName(request_id, name);
-                let bytes = bincode::encode_to_vec(request, bincode::config::standard())?;
+                let bytes = request.serialize()?;
                 state.args.sender.send(RawMessage::Binary(bytes)).await?;
                 state.args.sender.flush().await?;
             }
@@ -690,7 +683,7 @@ impl Actor for WSConnection {
                 };
 
                 let request = CrossGatewayMessage::SendMessage(target, bytes.into_boxed_slice());
-                let bytes = bincode::encode_to_vec(request, bincode::config::standard())?;
+                let bytes = request.serialize()?;
                 state.args.sender.send(RawMessage::Binary(bytes)).await?;
                 state.args.sender.flush().await?;
             }

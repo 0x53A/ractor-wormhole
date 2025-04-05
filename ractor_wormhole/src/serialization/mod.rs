@@ -1,6 +1,10 @@
+mod default_impl_tupl;
 mod default_implementations;
+pub mod internal_serializations;
 mod rpc_proxy;
+mod util;
 
+use internal_serializations::SimpleByteSerializable;
 pub use rpc_proxy::*;
 
 // -------------------------------------------------------------------------------------------------------
@@ -134,7 +138,7 @@ impl ActorSerializationContext {
             timeout_ms: Some(timeout.as_millis()),
             remote_actor_id: published_id,
         };
-        let serialized = bincode::encode_to_vec(&structured, bincode::config::standard())?;
+        let serialized = structured.serialize()?;
 
         Ok(serialized)
     }
@@ -153,7 +157,7 @@ impl ActorSerializationContext {
             )
             .await?;
 
-        let serialized = bincode::encode_to_vec(published_id, bincode::config::standard())?;
+        let serialized = published_id.serialize()?;
 
         Ok(serialized)
     }
@@ -165,9 +169,7 @@ impl ActorSerializationContext {
         buffer: &[u8],
     ) -> SerializationResult<RpcReplyPort<T>> {
         // deserialize from bytes
-        let (structured, consumed): (SerializedRpcReplyPort, _) =
-            bincode::decode_from_slice(buffer, bincode::config::standard())?;
-        assert!(consumed == buffer.len());
+        let structured: SerializedRpcReplyPort = SerializedRpcReplyPort::deserialize(buffer)?;
 
         let timeout: Option<Duration> = structured
             .timeout_ms
@@ -192,9 +194,7 @@ impl ActorSerializationContext {
         &self,
         buffer: &[u8],
     ) -> SerializationResult<ActorRef<T>> {
-        let (remote_actor_id, consumed): (RemoteActorId, _) =
-            bincode::decode_from_slice(buffer, bincode::config::standard())?;
-        assert!(consumed == buffer.len());
+        let remote_actor_id = RemoteActorId::deserialize(buffer)?;
 
         let actor_cell = self
             .connection
@@ -223,6 +223,7 @@ pub trait ContextSerializable {
 
 pub mod serialization_proxies {
 
+    pub use ::anyhow::anyhow;
     pub use ::ractor::async_trait;
 
     use super::*;

@@ -4,6 +4,24 @@ use ractor::{ActorRef, RpcReplyPort};
 use ractor_cluster_derive::RactorMessage;
 use ractor_wormhole_derive::WormholeSerializable;
 
+#[derive(Debug, Clone, WormholeSerializable)]
+pub struct UserAlias(String);
+#[derive(Debug, Clone, WormholeSerializable)]
+pub struct ChatMessage(String);
+
+#[derive(Debug, RactorMessage, WormholeSerializable)]
+pub enum ChatServerMessage {
+    PostMessage(ChatMessage),
+}
+
+#[derive(Debug, RactorMessage, WormholeSerializable)]
+pub enum ChatClientMessage {
+    AssignAlias(String),
+    MessageReceived(UserAlias, ChatMessage),
+}
+
+// ----------------------------------------------------------------------------------
+
 #[derive(Debug, RactorMessage, WormholeSerializable)]
 pub enum PingPongMsg {
     Ping(ActorRef<PingPongMsg>),

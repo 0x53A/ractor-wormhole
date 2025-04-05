@@ -2,6 +2,8 @@
 #![feature(try_find)]
 #![feature(negative_impls)]
 #![feature(min_specialization)]
+#![feature(macro_metavar_expr_concat)]
+#![feature(concat_idents)]
 
 pub mod gateway;
 pub mod serialization;
