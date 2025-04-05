@@ -1,4 +1,4 @@
-use crate::gateway::{CrossNexusMessage, RemoteActorId};
+use crate::gateway::{CrossPortalMessage, RemoteActorId};
 
 use super::{SerializationResult, SerializedRpcReplyPort, util::require_buffer_size};
 
@@ -47,7 +47,7 @@ impl SimpleByteTransmaterializable for RemoteActorId {
 
 // -------------------------------------------------------------------------------------------------------
 
-impl SimpleByteTransmaterializable for CrossNexusMessage {
+impl SimpleByteTransmaterializable for CrossPortalMessage {
     fn immaterialize(&self) -> SerializationResult<Vec<u8>> {
         Ok(bincode::encode_to_vec(self, bincode::config::standard())?)
     }
@@ -56,7 +56,7 @@ impl SimpleByteTransmaterializable for CrossNexusMessage {
     where
         Self: Sized,
     {
-        let (msg, consumed): (CrossNexusMessage, _) =
+        let (msg, consumed): (CrossPortalMessage, _) =
             bincode::decode_from_slice(data, bincode::config::standard())?;
         require_buffer_size(data, consumed)?;
         Ok(msg)

@@ -12,7 +12,7 @@ pub use rpc_proxy::*;
 use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
 
 use crate::{
-    gateway::{MsgReceiver, NexusResult, RemoteActorId, UserFriendlyPortal, WSPortalMessage},
+    gateway::{MsgReceiver, NexusResult, PortalActorMessage, RemoteActorId, UserFriendlyPortal},
     util::ActorRef_Ask,
 };
 
@@ -33,7 +33,7 @@ pub struct SerializedRpcReplyPort {
 // -------------------------------------------------------------------------------------------------------
 
 pub struct TransmaterializationContext {
-    pub connection: ActorRef<WSPortalMessage>,
+    pub connection: ActorRef<PortalActorMessage>,
     /// which timeout to use if the RpcReplyPort doesn't have a timeout set
     pub default_rpc_port_timeout: Duration,
 }
@@ -130,7 +130,7 @@ impl TransmaterializationContext {
         let published_id = self
             .connection
             .ask(
-                |rpc| WSPortalMessage::PublishActor(local_actor.get_cell(), receiver, rpc),
+                |rpc| PortalActorMessage::PublishActor(local_actor.get_cell(), receiver, rpc),
                 None,
             )
             .await?;
@@ -153,7 +153,7 @@ impl TransmaterializationContext {
         let published_id = self
             .connection
             .ask(
-                |rpc| WSPortalMessage::PublishActor(actor_ref.get_cell(), receiver, rpc),
+                |rpc| PortalActorMessage::PublishActor(actor_ref.get_cell(), receiver, rpc),
                 None,
             )
             .await?;

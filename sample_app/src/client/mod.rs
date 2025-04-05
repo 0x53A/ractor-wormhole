@@ -2,7 +2,7 @@ mod connection;
 
 use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
-    gateway::{UserFriendlyPortal, WSPortalMessage},
+    gateway::{PortalActorMessage, UserFriendlyPortal},
     serialization::GetReceiver,
     util::{ActorRef_Ask, FnActor},
 };
@@ -43,7 +43,7 @@ pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
 
     println!("Publishing local actor on portal");
 
-    portal.send_message(WSPortalMessage::PublishNamedActor(
+    portal.send_message(PortalActorMessage::PublishNamedActor(
         "root".to_string(),
         local_actor.get_cell(),
         local_actor.get_receiver(),
@@ -55,7 +55,7 @@ pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
     // the server also published an actor under the name "root" (note that these names are arbitrary)
     let server_root_id = portal
         .ask(
-            |rpc| WSPortalMessage::QueryNamedRemoteActor("root".to_string(), rpc),
+            |rpc| PortalActorMessage::QueryNamedRemoteActor("root".to_string(), rpc),
             None,
         )
         .await??;

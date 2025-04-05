@@ -6,14 +6,15 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
 
-use ractor_wormhole::gateway::{
-    self, OnActorConnectedMessage, RawMessage, WSNexusMessage, start_nexus,
+use ractor_wormhole::{
+    conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
+    gateway::{self, NexusActorMessage, OnActorConnectedMessage, start_nexus},
 };
 
 pub async fn start_server(
     bind: SocketAddr,
     on_client_connected: ActorRef<OnActorConnectedMessage>,
-) -> Result<ActorRef<WSNexusMessage>, anyhow::Error> {
+) -> Result<ActorRef<NexusActorMessage>, anyhow::Error> {
     // Initialize logger
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -41,7 +42,7 @@ pub async fn start_server(
 async fn handle_connection(
     stream: TcpStream,
     addr: SocketAddr,
-    actor_ref: ActorRef<WSNexusMessage>,
+    actor_ref: ActorRef<NexusActorMessage>,
 ) {
     // Upgrade the TCP connection to a WebSocket connection
     let ws_stream = match accept_async(stream).await {
@@ -59,34 +60,34 @@ async fn handle_connection(
     let ws_receiver = ws_receiver.map(|element| match element {
         Ok(msg) => {
             let msg = match msg {
-                Message::Text(text) => gateway::RawMessage::Text(text.to_string()),
-                Message::Binary(bin) => gateway::RawMessage::Binary(bin.into()),
-                Message::Close(_) => gateway::RawMessage::Close(None),
-                _ => gateway::RawMessage::Other,
+                Message::Text(text) => ConduitMessage::Text(text.to_string()),
+                Message::Binary(bin) => ConduitMessage::Binary(bin.into()),
+                Message::Close(_) => ConduitMessage::Close(None),
+                _ => ConduitMessage::Other,
             };
 
             Ok(msg)
         }
-        Err(e) => Err(gateway::RawError::from(e)),
+        Err(e) => Err(ConduitError::from(e)),
     });
 
-    let ws_sender = ws_sender.with(|element: RawMessage| async {
+    let ws_sender = ws_sender.with(|element: ConduitMessage| async {
         let msg = match element {
-            RawMessage::Text(text) => Message::text(text),
-            RawMessage::Binary(bin) => Message::binary(bin),
-            RawMessage::Close(_) => Message::Close(None),
+            ConduitMessage::Text(text) => Message::text(text),
+            ConduitMessage::Binary(bin) => Message::binary(bin),
+            ConduitMessage::Close(_) => Message::Close(None),
             _ => panic!("Unsupported message type"),
         };
         Ok(msg)
     });
 
-    let ws_sender: gateway::WebSocketSink = Box::pin(ws_sender);
-    let ws_receiver: gateway::WebSocketSource = Box::pin(ws_receiver);
+    let ws_sender: ConduitSink = Box::pin(ws_sender);
+    let ws_receiver: ConduitSource = Box::pin(ws_receiver);
 
     let portal_identifier = format!("ws://{}", addr);
     let portal = call_t!(
         actor_ref,
-        WSNexusMessage::Connected,
+        NexusActorMessage::Connected,
         100,
         portal_identifier.clone(),
         ws_sender
