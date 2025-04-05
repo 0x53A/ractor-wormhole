@@ -1,4 +1,4 @@
-use crate::gateway::RemoteActorId;
+use crate::nexus::RemoteActorId;
 use crate::portal::CrossPortalMessage;
 
 use super::{SerializationResult, SerializedRpcReplyPort, util::require_buffer_size};

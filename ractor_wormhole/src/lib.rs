@@ -6,7 +6,7 @@
 #![feature(concat_idents)]
 
 pub mod conduit;
-pub mod gateway;
+pub mod nexus;
 pub mod portal;
 pub mod transmaterialization;
 pub mod util;

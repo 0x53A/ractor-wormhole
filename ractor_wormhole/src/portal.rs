@@ -10,7 +10,7 @@ use std::{collections::HashMap, fmt::Display, pin::Pin};
 
 use crate::{
     conduit::{ConduitMessage, ConduitSink},
-    gateway::RemoteActorId,
+    nexus::RemoteActorId,
     transmaterialization::{ContextTransmaterializable, GetReceiver, TransmaterializationContext},
     util::{ActorRef_Ask, FnActor},
 };

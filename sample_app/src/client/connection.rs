@@ -10,7 +10,7 @@ use url::Url;
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
-    gateway::{self, NexusActorMessage, start_nexus},
+    nexus::{self, NexusActorMessage, start_nexus},
     portal::PortalActorMessage,
 };
 
@@ -100,7 +100,7 @@ async fn connect_to_server(
             let portal_actor_copy = portal_actor.clone();
             let portal_identifier = format!("ws://{}", addr);
             tokio::spawn(async move {
-                gateway::receive_loop(ws_receiver, portal_identifier, portal_actor_copy).await
+                nexus::receive_loop(ws_receiver, portal_identifier, portal_actor_copy).await
             });
 
             Ok(portal_actor)

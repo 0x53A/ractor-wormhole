@@ -12,7 +12,7 @@ pub use rpc_proxy::*;
 use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
 
 use crate::{
-    gateway::RemoteActorId,
+    nexus::RemoteActorId,
     portal::{MsgReceiver, NexusResult, PortalActorMessage, UserFriendlyPortal},
     util::ActorRef_Ask,
 };

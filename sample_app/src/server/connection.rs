@@ -8,7 +8,7 @@ use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
-    gateway::{self, NexusActorMessage, OnActorConnectedMessage, start_nexus},
+    nexus::{self, NexusActorMessage, OnActorConnectedMessage, start_nexus},
 };
 
 pub async fn start_server(
@@ -96,7 +96,7 @@ async fn handle_connection(
     match portal {
         Ok(portal_actor) => {
             info!("Portal actor started for: {}", addr);
-            gateway::receive_loop(ws_receiver, portal_identifier, portal_actor).await
+            nexus::receive_loop(ws_receiver, portal_identifier, portal_actor).await
         }
         Err(e) => error!("Error starting portal actor: {}", e),
     }
