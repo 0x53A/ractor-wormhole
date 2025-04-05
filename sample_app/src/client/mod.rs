@@ -2,7 +2,7 @@ mod connection;
 
 use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
-    gateway::{UserFriendlyConnection, WSConnectionMessage},
+    gateway::{UserFriendlyPortal, WSPortalMessage},
     serialization::GetReceiver,
     util::{ActorRef_Ask, FnActor},
 };
@@ -32,35 +32,35 @@ pub async fn start_local_actor() -> Result<ActorRef<ServerToClientMessage>, anyh
 }
 
 pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
-    let (_gateway, connection) = connection::establish_connection(server_url).await?;
+    let (_nexus, portal) = connection::establish_connection(server_url).await?;
 
-    // create a local actor and publish it on the connection
+    // create a local actor and publish it on the portal
     let local_actor: ActorRef<ServerToClientMessage> = start_local_actor().await?;
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    println!("Publishing local actor on connection");
+    println!("Publishing local actor on portal");
 
-    connection.send_message(WSConnectionMessage::PublishNamedActor(
+    portal.send_message(WSPortalMessage::PublishNamedActor(
         "root".to_string(),
         local_actor.get_cell(),
         local_actor.get_receiver(),
         None,
     ))?;
 
-    println!("Local actor published on connection");
+    println!("Local actor published on portal");
 
     // the server also published an actor under the name "root" (note that these names are arbitrary)
-    let server_root_id = connection
+    let server_root_id = portal
         .ask(
-            |rpc| WSConnectionMessage::QueryNamedRemoteActor("root".to_string(), rpc),
+            |rpc| WSPortalMessage::QueryNamedRemoteActor("root".to_string(), rpc),
             None,
         )
         .await??;
 
     println!("Server root actor id: {:?}", server_root_id);
 
-    let server_root_actor_ref: ActorRef<ClientToServerMessage> = connection
+    let server_root_actor_ref: ActorRef<ClientToServerMessage> = portal
         .instantiate_proxy_for_remote_actor(server_root_id)
         .await?;
 

@@ -1,22 +1,22 @@
-use crate::gateway::{CrossGatewayMessage, RemoteActorId};
+use crate::gateway::{CrossNexusMessage, RemoteActorId};
 
 use super::{SerializationResult, SerializedRpcReplyPort, util::require_buffer_size};
 
 // -------------------------------------------------------------------------------------------------------
 
-pub trait SimpleByteSerializable {
-    fn serialize(&self) -> SerializationResult<Vec<u8>>;
-    fn deserialize(data: &[u8]) -> SerializationResult<Self>
+pub trait SimpleByteTransmaterializable {
+    fn immaterialize(&self) -> SerializationResult<Vec<u8>>;
+    fn rematerialize(data: &[u8]) -> SerializationResult<Self>
     where
         Self: Sized;
 }
 
-impl SimpleByteSerializable for SerializedRpcReplyPort {
-    fn serialize(&self) -> SerializationResult<Vec<u8>> {
+impl SimpleByteTransmaterializable for SerializedRpcReplyPort {
+    fn immaterialize(&self) -> SerializationResult<Vec<u8>> {
         Ok(bincode::encode_to_vec(self, bincode::config::standard())?)
     }
 
-    fn deserialize(data: &[u8]) -> SerializationResult<Self>
+    fn rematerialize(data: &[u8]) -> SerializationResult<Self>
     where
         Self: Sized,
     {
@@ -29,12 +29,12 @@ impl SimpleByteSerializable for SerializedRpcReplyPort {
 
 // -------------------------------------------------------------------------------------------------------
 
-impl SimpleByteSerializable for RemoteActorId {
-    fn serialize(&self) -> SerializationResult<Vec<u8>> {
+impl SimpleByteTransmaterializable for RemoteActorId {
+    fn immaterialize(&self) -> SerializationResult<Vec<u8>> {
         Ok(bincode::encode_to_vec(self, bincode::config::standard())?)
     }
 
-    fn deserialize(data: &[u8]) -> SerializationResult<Self>
+    fn rematerialize(data: &[u8]) -> SerializationResult<Self>
     where
         Self: Sized,
     {
@@ -47,16 +47,16 @@ impl SimpleByteSerializable for RemoteActorId {
 
 // -------------------------------------------------------------------------------------------------------
 
-impl SimpleByteSerializable for CrossGatewayMessage {
-    fn serialize(&self) -> SerializationResult<Vec<u8>> {
+impl SimpleByteTransmaterializable for CrossNexusMessage {
+    fn immaterialize(&self) -> SerializationResult<Vec<u8>> {
         Ok(bincode::encode_to_vec(self, bincode::config::standard())?)
     }
 
-    fn deserialize(data: &[u8]) -> SerializationResult<Self>
+    fn rematerialize(data: &[u8]) -> SerializationResult<Self>
     where
         Self: Sized,
     {
-        let (msg, consumed): (CrossGatewayMessage, _) =
+        let (msg, consumed): (CrossNexusMessage, _) =
             bincode::decode_from_slice(data, bincode::config::standard())?;
         require_buffer_size(data, consumed)?;
         Ok(msg)

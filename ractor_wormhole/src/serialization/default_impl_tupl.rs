@@ -3,20 +3,20 @@
 use ractor::async_trait;
 
 use super::{
-    ActorSerializationContext, ContextSerializable, SerializationResult,
+    TransmaterializationContext, ContextTransmaterializable, SerializationResult,
     util::{require_buffer_size, require_min_buffer_size},
 };
 
 // 1-tuple
 #[async_trait]
-impl<T0> ContextSerializable for (T0,)
+impl<T0> ContextTransmaterializable for (T0,)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem_bytes = self.0.serialize(ctx).await?;
+        let elem_bytes = self.0.immaterialize(ctx).await?;
         let elem_len = elem_bytes.len() as u64;
         buffer.extend_from_slice(&elem_len.to_le_bytes());
         buffer.extend_from_slice(&elem_bytes);
@@ -24,8 +24,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -34,7 +34,7 @@ where
         let elem_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem_len]).await?;
         offset += elem_len;
 
         require_buffer_size(data, offset)?;
@@ -44,20 +44,20 @@ where
 
 // 2-tuple
 #[async_trait]
-impl<T0, T1> ContextSerializable for (T0, T1)
+impl<T0, T1> ContextTransmaterializable for (T0, T1)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
@@ -65,8 +65,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -75,14 +75,14 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_buffer_size(data, offset)?;
@@ -92,26 +92,26 @@ where
 
 // 3-tuple
 #[async_trait]
-impl<T0, T1, T2> ContextSerializable for (T0, T1, T2)
+impl<T0, T1, T2> ContextTransmaterializable for (T0, T1, T2)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
@@ -119,8 +119,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -129,21 +129,21 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_buffer_size(data, offset)?;
@@ -153,32 +153,32 @@ where
 
 // 4-tuple
 #[async_trait]
-impl<T0, T1, T2, T3> ContextSerializable for (T0, T1, T2, T3)
+impl<T0, T1, T2, T3> ContextTransmaterializable for (T0, T1, T2, T3)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
@@ -186,8 +186,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -196,28 +196,28 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_buffer_size(data, offset)?;
@@ -227,38 +227,38 @@ where
 
 // 5-tuple
 #[async_trait]
-impl<T0, T1, T2, T3, T4> ContextSerializable for (T0, T1, T2, T3, T4)
+impl<T0, T1, T2, T3, T4> ContextTransmaterializable for (T0, T1, T2, T3, T4)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
-    T4: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
+    T4: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
 
-        let elem4_bytes = self.4.serialize(ctx).await?;
+        let elem4_bytes = self.4.immaterialize(ctx).await?;
         let elem4_len = elem4_bytes.len() as u64;
         buffer.extend_from_slice(&elem4_len.to_le_bytes());
         buffer.extend_from_slice(&elem4_bytes);
@@ -266,8 +266,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -276,35 +276,35 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
-        let elem4 = T4::deserialize(ctx, &data[offset..offset + elem4_len]).await?;
+        let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_buffer_size(data, offset)?;
@@ -314,44 +314,44 @@ where
 
 // 6-tuple
 #[async_trait]
-impl<T0, T1, T2, T3, T4, T5> ContextSerializable for (T0, T1, T2, T3, T4, T5)
+impl<T0, T1, T2, T3, T4, T5> ContextTransmaterializable for (T0, T1, T2, T3, T4, T5)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
-    T4: ContextSerializable + Send + Sync + 'static,
-    T5: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
+    T4: ContextTransmaterializable + Send + Sync + 'static,
+    T5: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
 
-        let elem4_bytes = self.4.serialize(ctx).await?;
+        let elem4_bytes = self.4.immaterialize(ctx).await?;
         let elem4_len = elem4_bytes.len() as u64;
         buffer.extend_from_slice(&elem4_len.to_le_bytes());
         buffer.extend_from_slice(&elem4_bytes);
 
-        let elem5_bytes = self.5.serialize(ctx).await?;
+        let elem5_bytes = self.5.immaterialize(ctx).await?;
         let elem5_len = elem5_bytes.len() as u64;
         buffer.extend_from_slice(&elem5_len.to_le_bytes());
         buffer.extend_from_slice(&elem5_bytes);
@@ -359,8 +359,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -369,42 +369,42 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
-        let elem4 = T4::deserialize(ctx, &data[offset..offset + elem4_len]).await?;
+        let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
-        let elem5 = T5::deserialize(ctx, &data[offset..offset + elem5_len]).await?;
+        let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_buffer_size(data, offset)?;
@@ -414,50 +414,50 @@ where
 
 // 7-tuple
 #[async_trait]
-impl<T0, T1, T2, T3, T4, T5, T6> ContextSerializable for (T0, T1, T2, T3, T4, T5, T6)
+impl<T0, T1, T2, T3, T4, T5, T6> ContextTransmaterializable for (T0, T1, T2, T3, T4, T5, T6)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
-    T4: ContextSerializable + Send + Sync + 'static,
-    T5: ContextSerializable + Send + Sync + 'static,
-    T6: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
+    T4: ContextTransmaterializable + Send + Sync + 'static,
+    T5: ContextTransmaterializable + Send + Sync + 'static,
+    T6: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
 
-        let elem4_bytes = self.4.serialize(ctx).await?;
+        let elem4_bytes = self.4.immaterialize(ctx).await?;
         let elem4_len = elem4_bytes.len() as u64;
         buffer.extend_from_slice(&elem4_len.to_le_bytes());
         buffer.extend_from_slice(&elem4_bytes);
 
-        let elem5_bytes = self.5.serialize(ctx).await?;
+        let elem5_bytes = self.5.immaterialize(ctx).await?;
         let elem5_len = elem5_bytes.len() as u64;
         buffer.extend_from_slice(&elem5_len.to_le_bytes());
         buffer.extend_from_slice(&elem5_bytes);
 
-        let elem6_bytes = self.6.serialize(ctx).await?;
+        let elem6_bytes = self.6.immaterialize(ctx).await?;
         let elem6_len = elem6_bytes.len() as u64;
         buffer.extend_from_slice(&elem6_len.to_le_bytes());
         buffer.extend_from_slice(&elem6_bytes);
@@ -465,8 +465,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -476,7 +476,7 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         // Elements 1-6 follow the same pattern
@@ -484,42 +484,42 @@ where
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
-        let elem4 = T4::deserialize(ctx, &data[offset..offset + elem4_len]).await?;
+        let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
-        let elem5 = T5::deserialize(ctx, &data[offset..offset + elem5_len]).await?;
+        let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
-        let elem6 = T6::deserialize(ctx, &data[offset..offset + elem6_len]).await?;
+        let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_buffer_size(data, offset)?;
@@ -529,56 +529,56 @@ where
 
 // 8-tuple
 #[async_trait]
-impl<T0, T1, T2, T3, T4, T5, T6, T7> ContextSerializable for (T0, T1, T2, T3, T4, T5, T6, T7)
+impl<T0, T1, T2, T3, T4, T5, T6, T7> ContextTransmaterializable for (T0, T1, T2, T3, T4, T5, T6, T7)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
-    T4: ContextSerializable + Send + Sync + 'static,
-    T5: ContextSerializable + Send + Sync + 'static,
-    T6: ContextSerializable + Send + Sync + 'static,
-    T7: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
+    T4: ContextTransmaterializable + Send + Sync + 'static,
+    T5: ContextTransmaterializable + Send + Sync + 'static,
+    T6: ContextTransmaterializable + Send + Sync + 'static,
+    T7: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
 
-        let elem4_bytes = self.4.serialize(ctx).await?;
+        let elem4_bytes = self.4.immaterialize(ctx).await?;
         let elem4_len = elem4_bytes.len() as u64;
         buffer.extend_from_slice(&elem4_len.to_le_bytes());
         buffer.extend_from_slice(&elem4_bytes);
 
-        let elem5_bytes = self.5.serialize(ctx).await?;
+        let elem5_bytes = self.5.immaterialize(ctx).await?;
         let elem5_len = elem5_bytes.len() as u64;
         buffer.extend_from_slice(&elem5_len.to_le_bytes());
         buffer.extend_from_slice(&elem5_bytes);
 
-        let elem6_bytes = self.6.serialize(ctx).await?;
+        let elem6_bytes = self.6.immaterialize(ctx).await?;
         let elem6_len = elem6_bytes.len() as u64;
         buffer.extend_from_slice(&elem6_len.to_le_bytes());
         buffer.extend_from_slice(&elem6_bytes);
 
-        let elem7_bytes = self.7.serialize(ctx).await?;
+        let elem7_bytes = self.7.immaterialize(ctx).await?;
         let elem7_len = elem7_bytes.len() as u64;
         buffer.extend_from_slice(&elem7_len.to_le_bytes());
         buffer.extend_from_slice(&elem7_bytes);
@@ -586,8 +586,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -596,56 +596,56 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
-        let elem4 = T4::deserialize(ctx, &data[offset..offset + elem4_len]).await?;
+        let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
-        let elem5 = T5::deserialize(ctx, &data[offset..offset + elem5_len]).await?;
+        let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
-        let elem6 = T6::deserialize(ctx, &data[offset..offset + elem6_len]).await?;
+        let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
-        let elem7 = T7::deserialize(ctx, &data[offset..offset + elem7_len]).await?;
+        let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_buffer_size(data, offset)?;
@@ -655,63 +655,63 @@ where
 
 // 9-tuple
 #[async_trait]
-impl<T0, T1, T2, T3, T4, T5, T6, T7, T8> ContextSerializable
+impl<T0, T1, T2, T3, T4, T5, T6, T7, T8> ContextTransmaterializable
     for (T0, T1, T2, T3, T4, T5, T6, T7, T8)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
-    T4: ContextSerializable + Send + Sync + 'static,
-    T5: ContextSerializable + Send + Sync + 'static,
-    T6: ContextSerializable + Send + Sync + 'static,
-    T7: ContextSerializable + Send + Sync + 'static,
-    T8: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
+    T4: ContextTransmaterializable + Send + Sync + 'static,
+    T5: ContextTransmaterializable + Send + Sync + 'static,
+    T6: ContextTransmaterializable + Send + Sync + 'static,
+    T7: ContextTransmaterializable + Send + Sync + 'static,
+    T8: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
 
-        let elem4_bytes = self.4.serialize(ctx).await?;
+        let elem4_bytes = self.4.immaterialize(ctx).await?;
         let elem4_len = elem4_bytes.len() as u64;
         buffer.extend_from_slice(&elem4_len.to_le_bytes());
         buffer.extend_from_slice(&elem4_bytes);
 
-        let elem5_bytes = self.5.serialize(ctx).await?;
+        let elem5_bytes = self.5.immaterialize(ctx).await?;
         let elem5_len = elem5_bytes.len() as u64;
         buffer.extend_from_slice(&elem5_len.to_le_bytes());
         buffer.extend_from_slice(&elem5_bytes);
 
-        let elem6_bytes = self.6.serialize(ctx).await?;
+        let elem6_bytes = self.6.immaterialize(ctx).await?;
         let elem6_len = elem6_bytes.len() as u64;
         buffer.extend_from_slice(&elem6_len.to_le_bytes());
         buffer.extend_from_slice(&elem6_bytes);
 
-        let elem7_bytes = self.7.serialize(ctx).await?;
+        let elem7_bytes = self.7.immaterialize(ctx).await?;
         let elem7_len = elem7_bytes.len() as u64;
         buffer.extend_from_slice(&elem7_len.to_le_bytes());
         buffer.extend_from_slice(&elem7_bytes);
 
-        let elem8_bytes = self.8.serialize(ctx).await?;
+        let elem8_bytes = self.8.immaterialize(ctx).await?;
         let elem8_len = elem8_bytes.len() as u64;
         buffer.extend_from_slice(&elem8_len.to_le_bytes());
         buffer.extend_from_slice(&elem8_bytes);
@@ -719,8 +719,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -730,63 +730,63 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
-        let elem4 = T4::deserialize(ctx, &data[offset..offset + elem4_len]).await?;
+        let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
-        let elem5 = T5::deserialize(ctx, &data[offset..offset + elem5_len]).await?;
+        let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
-        let elem6 = T6::deserialize(ctx, &data[offset..offset + elem6_len]).await?;
+        let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
-        let elem7 = T7::deserialize(ctx, &data[offset..offset + elem7_len]).await?;
+        let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem8_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem8_len)?;
-        let elem8 = T8::deserialize(ctx, &data[offset..offset + elem8_len]).await?;
+        let elem8 = T8::rematerialize(ctx, &data[offset..offset + elem8_len]).await?;
         offset += elem8_len;
 
         require_buffer_size(data, offset)?;
@@ -798,70 +798,70 @@ where
 
 // 10-tuple
 #[async_trait]
-impl<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> ContextSerializable
+impl<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> ContextTransmaterializable
     for (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
-    T4: ContextSerializable + Send + Sync + 'static,
-    T5: ContextSerializable + Send + Sync + 'static,
-    T6: ContextSerializable + Send + Sync + 'static,
-    T7: ContextSerializable + Send + Sync + 'static,
-    T8: ContextSerializable + Send + Sync + 'static,
-    T9: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
+    T4: ContextTransmaterializable + Send + Sync + 'static,
+    T5: ContextTransmaterializable + Send + Sync + 'static,
+    T6: ContextTransmaterializable + Send + Sync + 'static,
+    T7: ContextTransmaterializable + Send + Sync + 'static,
+    T8: ContextTransmaterializable + Send + Sync + 'static,
+    T9: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         // Elements 0-9
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
 
-        let elem4_bytes = self.4.serialize(ctx).await?;
+        let elem4_bytes = self.4.immaterialize(ctx).await?;
         let elem4_len = elem4_bytes.len() as u64;
         buffer.extend_from_slice(&elem4_len.to_le_bytes());
         buffer.extend_from_slice(&elem4_bytes);
 
-        let elem5_bytes = self.5.serialize(ctx).await?;
+        let elem5_bytes = self.5.immaterialize(ctx).await?;
         let elem5_len = elem5_bytes.len() as u64;
         buffer.extend_from_slice(&elem5_len.to_le_bytes());
         buffer.extend_from_slice(&elem5_bytes);
 
-        let elem6_bytes = self.6.serialize(ctx).await?;
+        let elem6_bytes = self.6.immaterialize(ctx).await?;
         let elem6_len = elem6_bytes.len() as u64;
         buffer.extend_from_slice(&elem6_len.to_le_bytes());
         buffer.extend_from_slice(&elem6_bytes);
 
-        let elem7_bytes = self.7.serialize(ctx).await?;
+        let elem7_bytes = self.7.immaterialize(ctx).await?;
         let elem7_len = elem7_bytes.len() as u64;
         buffer.extend_from_slice(&elem7_len.to_le_bytes());
         buffer.extend_from_slice(&elem7_bytes);
 
-        let elem8_bytes = self.8.serialize(ctx).await?;
+        let elem8_bytes = self.8.immaterialize(ctx).await?;
         let elem8_len = elem8_bytes.len() as u64;
         buffer.extend_from_slice(&elem8_len.to_le_bytes());
         buffer.extend_from_slice(&elem8_bytes);
 
-        let elem9_bytes = self.9.serialize(ctx).await?;
+        let elem9_bytes = self.9.immaterialize(ctx).await?;
         let elem9_len = elem9_bytes.len() as u64;
         buffer.extend_from_slice(&elem9_len.to_le_bytes());
         buffer.extend_from_slice(&elem9_bytes);
@@ -869,8 +869,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -880,70 +880,70 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
-        let elem4 = T4::deserialize(ctx, &data[offset..offset + elem4_len]).await?;
+        let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
-        let elem5 = T5::deserialize(ctx, &data[offset..offset + elem5_len]).await?;
+        let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
-        let elem6 = T6::deserialize(ctx, &data[offset..offset + elem6_len]).await?;
+        let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
-        let elem7 = T7::deserialize(ctx, &data[offset..offset + elem7_len]).await?;
+        let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem8_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem8_len)?;
-        let elem8 = T8::deserialize(ctx, &data[offset..offset + elem8_len]).await?;
+        let elem8 = T8::rematerialize(ctx, &data[offset..offset + elem8_len]).await?;
         offset += elem8_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem9_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem9_len)?;
-        let elem9 = T9::deserialize(ctx, &data[offset..offset + elem9_len]).await?;
+        let elem9 = T9::rematerialize(ctx, &data[offset..offset + elem9_len]).await?;
         offset += elem9_len;
 
         require_buffer_size(data, offset)?;
@@ -955,76 +955,76 @@ where
 
 // 11-tuple
 #[async_trait]
-impl<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> ContextSerializable
+impl<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> ContextTransmaterializable
     for (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
-    T4: ContextSerializable + Send + Sync + 'static,
-    T5: ContextSerializable + Send + Sync + 'static,
-    T6: ContextSerializable + Send + Sync + 'static,
-    T7: ContextSerializable + Send + Sync + 'static,
-    T8: ContextSerializable + Send + Sync + 'static,
-    T9: ContextSerializable + Send + Sync + 'static,
-    T10: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
+    T4: ContextTransmaterializable + Send + Sync + 'static,
+    T5: ContextTransmaterializable + Send + Sync + 'static,
+    T6: ContextTransmaterializable + Send + Sync + 'static,
+    T7: ContextTransmaterializable + Send + Sync + 'static,
+    T8: ContextTransmaterializable + Send + Sync + 'static,
+    T9: ContextTransmaterializable + Send + Sync + 'static,
+    T10: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         // Elements 0-10
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
 
-        let elem4_bytes = self.4.serialize(ctx).await?;
+        let elem4_bytes = self.4.immaterialize(ctx).await?;
         let elem4_len = elem4_bytes.len() as u64;
         buffer.extend_from_slice(&elem4_len.to_le_bytes());
         buffer.extend_from_slice(&elem4_bytes);
 
-        let elem5_bytes = self.5.serialize(ctx).await?;
+        let elem5_bytes = self.5.immaterialize(ctx).await?;
         let elem5_len = elem5_bytes.len() as u64;
         buffer.extend_from_slice(&elem5_len.to_le_bytes());
         buffer.extend_from_slice(&elem5_bytes);
 
-        let elem6_bytes = self.6.serialize(ctx).await?;
+        let elem6_bytes = self.6.immaterialize(ctx).await?;
         let elem6_len = elem6_bytes.len() as u64;
         buffer.extend_from_slice(&elem6_len.to_le_bytes());
         buffer.extend_from_slice(&elem6_bytes);
 
-        let elem7_bytes = self.7.serialize(ctx).await?;
+        let elem7_bytes = self.7.immaterialize(ctx).await?;
         let elem7_len = elem7_bytes.len() as u64;
         buffer.extend_from_slice(&elem7_len.to_le_bytes());
         buffer.extend_from_slice(&elem7_bytes);
 
-        let elem8_bytes = self.8.serialize(ctx).await?;
+        let elem8_bytes = self.8.immaterialize(ctx).await?;
         let elem8_len = elem8_bytes.len() as u64;
         buffer.extend_from_slice(&elem8_len.to_le_bytes());
         buffer.extend_from_slice(&elem8_bytes);
 
-        let elem9_bytes = self.9.serialize(ctx).await?;
+        let elem9_bytes = self.9.immaterialize(ctx).await?;
         let elem9_len = elem9_bytes.len() as u64;
         buffer.extend_from_slice(&elem9_len.to_le_bytes());
         buffer.extend_from_slice(&elem9_bytes);
 
-        let elem10_bytes = self.10.serialize(ctx).await?;
+        let elem10_bytes = self.10.immaterialize(ctx).await?;
         let elem10_len = elem10_bytes.len() as u64;
         buffer.extend_from_slice(&elem10_len.to_le_bytes());
         buffer.extend_from_slice(&elem10_bytes);
@@ -1032,8 +1032,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -1043,77 +1043,77 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
-        let elem4 = T4::deserialize(ctx, &data[offset..offset + elem4_len]).await?;
+        let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
-        let elem5 = T5::deserialize(ctx, &data[offset..offset + elem5_len]).await?;
+        let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
-        let elem6 = T6::deserialize(ctx, &data[offset..offset + elem6_len]).await?;
+        let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
-        let elem7 = T7::deserialize(ctx, &data[offset..offset + elem7_len]).await?;
+        let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem8_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem8_len)?;
-        let elem8 = T8::deserialize(ctx, &data[offset..offset + elem8_len]).await?;
+        let elem8 = T8::rematerialize(ctx, &data[offset..offset + elem8_len]).await?;
         offset += elem8_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem9_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem9_len)?;
-        let elem9 = T9::deserialize(ctx, &data[offset..offset + elem9_len]).await?;
+        let elem9 = T9::rematerialize(ctx, &data[offset..offset + elem9_len]).await?;
         offset += elem9_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem10_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem10_len)?;
-        let elem10 = T10::deserialize(ctx, &data[offset..offset + elem10_len]).await?;
+        let elem10 = T10::rematerialize(ctx, &data[offset..offset + elem10_len]).await?;
         offset += elem10_len;
 
         require_buffer_size(data, offset)?;
@@ -1125,82 +1125,82 @@ where
 
 // 12-tuple
 #[async_trait]
-impl<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> ContextSerializable
+impl<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> ContextTransmaterializable
     for (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11)
 where
-    T0: ContextSerializable + Send + Sync + 'static,
-    T1: ContextSerializable + Send + Sync + 'static,
-    T2: ContextSerializable + Send + Sync + 'static,
-    T3: ContextSerializable + Send + Sync + 'static,
-    T4: ContextSerializable + Send + Sync + 'static,
-    T5: ContextSerializable + Send + Sync + 'static,
-    T6: ContextSerializable + Send + Sync + 'static,
-    T7: ContextSerializable + Send + Sync + 'static,
-    T8: ContextSerializable + Send + Sync + 'static,
-    T9: ContextSerializable + Send + Sync + 'static,
-    T10: ContextSerializable + Send + Sync + 'static,
-    T11: ContextSerializable + Send + Sync + 'static,
+    T0: ContextTransmaterializable + Send + Sync + 'static,
+    T1: ContextTransmaterializable + Send + Sync + 'static,
+    T2: ContextTransmaterializable + Send + Sync + 'static,
+    T3: ContextTransmaterializable + Send + Sync + 'static,
+    T4: ContextTransmaterializable + Send + Sync + 'static,
+    T5: ContextTransmaterializable + Send + Sync + 'static,
+    T6: ContextTransmaterializable + Send + Sync + 'static,
+    T7: ContextTransmaterializable + Send + Sync + 'static,
+    T8: ContextTransmaterializable + Send + Sync + 'static,
+    T9: ContextTransmaterializable + Send + Sync + 'static,
+    T10: ContextTransmaterializable + Send + Sync + 'static,
+    T11: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         // Elements 0-11
-        let elem0_bytes = self.0.serialize(ctx).await?;
+        let elem0_bytes = self.0.immaterialize(ctx).await?;
         let elem0_len = elem0_bytes.len() as u64;
         buffer.extend_from_slice(&elem0_len.to_le_bytes());
         buffer.extend_from_slice(&elem0_bytes);
 
-        let elem1_bytes = self.1.serialize(ctx).await?;
+        let elem1_bytes = self.1.immaterialize(ctx).await?;
         let elem1_len = elem1_bytes.len() as u64;
         buffer.extend_from_slice(&elem1_len.to_le_bytes());
         buffer.extend_from_slice(&elem1_bytes);
 
-        let elem2_bytes = self.2.serialize(ctx).await?;
+        let elem2_bytes = self.2.immaterialize(ctx).await?;
         let elem2_len = elem2_bytes.len() as u64;
         buffer.extend_from_slice(&elem2_len.to_le_bytes());
         buffer.extend_from_slice(&elem2_bytes);
 
-        let elem3_bytes = self.3.serialize(ctx).await?;
+        let elem3_bytes = self.3.immaterialize(ctx).await?;
         let elem3_len = elem3_bytes.len() as u64;
         buffer.extend_from_slice(&elem3_len.to_le_bytes());
         buffer.extend_from_slice(&elem3_bytes);
 
-        let elem4_bytes = self.4.serialize(ctx).await?;
+        let elem4_bytes = self.4.immaterialize(ctx).await?;
         let elem4_len = elem4_bytes.len() as u64;
         buffer.extend_from_slice(&elem4_len.to_le_bytes());
         buffer.extend_from_slice(&elem4_bytes);
 
-        let elem5_bytes = self.5.serialize(ctx).await?;
+        let elem5_bytes = self.5.immaterialize(ctx).await?;
         let elem5_len = elem5_bytes.len() as u64;
         buffer.extend_from_slice(&elem5_len.to_le_bytes());
         buffer.extend_from_slice(&elem5_bytes);
 
-        let elem6_bytes = self.6.serialize(ctx).await?;
+        let elem6_bytes = self.6.immaterialize(ctx).await?;
         let elem6_len = elem6_bytes.len() as u64;
         buffer.extend_from_slice(&elem6_len.to_le_bytes());
         buffer.extend_from_slice(&elem6_bytes);
 
-        let elem7_bytes = self.7.serialize(ctx).await?;
+        let elem7_bytes = self.7.immaterialize(ctx).await?;
         let elem7_len = elem7_bytes.len() as u64;
         buffer.extend_from_slice(&elem7_len.to_le_bytes());
         buffer.extend_from_slice(&elem7_bytes);
 
-        let elem8_bytes = self.8.serialize(ctx).await?;
+        let elem8_bytes = self.8.immaterialize(ctx).await?;
         let elem8_len = elem8_bytes.len() as u64;
         buffer.extend_from_slice(&elem8_len.to_le_bytes());
         buffer.extend_from_slice(&elem8_bytes);
 
-        let elem9_bytes = self.9.serialize(ctx).await?;
+        let elem9_bytes = self.9.immaterialize(ctx).await?;
         let elem9_len = elem9_bytes.len() as u64;
         buffer.extend_from_slice(&elem9_len.to_le_bytes());
         buffer.extend_from_slice(&elem9_bytes);
 
-        let elem10_bytes = self.10.serialize(ctx).await?;
+        let elem10_bytes = self.10.immaterialize(ctx).await?;
         let elem10_len = elem10_bytes.len() as u64;
         buffer.extend_from_slice(&elem10_len.to_le_bytes());
         buffer.extend_from_slice(&elem10_bytes);
 
-        let elem11_bytes = self.11.serialize(ctx).await?;
+        let elem11_bytes = self.11.immaterialize(ctx).await?;
         let elem11_len = elem11_bytes.len() as u64;
         buffer.extend_from_slice(&elem11_len.to_le_bytes());
         buffer.extend_from_slice(&elem11_bytes);
@@ -1208,8 +1208,8 @@ where
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -1219,84 +1219,84 @@ where
         let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
-        let elem0 = T0::deserialize(ctx, &data[offset..offset + elem0_len]).await?;
+        let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
-        let elem1 = T1::deserialize(ctx, &data[offset..offset + elem1_len]).await?;
+        let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
-        let elem2 = T2::deserialize(ctx, &data[offset..offset + elem2_len]).await?;
+        let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
-        let elem3 = T3::deserialize(ctx, &data[offset..offset + elem3_len]).await?;
+        let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
-        let elem4 = T4::deserialize(ctx, &data[offset..offset + elem4_len]).await?;
+        let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
-        let elem5 = T5::deserialize(ctx, &data[offset..offset + elem5_len]).await?;
+        let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
-        let elem6 = T6::deserialize(ctx, &data[offset..offset + elem6_len]).await?;
+        let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
-        let elem7 = T7::deserialize(ctx, &data[offset..offset + elem7_len]).await?;
+        let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem8_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem8_len)?;
-        let elem8 = T8::deserialize(ctx, &data[offset..offset + elem8_len]).await?;
+        let elem8 = T8::rematerialize(ctx, &data[offset..offset + elem8_len]).await?;
         offset += elem8_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem9_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem9_len)?;
-        let elem9 = T9::deserialize(ctx, &data[offset..offset + elem9_len]).await?;
+        let elem9 = T9::rematerialize(ctx, &data[offset..offset + elem9_len]).await?;
         offset += elem9_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem10_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem10_len)?;
-        let elem10 = T10::deserialize(ctx, &data[offset..offset + elem10_len]).await?;
+        let elem10 = T10::rematerialize(ctx, &data[offset..offset + elem10_len]).await?;
         offset += elem10_len;
 
         require_min_buffer_size(data, offset + 8)?;
         let elem11_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
         offset += 8;
         require_min_buffer_size(data, offset + elem11_len)?;
-        let elem11 = T11::deserialize(ctx, &data[offset..offset + elem11_len]).await?;
+        let elem11 = T11::rematerialize(ctx, &data[offset..offset + elem11_len]).await?;
         offset += elem11_len;
 
         require_buffer_size(data, offset)?;

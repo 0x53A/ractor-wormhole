@@ -1,0 +1,19 @@
+rename PortalKey => ConduitID
+rename CrossNexusMessageId => CrossPortalMessageId
+rename CrossNexusMessage => CrossPortalMessage
+rename NexusResult => ???
+rename WSPortalMessage => PortalMessage
+rename UserFriendlyPortal => ???
+rename WSPortal => PortalActor
+rename WSPortalState => PortalActorState
+rename WSPortalArgs => PortalActorArgs
+
+rename WSNexusMessage => NexusActorMessage
+rename WSNexus => NexusActor
+rename WSNexusState => NexusActorState
+rename WSNexusArgs => NexusActorArgs
+
+rename ActorSerializationContext => ActorTransmaterializationContext
+rename SerializationResult => 
+
+rename SimpleByteSerializable

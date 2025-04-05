@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display, net::SocketAddr, pin::Pin};
 
 use crate::{
-    serialization::{ActorSerializationContext, ContextSerializable, GetReceiver},
+    serialization::{TransmaterializationContext, ContextTransmaterializable, GetReceiver},
     util::{ActorRef_Ask, FnActor},
 };
 
-use crate::serialization::internal_serializations::SimpleByteSerializable;
+use crate::serialization::internal_serializations::SimpleByteTransmaterializable;
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ pub type WebSocketSource = Pin<Box<dyn Stream<Item = Result<RawMessage, RawError
 
 // -------------------------------------------------------------------------------------------------------
 
-/// The **local** connection identifier
+/// The **local** portal identifier
 #[derive(
     RactorMessage,
     Debug,
@@ -46,14 +46,14 @@ pub type WebSocketSource = Pin<Box<dyn Stream<Item = Result<RawMessage, RawError
     Deserialize,
     Copy,
 )]
-pub struct LocalConnectionId(pub u128);
+pub struct LocalPortalId(pub u128);
 
-/// A shared identifier for the connection. The id is the same on both sides of the connection.
+/// A shared identifier for the portal. The id is the same on both sides of the portal.
 /// It is created by both sides generating a random uuid and then xoring both.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, Copy)]
-pub struct ConnectionKey(pub u128);
+pub struct PortalKey(pub u128);
 
-impl Display for ConnectionKey {
+impl Display for PortalKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -68,7 +68,7 @@ pub struct PortalConfig {
 
 // -------------------------------------------------------------------------------------------------------
 
-/// Hide the internal actor id behind a uuid; only the connection has the mapping between uuid and real actor id
+/// Hide the internal actor id behind a uuid; only the portal has the mapping between uuid and real actor id
 #[derive(Clone, Debug, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, Copy)]
 pub struct OpaqueActorId(pub u128);
 
@@ -80,7 +80,7 @@ impl Display for OpaqueActorId {
 
 // -------------------------------------------------------------------------------------------------------
 
-pub type CrossGatewayMessageId = u64;
+pub type CrossNexusMessageId = u64;
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum ActorRequestError {
@@ -101,25 +101,25 @@ impl From<ActorRequestError> for anyhow::Error {
 /// Note that these are sent **after** the initial handshake.
 /// (the initial handshake is a json serialized `Introduction`)
 #[derive(Debug, bincode::Encode, bincode::Decode)]
-pub enum CrossGatewayMessage {
-    RequestActorByName(CrossGatewayMessageId, String),
-    // RequestActorById(CrossGatewayMessageId, OpaqueActorId),
+pub enum CrossNexusMessage {
+    RequestActorByName(CrossNexusMessageId, String),
+    // RequestActorById(CrossNexusMessageId, OpaqueActorId),
     ResponseActorByName(
-        CrossGatewayMessageId,
+        CrossNexusMessageId,
         Result<RemoteActorId, ActorRequestError>,
     ),
     ResponseActorById(
-        CrossGatewayMessageId,
+        CrossNexusMessageId,
         Result<RemoteActorId, ActorRequestError>,
     ),
 
     SendMessage(RemoteActorId, Box<[u8]>),
 }
 
-// Connection
+// Portal
 // -------------------------------------------------------------------------------------------------------
 
-pub type GatewayResult<T> = Result<T, anyhow::Error>;
+pub type NexusResult<T> = Result<T, anyhow::Error>;
 
 #[async_trait]
 pub trait MsgReceiver {
@@ -127,18 +127,18 @@ pub trait MsgReceiver {
         &self,
         actor: ActorCell,
         data: &[u8],
-        ctx: ActorSerializationContext,
-    ) -> GatewayResult<()>;
+        ctx: TransmaterializationContext,
+    ) -> NexusResult<()>;
 }
 
 type TransmitMessageF = Box<
     (
         dyn FnOnce(
-                ActorSerializationContext,
+                TransmaterializationContext,
             ) -> Pin<
                 Box<
                     (
-                        dyn futures::Future<Output = GatewayResult<Vec<u8>>>
+                        dyn futures::Future<Output = NexusResult<Vec<u8>>>
                             + std::marker::Send
                             + 'static
                     ),
@@ -148,8 +148,8 @@ type TransmitMessageF = Box<
     ),
 >;
 
-// Messages for the connection actor
-pub enum WSConnectionMessage {
+// Messages for the portal actor
+pub enum WSPortalMessage {
     // data received from websocket
     Text(String),
     Binary(Vec<u8>),
@@ -158,7 +158,7 @@ pub enum WSConnectionMessage {
     SerializeMessage(RemoteActorId, TransmitMessageF),
     TransmitMessage(RemoteActorId, Vec<u8>),
 
-    /// publish a local actor under a known name, making it available to the remote side of the connection.
+    /// publish a local actor under a known name, making it available to the remote side of the portal.
     /// On the remote side, it can be looked up by name.
     PublishNamedActor(
         String,
@@ -167,7 +167,7 @@ pub enum WSConnectionMessage {
         Option<RpcReplyPort<RemoteActorId>>,
     ),
 
-    /// publish a local actor, making it available to the remote side of the connection.
+    /// publish a local actor, making it available to the remote side of the portal.
     /// It is published under a random id, which would need to be passed to the remote side through some kind of existing channel.
     PublishActor(
         ActorCell,
@@ -175,37 +175,37 @@ pub enum WSConnectionMessage {
         RpcReplyPort<RemoteActorId>,
     ),
 
-    /// looks up an actor by name on the **remote** side of the connection. Returns None if no actor was registered under that name.
-    QueryNamedRemoteActor(String, RpcReplyPort<GatewayResult<RemoteActorId>>),
+    /// looks up an actor by name on the **remote** side of the portal. Returns None if no actor was registered under that name.
+    QueryNamedRemoteActor(String, RpcReplyPort<NexusResult<RemoteActorId>>),
 }
 
-impl ractor::Message for WSConnectionMessage {}
+impl ractor::Message for WSPortalMessage {}
 
 #[async_trait]
-pub trait UserFriendlyConnection {
+pub trait UserFriendlyPortal {
     async fn instantiate_proxy_for_remote_actor<
-        T: ContextSerializable + ractor::Message + Send + Sync + std::fmt::Debug,
+        T: ContextTransmaterializable + ractor::Message + Send + Sync + std::fmt::Debug,
     >(
         &self,
         remote_actor_id: RemoteActorId,
-    ) -> GatewayResult<ActorRef<T>>;
+    ) -> NexusResult<ActorRef<T>>;
 
-    async fn publish_named_actor<T: ContextSerializable + ractor::Message + Send + Sync>(
+    async fn publish_named_actor<T: ContextTransmaterializable + ractor::Message + Send + Sync>(
         &self,
         name: String,
         actor_ref: ActorRef<T>,
-    ) -> GatewayResult<RemoteActorId>;
+    ) -> NexusResult<RemoteActorId>;
 }
 
 #[async_trait]
-impl UserFriendlyConnection for ActorRef<WSConnectionMessage> {
+impl UserFriendlyPortal for ActorRef<WSPortalMessage> {
     async fn instantiate_proxy_for_remote_actor<
-        T: ContextSerializable + ractor::Message + Send + Sync + std::fmt::Debug,
+        T: ContextTransmaterializable + ractor::Message + Send + Sync + std::fmt::Debug,
     >(
         &self,
         remote_actor_id: RemoteActorId,
-    ) -> GatewayResult<ActorRef<T>> {
-        let connection_ref = self.clone();
+    ) -> NexusResult<ActorRef<T>> {
+        let portal_ref = self.clone();
 
         let (proxy_actor_ref, _handle) =
             FnActor::<T>::start_fn_linked(self.get_cell(), async move |mut ctx| {
@@ -222,19 +222,24 @@ impl UserFriendlyConnection for ActorRef<WSConnectionMessage> {
                         // Create a regular closure that returns a boxed and pinned future
                         Box::pin(async move {
                             let bytes: Vec<u8> =
-                                crate::serialization::ContextSerializable::serialize(msg, &ctx)
-                                    .await?;
+                                crate::serialization::ContextTransmaterializable::immaterialize(
+                                    msg, &ctx,
+                                )
+                                .await?;
                             Ok(bytes)
                         })
                     });
 
-                    if let Err(err) = connection_ref
-                        .send_message(WSConnectionMessage::SerializeMessage(remote_id, f))
+                    if let Err(err) =
+                        portal_ref.send_message(WSPortalMessage::SerializeMessage(remote_id, f))
                     {
-                        error!("Failed to send message to connection: {}", err);
+                        error!("Failed to send message to portal: {}", err);
                     }
 
-                    info!("Proxy actor sent WSConnectionMessage::TransmitMessage to connection: {:#?} [{}]", remote_id, type_str);
+                    info!(
+                        "Proxy actor sent WSPortalMessage::TransmitMessage to portal: {:#?} [{}]",
+                        remote_id, type_str
+                    );
                 }
             })
             .await?;
@@ -242,17 +247,17 @@ impl UserFriendlyConnection for ActorRef<WSConnectionMessage> {
         Ok(proxy_actor_ref)
     }
 
-    async fn publish_named_actor<T: ContextSerializable + ractor::Message + Send + Sync>(
+    async fn publish_named_actor<T: ContextTransmaterializable + ractor::Message + Send + Sync>(
         &self,
         name: String,
         actor_ref: ActorRef<T>,
-    ) -> GatewayResult<RemoteActorId> {
+    ) -> NexusResult<RemoteActorId> {
         let receiver = actor_ref.get_receiver();
 
         let response = self
             .ask(
                 |rpc| {
-                    WSConnectionMessage::PublishNamedActor(
+                    WSPortalMessage::PublishNamedActor(
                         name,
                         actor_ref.get_cell(),
                         receiver,
@@ -267,8 +272,8 @@ impl UserFriendlyConnection for ActorRef<WSConnectionMessage> {
     }
 }
 
-// Connection actor state
-struct WSConnection;
+// Portal actor
+struct WSPortal;
 
 enum ChannelState {
     Opening {
@@ -277,7 +282,7 @@ enum ChannelState {
     Open {
         // self_introduction: Introduction,
         // remote_introduction: Introduction,
-        channel_id: ConnectionKey,
+        channel_id: PortalKey,
     },
 }
 
@@ -286,23 +291,23 @@ pub struct Introduction {
     pub channel_id_contribution: uuid::Bytes,
     pub version: String,
     pub info_text: String,
-    pub this_side_id: LocalConnectionId,
+    pub this_side_id: LocalPortalId,
 }
 
-pub struct WSConnectionState {
-    args: WSConnectionArgs,
+pub struct WSPortalState {
+    args: WSPortalArgs,
     channel_state: ChannelState,
     published_actors: HashMap<OpaqueActorId, (ActorCell, Box<dyn MsgReceiver + Send>)>,
     named_actors: HashMap<String, OpaqueActorId>,
 
     next_request_id: u64,
-    open_requests: HashMap<CrossGatewayMessageId, RpcReplyPort<GatewayResult<RemoteActorId>>>,
+    open_requests: HashMap<CrossNexusMessageId, RpcReplyPort<NexusResult<RemoteActorId>>>,
 }
 
-pub struct WSConnectionArgs {
+pub struct WSPortalArgs {
     identifier: String,
     sender: WebSocketSink,
-    local_id: LocalConnectionId,
+    local_id: LocalPortalId,
     config: PortalConfig,
 }
 
@@ -314,12 +319,12 @@ fn xor_arrays(a: [u8; 16], b: [u8; 16]) -> [u8; 16] {
     result
 }
 
-// Connection actor implementation
+// Portal actor implementation
 #[async_trait]
-impl Actor for WSConnection {
-    type Msg = WSConnectionMessage;
-    type State = WSConnectionState;
-    type Arguments = WSConnectionArgs;
+impl Actor for WSPortal {
+    type Msg = WSPortalMessage;
+    type State = WSPortalState;
+    type Arguments = WSPortalArgs;
 
     async fn pre_start(
         &self,
@@ -347,7 +352,7 @@ impl Actor for WSConnection {
         args.sender.send(RawMessage::Text(text)).await?;
         args.sender.flush().await?;
 
-        Ok(WSConnectionState {
+        Ok(WSPortalState {
             args,
             channel_state: ChannelState::Opening {
                 self_introduction: introduction,
@@ -366,7 +371,7 @@ impl Actor for WSConnection {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            WSConnectionMessage::Text(text) => {
+            WSPortalMessage::Text(text) => {
                 info!(
                     "Received text message from {}: {}",
                     state.args.identifier, text
@@ -379,7 +384,7 @@ impl Actor for WSConnection {
                             "Received introduction from {}: {:?}",
                             state.args.identifier, remote_introduction
                         );
-                        let channel_id = ConnectionKey(u128::from_le_bytes(xor_arrays(
+                        let channel_id = PortalKey(u128::from_le_bytes(xor_arrays(
                             self_introduction.channel_id_contribution,
                             remote_introduction.channel_id_contribution,
                         )));
@@ -395,7 +400,7 @@ impl Actor for WSConnection {
                     }
                 }
             }
-            WSConnectionMessage::Binary(data) => {
+            WSPortalMessage::Binary(data) => {
                 info!(
                     "Received binary message from {}: {} bytes",
                     state.args.identifier,
@@ -410,11 +415,11 @@ impl Actor for WSConnection {
                         );
                     }
                     ChannelState::Open { channel_id, .. } => {
-                        let msg = CrossGatewayMessage::deserialize(&data)?;
+                        let msg = CrossNexusMessage::rematerialize(&data)?;
                         info!("Received message from {}: {:?}", state.args.identifier, msg);
 
                         match msg {
-                            CrossGatewayMessage::RequestActorByName(id, name) => {
+                            CrossNexusMessage::RequestActorByName(id, name) => {
                                 // Look up the named actor in our local registry
                                 let opaque_id = state.named_actors.get(&name).cloned();
 
@@ -434,7 +439,7 @@ impl Actor for WSConnection {
 
                                 // Send response back
                                 let response_msg =
-                                    CrossGatewayMessage::ResponseActorByName(id, response);
+                                    CrossNexusMessage::ResponseActorByName(id, response);
                                 let data = bincode::encode_to_vec(
                                     response_msg,
                                     bincode::config::standard(),
@@ -443,7 +448,7 @@ impl Actor for WSConnection {
                                 state.args.sender.flush().await?;
                             }
 
-                            // CrossGatewayMessage::RequestActorById(id, opaque_id) => {
+                            // CrossNexusMessage::RequestActorById(id, opaque_id) => {
                             //     // Look up the actor in our registry
                             //     let published_actor = state.published_actors.get(&opaque_id);
 
@@ -463,7 +468,7 @@ impl Actor for WSConnection {
 
                             //     // Send response back
                             //     let response_msg =
-                            //         CrossGatewayMessage::ResponseActorById(id, response);
+                            //         CrossNexusMessage::ResponseActorById(id, response);
                             //     let data = bincode::encode_to_vec(
                             //         response_msg,
                             //         bincode::config::standard(),
@@ -471,10 +476,10 @@ impl Actor for WSConnection {
                             //     state.args.sender.send(RawMessage::Binary(data)).await?;
                             //     state.args.sender.flush().await?;
                             // }
-                            CrossGatewayMessage::ResponseActorByName(id, response) => {
+                            CrossNexusMessage::ResponseActorByName(id, response) => {
                                 // Handle response to our earlier request
                                 if let Some(reply_port) = state.open_requests.remove(&id) {
-                                    let mapped: GatewayResult<RemoteActorId> =
+                                    let mapped: NexusResult<RemoteActorId> =
                                         response.map_err(|err| err.into());
                                     reply_port.send(mapped)?;
                                 } else {
@@ -482,10 +487,10 @@ impl Actor for WSConnection {
                                 }
                             }
 
-                            CrossGatewayMessage::ResponseActorById(id, response) => {
+                            CrossNexusMessage::ResponseActorById(id, response) => {
                                 // Handle response to our earlier request
                                 if let Some(reply_port) = state.open_requests.remove(&id) {
-                                    let mapped: GatewayResult<RemoteActorId> =
+                                    let mapped: NexusResult<RemoteActorId> =
                                         response.map_err(|err| err.into());
                                     reply_port.send(mapped)?;
                                 } else {
@@ -493,7 +498,7 @@ impl Actor for WSConnection {
                                 }
                             }
 
-                            CrossGatewayMessage::SendMessage(target_id, data) => {
+                            CrossNexusMessage::SendMessage(target_id, data) => {
                                 // Find the local actor from the remote target
                                 if let Some((local_actor_cell, receiver)) =
                                     state.published_actors.get(&target_id.id)
@@ -502,17 +507,12 @@ impl Actor for WSConnection {
                                         .receive(
                                             local_actor_cell.clone(),
                                             &data,
-                                            ActorSerializationContext {
-                                                // connection_key: target_id.connection_key.clone(),
+                                            TransmaterializationContext {
                                                 connection: myself.clone(),
                                                 default_rpc_port_timeout: state
                                                     .args
                                                     .config
                                                     .default_rpc_port_timeout,
-                                                // local_connection_side: state.args.local_id.clone(),
-                                                // remote_connection_side: remote_introduction
-                                                //     .this_side_id
-                                                //     .clone(),
                                             },
                                         )
                                         .await?;
@@ -527,12 +527,12 @@ impl Actor for WSConnection {
                     }
                 }
             }
-            WSConnectionMessage::Close => {
-                info!("Closing connection to {}", state.args.identifier);
-                myself.stop(Some("Connection closed".into()));
+            WSPortalMessage::Close => {
+                info!("Closing portal to {}", state.args.identifier);
+                myself.stop(Some("Portal closed".into()));
             }
 
-            WSConnectionMessage::PublishNamedActor(name, actor_cell, receiver, reply) => {
+            WSPortalMessage::PublishNamedActor(name, actor_cell, receiver, reply) => {
                 let ChannelState::Open { channel_id, .. } = &state.channel_state else {
                     error!("PublishNamedActor called before handshake");
                     return Ok(());
@@ -586,7 +586,7 @@ impl Actor for WSConnection {
                 }
             }
 
-            WSConnectionMessage::PublishActor(actor_cell, receiver, rpc) => {
+            WSPortalMessage::PublishActor(actor_cell, receiver, rpc) => {
                 let ChannelState::Open { channel_id, .. } = &state.channel_state else {
                     error!("PublishActor called before handshake");
                     return Ok(());
@@ -629,7 +629,7 @@ impl Actor for WSConnection {
                 rpc.send(remote_actor_id)?;
             }
 
-            WSConnectionMessage::QueryNamedRemoteActor(name, reply) => {
+            WSPortalMessage::QueryNamedRemoteActor(name, reply) => {
                 let ChannelState::Open { .. } = &state.channel_state else {
                     error!("QueryNamedRemoteActor called before handshake");
                     return Ok(());
@@ -640,13 +640,13 @@ impl Actor for WSConnection {
 
                 state.open_requests.insert(request_id, reply);
 
-                let request = CrossGatewayMessage::RequestActorByName(request_id, name);
-                let bytes = request.serialize()?;
+                let request = CrossNexusMessage::RequestActorByName(request_id, name);
+                let bytes = request.immaterialize()?;
                 state.args.sender.send(RawMessage::Binary(bytes)).await?;
                 state.args.sender.flush().await?;
             }
 
-            WSConnectionMessage::SerializeMessage(target, msg_f) => {
+            WSPortalMessage::SerializeMessage(target, msg_f) => {
                 let ChannelState::Open { .. } = &state.channel_state else {
                     error!("TransmitMessage called before handshake");
                     return Ok(());
@@ -663,30 +663,27 @@ impl Actor for WSConnection {
                 let default_rpc_port_timeout = state.args.config.default_rpc_port_timeout;
                 let target_copy = target;
                 tokio::spawn(async move {
-                    let bytes = msg_f(ActorSerializationContext {
-                        // connection_key: channel_id.clone(),
+                    let bytes = msg_f(TransmaterializationContext {
                         connection: myself_copy.clone(),
                         default_rpc_port_timeout,
-                        // local_connection_side: state.args.local_id.clone(),
-                        // remote_connection_side: target.side.clone(),
                     })
                     .await
                     .unwrap(); // todo: fix unwrap
                     // info!("Serialized! Now sending ...");
 
                     let _ = myself_copy
-                        .send_message(WSConnectionMessage::TransmitMessage(target_copy, bytes));
+                        .send_message(WSPortalMessage::TransmitMessage(target_copy, bytes));
                 });
             }
 
-            WSConnectionMessage::TransmitMessage(target, bytes) => {
+            WSPortalMessage::TransmitMessage(target, bytes) => {
                 let ChannelState::Open { .. } = &state.channel_state else {
                     error!("TransmitMessage called before handshake");
                     return Ok(());
                 };
 
-                let request = CrossGatewayMessage::SendMessage(target, bytes.into_boxed_slice());
-                let bytes = request.serialize()?;
+                let request = CrossNexusMessage::SendMessage(target, bytes.into_boxed_slice());
+                let bytes = request.immaterialize()?;
                 state.args.sender.send(RawMessage::Binary(bytes)).await?;
                 state.args.sender.flush().await?;
             }
@@ -719,54 +716,53 @@ impl Actor for WSConnection {
     }
 }
 
-// Gateway
+// Nexus
 // -------------------------------------------------------------------------------------------------------
 
-// Messages for the gateway actor
+// Messages for the nexus actor
 #[derive(RactorMessage)]
-pub enum WSGatewayMessage {
+pub enum WSNexusMessage {
     Connected(
         String,
         WebSocketSink,
-        RpcReplyPort<ActorRef<WSConnectionMessage>>,
+        RpcReplyPort<ActorRef<WSPortalMessage>>,
     ),
-
-    GetAllConnections(RpcReplyPort<Vec<ActorRef<WSConnectionMessage>>>),
+    GetAllPortals(RpcReplyPort<Vec<ActorRef<WSPortalMessage>>>),
 }
 
-// Gateway actor state
-pub struct WSGateway;
-pub struct WSGatewayState {
-    args: WSGatewayArgs,
-    connections: HashMap<ActorId, (String, ActorRef<WSConnectionMessage>, JoinHandle<()>)>,
+// Nexus actor state
+pub struct WSNexus;
+pub struct WSNexusState {
+    args: WSNexusArgs,
+    portals: HashMap<ActorId, (String, ActorRef<WSPortalMessage>, JoinHandle<()>)>,
 }
 
 #[derive(RactorMessage)]
 pub struct OnActorConnectedMessage {
     pub identifier: String,
-    pub actor_ref: ActorRef<WSConnectionMessage>,
+    pub actor_ref: ActorRef<WSPortalMessage>,
 }
 
-pub struct WSGatewayArgs {
+pub struct WSNexusArgs {
     pub on_client_connected: Option<ActorRef<OnActorConnectedMessage>>,
 }
 
-// Gateway actor implementation
+// Nexus actor implementation
 #[async_trait]
-impl Actor for WSGateway {
-    type Msg = WSGatewayMessage;
-    type State = WSGatewayState;
-    type Arguments = WSGatewayArgs;
+impl Actor for WSNexus {
+    type Msg = WSNexusMessage;
+    type State = WSNexusState;
+    type Arguments = WSNexusArgs;
 
     async fn pre_start(
         &self,
         _myself: ActorRef<Self::Msg>,
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
-        info!("WebSocket gateway actor started");
-        Ok(WSGatewayState {
+        info!("WebSocket nexus actor started");
+        Ok(WSNexusState {
             args,
-            connections: HashMap::new(),
+            portals: HashMap::new(),
         })
     }
 
@@ -777,17 +773,17 @@ impl Actor for WSGateway {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            WSGatewayMessage::Connected(identifier, ws_stream, reply) => {
+            WSNexusMessage::Connected(identifier, ws_stream, reply) => {
                 info!("New WebSocket connection from: {}", identifier);
 
-                // Create a new connection actor
+                // Create a new portal actor
                 let (actor_ref, handle) = ractor::Actor::spawn_linked(
                     None,
-                    WSConnection,
-                    WSConnectionArgs {
+                    WSPortal,
+                    WSPortalArgs {
                         identifier: identifier.clone(),
                         sender: ws_stream,
-                        local_id: LocalConnectionId(rand::random()),
+                        local_id: LocalPortalId(rand::random()),
                         config: PortalConfig {
                             default_rpc_port_timeout: Duration::from_secs(120),
                         },
@@ -796,8 +792,8 @@ impl Actor for WSGateway {
                 )
                 .await?;
 
-                // Store the new connection
-                state.connections.insert(
+                // Store the new portal
+                state.portals.insert(
                     actor_ref.get_id(),
                     (identifier.clone(), actor_ref.clone(), handle),
                 );
@@ -809,14 +805,13 @@ impl Actor for WSGateway {
                     })?;
                 }
 
-                // Reply with the connection actor reference
+                // Reply with the portal actor reference
                 reply.send(actor_ref)?;
             }
 
-            WSGatewayMessage::GetAllConnections(reply) => {
-                let connections: Vec<_> =
-                    state.connections.values().map(|v| &v.1).cloned().collect();
-                reply.send(connections)?;
+            WSNexusMessage::GetAllPortals(reply) => {
+                let portals: Vec<_> = state.portals.values().map(|v| &v.1).cloned().collect();
+                reply.send(portals)?;
             }
         }
         Ok(())
@@ -830,9 +825,9 @@ impl Actor for WSGateway {
     ) -> Result<(), ActorProcessingErr> {
         match &event {
             SupervisionEvent::ActorTerminated(actor, last_state, reason) => {
-                if let Some((addr, _, _)) = state.connections.remove(&actor.get_id()) {
+                if let Some((addr, _, _)) = state.portals.remove(&actor.get_id()) {
                     info!(
-                        "Connection to {} terminated: {:?}, last_state={:#?}",
+                        "Portal to {} terminated: {:?}, last_state={:#?}",
                         addr, reason, last_state
                     );
                 }
@@ -840,9 +835,9 @@ impl Actor for WSGateway {
             SupervisionEvent::ActorFailed(actor, err) => {
                 info!("Actor failed: {:?} - {:?}", actor.get_id(), err);
 
-                if let Some((addr, _, _)) = state.connections.remove(&actor.get_id()) {
+                if let Some((addr, _, _)) = state.portals.remove(&actor.get_id()) {
                     info!(
-                        "Connection to {} terminated because actor failed: {:?}",
+                        "Portal to {} terminated because actor failed: {:?}",
                         addr, err
                     );
                 }
@@ -854,14 +849,14 @@ impl Actor for WSGateway {
     }
 }
 
-// Helper function to create and start the gateway actor
-pub async fn start_gateway(
+// Helper function to create and start the nexus actor
+pub async fn start_nexus(
     on_client_connected: Option<ActorRef<OnActorConnectedMessage>>,
-) -> Result<ActorRef<WSGatewayMessage>, ractor::ActorProcessingErr> {
-    let (gateway_ref, handle) = ractor::Actor::spawn(
-        Some(String::from("ws-gateway")),
-        WSGateway,
-        WSGatewayArgs {
+) -> Result<ActorRef<WSNexusMessage>, ractor::ActorProcessingErr> {
+    let (nexus_ref, handle) = ractor::Actor::spawn(
+        Some(String::from("nexus")),
+        WSNexus,
+        WSNexusArgs {
             on_client_connected,
         },
     )
@@ -870,33 +865,33 @@ pub async fn start_gateway(
     // question: do I need to detach?
     let _ = handle;
 
-    Ok(gateway_ref)
+    Ok(nexus_ref)
 }
 
 pub async fn receive_loop(
     mut ws_receiver: WebSocketSource,
     identifier: String,
-    actor_ref: ActorRef<WSConnectionMessage>,
+    actor_ref: ActorRef<WSPortalMessage>,
 ) {
     // Process incoming messages
     while let Some(msg) = ws_receiver.next().await {
         match msg {
             Ok(msg) => match msg {
                 RawMessage::Text(text) => {
-                    if let Err(err) = actor_ref.cast(WSConnectionMessage::Text(text.to_string())) {
+                    if let Err(err) = actor_ref.cast(WSPortalMessage::Text(text.to_string())) {
                         error!("Error sending text message to actor: {}", err);
                         break;
                     }
                 }
                 RawMessage::Binary(data) => {
-                    if let Err(err) = actor_ref.cast(WSConnectionMessage::Binary(data.to_vec())) {
+                    if let Err(err) = actor_ref.cast(WSPortalMessage::Binary(data.to_vec())) {
                         error!("Error sending binary message to actor: {}", err);
                         break;
                     }
                 }
                 RawMessage::Close(close_frame) => {
                     info!(
-                        "Connection with {} closed because of reason: {:?}",
+                        "Portal with {} closed because of reason: {:?}",
                         identifier, close_frame
                     );
                     break;
@@ -910,8 +905,8 @@ pub async fn receive_loop(
         }
     }
 
-    info!("Connection with {} closed", identifier);
-    let _ = actor_ref.cast(WSConnectionMessage::Close);
+    info!("Portal with {} closed", identifier);
+    let _ = actor_ref.cast(WSPortalMessage::Close);
 }
 
 // ---------------------------------------------------------------------------------
@@ -933,10 +928,10 @@ pub async fn receive_loop(
 
 #[derive(bincode::Encode, bincode::Decode, Debug, Clone, Copy)]
 pub struct RemoteActorId {
-    /// the connection key uniquely identifies the connection, it is the same ID on both sides
-    pub connection_key: ConnectionKey,
-    /// this id identifies the side, it is different between the two sides of a single connection
-    pub side: LocalConnectionId,
+    /// the portal key uniquely identifies the conduit, it is the same ID on both sides
+    pub connection_key: PortalKey,
+    /// this id identifies the side, it is different between the two portals of a single conduit
+    pub side: LocalPortalId,
     /// the unique id of the actor
     pub id: OpaqueActorId,
 }

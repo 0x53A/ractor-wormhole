@@ -7,7 +7,7 @@ use ractor::{
 // -------------------------------------------------------------------------------------------------------
 
 //#[derive(RactorMessage)]
-#[derive(ractor_wormhole_derive::WormholeSerializable, Debug)]
+#[derive(ractor_wormhole_derive::WormholeTransmaterializable, Debug)]
 pub struct RpcProxyMsg<T: Send + Sync + 'static> {
     pub data: T,
 }

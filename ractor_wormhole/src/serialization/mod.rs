@@ -4,7 +4,7 @@ pub mod internal_serializations;
 mod rpc_proxy;
 mod util;
 
-use internal_serializations::SimpleByteSerializable;
+use internal_serializations::SimpleByteTransmaterializable;
 pub use rpc_proxy::*;
 
 // -------------------------------------------------------------------------------------------------------
@@ -12,9 +12,7 @@ pub use rpc_proxy::*;
 use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
 
 use crate::{
-    gateway::{
-        GatewayResult, MsgReceiver, RemoteActorId, UserFriendlyConnection, WSConnectionMessage,
-    },
+    gateway::{MsgReceiver, NexusResult, RemoteActorId, UserFriendlyPortal, WSPortalMessage},
     util::ActorRef_Ask,
 };
 
@@ -34,11 +32,8 @@ pub struct SerializedRpcReplyPort {
 
 // -------------------------------------------------------------------------------------------------------
 
-pub struct ActorSerializationContext {
-    // pub connection_key: ConnectionKey,
-    // pub local_connection_side: LocalConnectionId,
-    // pub remote_connection_side: LocalConnectionId,
-    pub connection: ActorRef<WSConnectionMessage>,
+pub struct TransmaterializationContext {
+    pub connection: ActorRef<WSPortalMessage>,
     /// which timeout to use if the RpcReplyPort doesn't have a timeout set
     pub default_rpc_port_timeout: Duration,
 }
@@ -60,28 +55,32 @@ impl<TMessage> Default for Receiver<TMessage> {
 }
 
 #[async_trait]
-impl<TMessage: ContextSerializable + ractor::Message + Sync> MsgReceiver for Receiver<TMessage> {
+impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> MsgReceiver
+    for Receiver<TMessage>
+{
     async fn receive(
         &self,
         actor: ractor::ActorCell,
         data: &[u8],
-        ctx: ActorSerializationContext,
-    ) -> GatewayResult<()> {
-        let msg = <TMessage as ContextSerializable>::deserialize(&ctx, data).await?;
+        ctx: TransmaterializationContext,
+    ) -> NexusResult<()> {
+        let msg = <TMessage as ContextTransmaterializable>::rematerialize(&ctx, data).await?;
         let actor_ref = ActorRef::<TMessage>::from(actor);
         actor_ref.send_message(msg)?;
         Ok(())
     }
 }
 
-impl<TMessage: ContextSerializable + ractor::Message + Sync> GetReceiver for ActorRef<TMessage> {
+impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> GetReceiver
+    for ActorRef<TMessage>
+{
     fn get_receiver(&self) -> Box<dyn MsgReceiver + Send> {
         Box::new(Receiver::<TMessage>::default())
     }
 }
 
-impl ActorSerializationContext {
-    pub async fn serialize_replychannel<T: ContextSerializable + Send + Sync + 'static>(
+impl TransmaterializationContext {
+    pub async fn immaterialize_replychannel<T: ContextTransmaterializable + Send + Sync + 'static>(
         &self,
         rpc: RpcReplyPort<T>,
     ) -> SerializationResult<Vec<u8>> {
@@ -129,7 +128,7 @@ impl ActorSerializationContext {
         let published_id = self
             .connection
             .ask(
-                |rpc| WSConnectionMessage::PublishActor(local_actor.get_cell(), receiver, rpc),
+                |rpc| WSPortalMessage::PublishActor(local_actor.get_cell(), receiver, rpc),
                 None,
             )
             .await?;
@@ -138,12 +137,12 @@ impl ActorSerializationContext {
             timeout_ms: Some(timeout.as_millis()),
             remote_actor_id: published_id,
         };
-        let serialized = structured.serialize()?;
+        let serialized = structured.immaterialize()?;
 
         Ok(serialized)
     }
 
-    pub async fn serialize_actor_ref<T: ContextSerializable + ractor::Message + Sync>(
+    pub async fn immaterialize_actor_ref<T: ContextTransmaterializable + ractor::Message + Sync>(
         &self,
         actor_ref: &ActorRef<T>,
     ) -> SerializationResult<Vec<u8>> {
@@ -152,24 +151,24 @@ impl ActorSerializationContext {
         let published_id = self
             .connection
             .ask(
-                |rpc| WSConnectionMessage::PublishActor(actor_ref.get_cell(), receiver, rpc),
+                |rpc| WSPortalMessage::PublishActor(actor_ref.get_cell(), receiver, rpc),
                 None,
             )
             .await?;
 
-        let serialized = published_id.serialize()?;
+        let serialized = published_id.immaterialize()?;
 
         Ok(serialized)
     }
 
-    pub async fn deserialize_replychannel<
-        T: ContextSerializable + Send + Sync + 'static + std::fmt::Debug,
+    pub async fn rematerialize_replychannel<
+        T: ContextTransmaterializable + Send + Sync + 'static + std::fmt::Debug,
     >(
         &self,
         buffer: &[u8],
     ) -> SerializationResult<RpcReplyPort<T>> {
         // deserialize from bytes
-        let structured: SerializedRpcReplyPort = SerializedRpcReplyPort::deserialize(buffer)?;
+        let structured: SerializedRpcReplyPort = SerializedRpcReplyPort::rematerialize(buffer)?;
 
         let timeout: Option<Duration> = structured
             .timeout_ms
@@ -188,13 +187,13 @@ impl ActorSerializationContext {
         Ok(rpc_port)
     }
 
-    pub async fn deserialize_actor_ref<
-        T: ContextSerializable + ractor::Message + Send + Sync + 'static + std::fmt::Debug,
+    pub async fn rematerialize_actor_ref<
+        T: ContextTransmaterializable + ractor::Message + Send + Sync + 'static + std::fmt::Debug,
     >(
         &self,
         buffer: &[u8],
     ) -> SerializationResult<ActorRef<T>> {
-        let remote_actor_id = RemoteActorId::deserialize(buffer)?;
+        let remote_actor_id = RemoteActorId::rematerialize(buffer)?;
 
         let actor_cell = self
             .connection
@@ -212,16 +211,19 @@ impl ActorSerializationContext {
 /// Handles (de)serialization of messages to bytes.
 /// All serialization schemes must be platform independent.
 #[async_trait]
-pub trait ContextSerializable {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>>;
-    async fn deserialize(ctx: &ActorSerializationContext, data: &[u8]) -> SerializationResult<Self>
+pub trait ContextTransmaterializable {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>>;
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
+        data: &[u8],
+    ) -> SerializationResult<Self>
     where
         Self: Sized;
 }
 
 // -------------------------------------------------------------------------------------------------------
 
-pub mod serialization_proxies {
+pub mod transmaterialization_proxies {
 
     pub use ::anyhow::anyhow;
     pub use ::ractor::async_trait;
@@ -233,12 +235,14 @@ pub mod serialization_proxies {
 
         use super::*;
 
-        pub fn serialize<T: serde::Serialize>(data: T) -> SerializationResult<Vec<u8>> {
+        pub fn immaterialize<T: serde::Serialize>(data: T) -> SerializationResult<Vec<u8>> {
             let json = serde_json::to_vec(&data)?;
             Ok(json)
         }
 
-        pub fn deserialize<T: serde::de::DeserializeOwned>(data: &[u8]) -> SerializationResult<T> {
+        pub fn rematerialize<T: serde::de::DeserializeOwned>(
+            data: &[u8],
+        ) -> SerializationResult<T> {
             let deserialized = serde_json::from_slice(data)?;
             Ok(deserialized)
         }
@@ -249,12 +253,12 @@ pub mod serialization_proxies {
 
         use super::*;
 
-        pub fn serialize<T: bincode::Encode>(data: T) -> SerializationResult<Vec<u8>> {
+        pub fn immaterialize<T: bincode::Encode>(data: T) -> SerializationResult<Vec<u8>> {
             let json = bincode::encode_to_vec(data, bincode::config::standard())?;
             Ok(json)
         }
 
-        pub fn deserialize<T: bincode::Decode<()>>(data: &[u8]) -> SerializationResult<T> {
+        pub fn rematerialize<T: bincode::Decode<()>>(data: &[u8]) -> SerializationResult<T> {
             let (deserialized, consumed) =
                 bincode::decode_from_slice::<T, _>(data, bincode::config::standard())?;
             assert!(consumed == data.len());

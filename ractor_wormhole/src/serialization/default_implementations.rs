@@ -9,7 +9,7 @@ use static_assertions::{const_assert, const_assert_eq};
 
 // -------------------------------------------------------------------------------------------------------
 
-// This file contains the library provided implementations for ContextSerializable.
+// This file contains the library provided implementations for ContextTransmaterializable.
 //
 // Notes:
 //   * All buffers passed should be exactly the size of the data.
@@ -20,51 +20,51 @@ use static_assertions::{const_assert, const_assert_eq};
 // -------------------------------------------------------------------------------------------------------
 
 #[async_trait]
-impl<T: ContextSerializable + ractor::Message + Send + Sync + 'static + std::fmt::Debug>
-    ContextSerializable for ActorRef<T>
+impl<T: ContextTransmaterializable + ractor::Message + Send + Sync + 'static + std::fmt::Debug>
+    ContextTransmaterializable for ActorRef<T>
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
-        ctx.serialize_actor_ref(&self).await
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+        ctx.immaterialize_actor_ref(&self).await
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
-        ctx.deserialize_actor_ref(data).await
+        ctx.rematerialize_actor_ref(data).await
     }
 }
 
 #[async_trait]
-impl<T: ContextSerializable + Send + Sync + 'static + std::fmt::Debug> ContextSerializable
-    for RpcReplyPort<T>
+impl<T: ContextTransmaterializable + Send + Sync + 'static + std::fmt::Debug>
+    ContextTransmaterializable for RpcReplyPort<T>
 {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
-        ctx.serialize_replychannel(self).await
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+        ctx.immaterialize_replychannel(self).await
     }
 
-    async fn deserialize(
-        ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
-        ctx.deserialize_replychannel(data).await
+        ctx.rematerialize_replychannel(data).await
     }
 }
 // -------------------------------------------------------------------------------------------------------
 
 /// the serialization scheme for a Vec is: header: length:u64 + n * [element_size:u64 + element_bytes]
 #[async_trait]
-impl<T: ContextSerializable + Send + Sync + 'static> ContextSerializable for Vec<T> {
-    default async fn serialize(
+impl<T: ContextTransmaterializable + Send + Sync + 'static> ContextTransmaterializable for Vec<T> {
+    default async fn immaterialize(
         self,
-        ctx: &ActorSerializationContext,
+        ctx: &TransmaterializationContext,
     ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8 + self.len() * 8);
         let count = self.len() as u64;
         buffer.extend_from_slice(&count.to_le_bytes());
 
         for element in self {
-            let element_bytes = element.serialize(ctx).await?;
+            let element_bytes = element.immaterialize(ctx).await?;
             let length: u64 = element_bytes.len() as u64;
             buffer.extend_from_slice(&length.to_le_bytes());
             buffer.extend_from_slice(&element_bytes);
@@ -73,8 +73,8 @@ impl<T: ContextSerializable + Send + Sync + 'static> ContextSerializable for Vec
         Ok(buffer)
     }
 
-    default async fn deserialize(
-        ctx: &ActorSerializationContext,
+    default async fn rematerialize(
+        ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let mut offset = 0;
@@ -90,7 +90,7 @@ impl<T: ContextSerializable + Send + Sync + 'static> ContextSerializable for Vec
             offset += 8;
             require_min_buffer_size(data, offset + length)?;
             let element_data = &data[offset..offset + length];
-            buffer.push(T::deserialize(ctx, element_data).await?);
+            buffer.push(T::rematerialize(ctx, element_data).await?);
             offset += length;
         }
 
@@ -102,8 +102,8 @@ impl<T: ContextSerializable + Send + Sync + 'static> ContextSerializable for Vec
 // -------------------------------------------------------------------------------------------------------
 
 #[async_trait]
-impl ContextSerializable for Vec<u8> {
-    async fn serialize(self, _ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+impl ContextTransmaterializable for Vec<u8> {
+    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8 + self.len());
         let length = self.len() as u64;
         buffer.extend_from_slice(&length.to_le_bytes());
@@ -111,8 +111,8 @@ impl ContextSerializable for Vec<u8> {
         Ok(buffer)
     }
 
-    async fn deserialize(
-        _ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        _ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let length = u64::from_le_bytes(data[0..8].try_into()?) as usize;
@@ -124,8 +124,8 @@ impl ContextSerializable for Vec<u8> {
 // -------------------------------------------------------------------------------------------------------
 
 #[async_trait]
-impl ContextSerializable for String {
-    async fn serialize(self, _ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+impl ContextTransmaterializable for String {
+    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8 + self.len());
         let length = self.len() as u64;
         buffer.extend_from_slice(&length.to_le_bytes());
@@ -133,8 +133,8 @@ impl ContextSerializable for String {
         Ok(buffer)
     }
 
-    async fn deserialize(
-        _ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        _ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         let length = u64::from_le_bytes(data[0..8].try_into()?) as usize;
@@ -146,22 +146,22 @@ impl ContextSerializable for String {
 
 // -------------------------------------------------------------------------------------------------------
 
-/// Macro to implement ContextSerializable for numeric types
-macro_rules! impl_context_serializable_for_le_bytes {
+/// Macro to implement ContextTransmaterializable for numeric types
+macro_rules! impl_context_transmaterializable_for_le_bytes {
     ($type:ty, $size:expr) => {
         #[async_trait]
-        impl ContextSerializable for $type {
-            default async fn serialize(
+        impl ContextTransmaterializable for $type {
+            default async fn immaterialize(
                 self,
-                _ctx: &ActorSerializationContext,
+                _ctx: &TransmaterializationContext,
             ) -> SerializationResult<Vec<u8>> {
                 let mut buffer = Vec::with_capacity($size);
                 buffer.extend_from_slice(&self.to_le_bytes());
                 Ok(buffer)
             }
 
-            default async fn deserialize(
-                _ctx: &ActorSerializationContext,
+            default async fn rematerialize(
+                _ctx: &TransmaterializationContext,
                 data: &[u8],
             ) -> SerializationResult<Self> {
                 require_buffer_size(data, $size)?;
@@ -171,58 +171,58 @@ macro_rules! impl_context_serializable_for_le_bytes {
     };
 }
 
-macro_rules! impl_context_serializable_for_numeric {
+macro_rules! impl_context_transmaterializable_for_numeric {
     ($type:ty) => {
-        impl_context_serializable_for_le_bytes!($type, std::mem::size_of::<$type>());
+        impl_context_transmaterializable_for_le_bytes!($type, std::mem::size_of::<$type>());
     };
 }
 
-macro_rules! impl_context_serializable_for_integer {
+macro_rules! impl_context_transmaterializable_for_integer {
     ($type:ty) => {
         const_assert_eq!(std::mem::size_of::<$type>(), <$type>::BITS as usize / 8);
-        impl_context_serializable_for_numeric!($type);
+        impl_context_transmaterializable_for_numeric!($type);
     };
 }
 
-macro_rules! impl_context_serializable_for_float {
+macro_rules! impl_context_transmaterializable_for_float {
     ($type:ty) => {
-        impl_context_serializable_for_numeric!($type);
+        impl_context_transmaterializable_for_numeric!($type);
     };
 }
 
 // Implement for all integer types
-impl_context_serializable_for_integer!(u8);
-impl_context_serializable_for_integer!(u16);
-impl_context_serializable_for_integer!(u32);
-impl_context_serializable_for_integer!(u64);
-impl_context_serializable_for_integer!(u128);
-impl_context_serializable_for_integer!(i8);
-impl_context_serializable_for_integer!(i16);
-impl_context_serializable_for_integer!(i32);
-impl_context_serializable_for_integer!(i64);
-impl_context_serializable_for_integer!(i128);
+impl_context_transmaterializable_for_integer!(u8);
+impl_context_transmaterializable_for_integer!(u16);
+impl_context_transmaterializable_for_integer!(u32);
+impl_context_transmaterializable_for_integer!(u64);
+impl_context_transmaterializable_for_integer!(u128);
+impl_context_transmaterializable_for_integer!(i8);
+impl_context_transmaterializable_for_integer!(i16);
+impl_context_transmaterializable_for_integer!(i32);
+impl_context_transmaterializable_for_integer!(i64);
+impl_context_transmaterializable_for_integer!(i128);
 
 // Implement for floating point types
 const_assert_eq!(std::mem::size_of::<f32>(), 4);
-impl_context_serializable_for_float!(f32);
+impl_context_transmaterializable_for_float!(f32);
 const_assert_eq!(std::mem::size_of::<f64>(), 8);
-impl_context_serializable_for_float!(f64);
+impl_context_transmaterializable_for_float!(f64);
 
 // -------------------------------------------------------------------------------------------------------
 
 const_assert!(std::mem::size_of::<usize>() <= 8);
 
 #[async_trait]
-impl ContextSerializable for usize {
-    async fn serialize(self, _ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+impl ContextTransmaterializable for usize {
+    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8);
         // note: serialize as u64 so it's platform independent
         buffer.extend_from_slice(&(self as u64).to_le_bytes());
         Ok(buffer)
     }
 
-    async fn deserialize(
-        _ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        _ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         require_buffer_size(data, 8)?;
@@ -235,16 +235,16 @@ impl ContextSerializable for usize {
 const_assert!(std::mem::size_of::<isize>() <= 8);
 
 #[async_trait]
-impl ContextSerializable for isize {
-    async fn serialize(self, _ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+impl ContextTransmaterializable for isize {
+    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8);
         // note: serialize as i64 so it's platform independent
         buffer.extend_from_slice(&(self as i64).to_le_bytes());
         Ok(buffer)
     }
 
-    async fn deserialize(
-        _ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        _ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         require_buffer_size(data, 8)?;
@@ -255,15 +255,15 @@ impl ContextSerializable for isize {
 // -------------------------------------------------------------------------------------------------------
 
 #[async_trait]
-impl ContextSerializable for bool {
-    async fn serialize(self, _ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>> {
+impl ContextTransmaterializable for bool {
+    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(1);
         buffer.extend_from_slice(if self { &[1] } else { &[0] });
         Ok(buffer)
     }
 
-    async fn deserialize(
-        _ctx: &ActorSerializationContext,
+    async fn rematerialize(
+        _ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> SerializationResult<Self> {
         require_buffer_size(data, 1)?;

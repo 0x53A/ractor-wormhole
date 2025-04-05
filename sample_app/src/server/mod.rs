@@ -3,7 +3,7 @@ mod connection;
 
 use std::net::SocketAddr;
 
-use ractor_wormhole::{gateway::UserFriendlyConnection, util::FnActor};
+use ractor_wormhole::{gateway::UserFriendlyPortal, util::FnActor};
 
 use crate::common::{ClientToServerMessage, PingPongMsg};
 

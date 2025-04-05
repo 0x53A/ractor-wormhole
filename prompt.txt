@@ -1,0 +1,30 @@
+The project should follow a new naming scheme.
+
+The project itself is still called "ractor-wormhole".
+What is currently the "gateway" will be renamed to Nexus.
+There will be one Nexus that holds multiple Portals.
+Connection (may sometimes be called channel in the code) will be renamed to Portal.
+One Portal (in a Nexus) connects to another Portal (in a remote Nexus, this is an actor remote communication library) through a Conduit.
+The Conduit is the connection between two portals - currently there is one implementation based on Websockets.
+
+Messages are Immaterialized on the sending side (serialized) and Rematerialized on the receiving side (deserialized) when passing through portals.
+
+
+Please refactor the codebase to implement the following naming scheme changes:
+
+1. Rename "gateway" to "nexus" (maintaining proper case sensitivity - Gateway → Nexus)
+2. Rename "connection" to "portal" (maintaining proper case sensitivity - Connection → Portal)
+3. Keep "conduit" as is
+4. Introduce terminology for message passing as "immaterialization" (sending) and "rematerialization" (receiving)
+
+Apply these changes consistently across:
+- Struct/enum names and their fields
+- Function/method names
+- Variable names
+- Type parameters
+- Documentation comments
+- README and other markdown files
+- Module names and references
+
+Maintain code functionality while updating all identifiers and terminology.
+Also update any conceptual explanations in comments to use the new terminology consistently.

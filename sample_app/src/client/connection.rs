@@ -8,13 +8,11 @@ use tokio_tungstenite::{
 };
 use url::Url;
 
-use ractor_wormhole::gateway::{
-    self, RawMessage, WSConnectionMessage, WSGatewayMessage, start_gateway,
-};
+use ractor_wormhole::gateway::{self, RawMessage, WSNexusMessage, WSPortalMessage, start_nexus};
 
 pub async fn establish_connection(
     server_url: String,
-) -> Result<(ActorRef<WSGatewayMessage>, ActorRef<WSConnectionMessage>), anyhow::Error> {
+) -> Result<(ActorRef<WSNexusMessage>, ActorRef<WSPortalMessage>), anyhow::Error> {
     // Initialize logger
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -24,19 +22,19 @@ pub async fn establish_connection(
     let url = Url::parse(&server_url)?;
     info!("Connecting to WebSocket server at: {}", url);
 
-    // Start the gateway actor
-    let gateway = start_gateway(None).await.unwrap();
+    // Start the nexus actor
+    let nexus = start_nexus(None).await.unwrap();
 
     // Connect to the server
-    let connection = connect_to_server(url, gateway.clone()).await?;
+    let portal = connect_to_server(url, nexus.clone()).await?;
 
-    Ok((gateway, connection))
+    Ok((nexus, portal))
 }
 
 async fn connect_to_server(
     url: Url,
-    gateway: ActorRef<WSGatewayMessage>,
-) -> Result<ActorRef<WSConnectionMessage>, anyhow::Error> {
+    nexus: ActorRef<WSNexusMessage>,
+) -> Result<ActorRef<WSPortalMessage>, anyhow::Error> {
     // Connect to the WebSocket server
     let (ws_stream, _) = match connect_async(url.as_str()).await {
         Ok(conn) => {
@@ -81,31 +79,30 @@ async fn connect_to_server(
     let ws_sender: gateway::WebSocketSink = Box::pin(ws_sender);
     let ws_receiver: gateway::WebSocketSource = Box::pin(ws_receiver);
 
-    // Register the connection with the gateway actor
-    let connection_identifier = format!("ws://{}", addr);
-    let connection = call_t!(
-        gateway,
-        WSGatewayMessage::Connected,
+    // Register the portal with the nexus actor
+    let portal_identifier = format!("ws://{}", addr);
+    let portal = call_t!(
+        nexus,
+        WSNexusMessage::Connected,
         100,
-        connection_identifier,
+        portal_identifier,
         ws_sender
     );
 
-    match connection {
-        Ok(connection_actor) => {
-            info!("Connection actor started for: {}", addr);
+    match portal {
+        Ok(portal_actor) => {
+            info!("Portal actor started for: {}", addr);
 
-            let connection_actor_copy = connection_actor.clone();
-            let connection_identifier = format!("ws://{}", addr);
+            let portal_actor_copy = portal_actor.clone();
+            let portal_identifier = format!("ws://{}", addr);
             tokio::spawn(async move {
-                gateway::receive_loop(ws_receiver, connection_identifier, connection_actor_copy)
-                    .await
+                gateway::receive_loop(ws_receiver, portal_identifier, portal_actor_copy).await
             });
 
-            Ok(connection_actor)
+            Ok(portal_actor)
         }
         Err(e) => {
-            error!("Error starting connection actor: {}", e);
+            error!("Error starting portal actor: {}", e);
             Err(e.into())
         }
     }

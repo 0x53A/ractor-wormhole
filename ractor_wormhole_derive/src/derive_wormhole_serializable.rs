@@ -7,15 +7,15 @@ use venial::NamedField;
 // Usage
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-// This macro can be applied to structs and enums, and will derive ractor_wormhole::serialization::ContextSerializable.
+// This macro can be applied to structs and enums, and will derive ractor_wormhole::serialization::ContextTransmaterializable.
 
 // (for AI)
 // As a reminder, the trait looks like this:
 /*
 #[async_trait]
-pub trait ContextSerializable {
-    async fn serialize(self, ctx: &ActorSerializationContext) -> SerializationResult<Vec<u8>>;
-    async fn deserialize(ctx: &ActorSerializationContext, data: &[u8]) -> SerializationResult<Self>
+pub trait ContextTransmaterializable {
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>>;
+    async fn rematerialize(ctx: &TransmaterializationContext, data: &[u8]) -> SerializationResult<Self>
     where
         Self: Sized;
 }
@@ -30,16 +30,16 @@ pub struct Dummy {
 }
 
 #[cfg(false)]
-#[::ractor_wormhole::serialization::serialization_proxies::async_trait]
-impl ::ractor_wormhole::serialization::ContextSerializable for Dummy {
-    async fn serialize(
+#[::ractor_wormhole::serialization::transmaterialization_proxies::async_trait]
+impl ::ractor_wormhole::serialization::ContextTransmaterializable for Dummy {
+    async fn immaterialize(
         self,
-        ctx: &::ractor_wormhole::serialization::ActorSerializationContext,
+        ctx: &::ractor_wormhole::serialization::TransmaterializationContext,
     ) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let field_bytes_dummy =
-            <u32 as ::ractor_wormhole::serialization::ContextSerializable>::serialize(
+            <u32 as ::ractor_wormhole::serialization::ContextTransmaterializable>::immaterialize(
                 self.dummy, ctx,
             )
             .await?;
@@ -49,8 +49,8 @@ impl ::ractor_wormhole::serialization::ContextSerializable for Dummy {
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &::ractor_wormhole::serialization::ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &::ractor_wormhole::serialization::TransmaterializationContext,
         data: &[u8],
     ) -> ::ractor_wormhole::serialization::SerializationResult<Self> {
         let mut offset = 0;
@@ -60,7 +60,7 @@ impl ::ractor_wormhole::serialization::ContextSerializable for Dummy {
         let field_bytes_dummy = &data[offset..offset + field_len_dummy];
         offset += field_len_dummy;
         let field_dummy =
-            <u32 as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+            <u32 as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(
                 ctx,
                 field_bytes_dummy,
             )
@@ -68,8 +68,8 @@ impl ::ractor_wormhole::serialization::ContextSerializable for Dummy {
 
         if data.len() != offset {
             return Err(
-                ::ractor_wormhole::serialization::serialization_proxies::anyhow!(
-                    "Deserialization did not consume all data! Buffer length: {}, consumed: {}",
+                ::ractor_wormhole::serialization::transmaterialization_proxies::anyhow!(
+                    "Rematerialization did not consume all data! Buffer length: {}, consumed: {}",
                     data.len(),
                     offset
                 ),
@@ -94,23 +94,23 @@ pub enum DummyEnum {
 }
 
 #[cfg(false)]
-#[::ractor_wormhole::serialization::serialization_proxies::async_trait]
-impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
-    async fn serialize(
+#[::ractor_wormhole::serialization::transmaterialization_proxies::async_trait]
+impl ::ractor_wormhole::serialization::ContextTransmaterializable for DummyEnum {
+    async fn immaterialize(
         self,
-        ctx: &::ractor_wormhole::serialization::ActorSerializationContext,
+        ctx: &::ractor_wormhole::serialization::TransmaterializationContext,
     ) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let (case, bytes): (String, Vec<u8>) = match self {
             DummyEnum::Case1(field1, field2) => {
                 let field_bytes_field1 =
-                    <u32 as ::ractor_wormhole::serialization::ContextSerializable>::serialize(
+                    <u32 as ::ractor_wormhole::serialization::ContextTransmaterializable>::immaterialize(
                         field1, ctx,
                     )
                     .await?;
                 let field_bytes_field2 =
-                    <String as ::ractor_wormhole::serialization::ContextSerializable>::serialize(
+                    <String as ::ractor_wormhole::serialization::ContextTransmaterializable>::immaterialize(
                         field2, ctx,
                     )
                     .await?;
@@ -124,12 +124,12 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
             DummyEnum::Case2 => ("Case2".to_string(), vec![]),
             DummyEnum::Case3 { field1, field2 } => {
                 let field_bytes_field1 =
-                    <u32 as ::ractor_wormhole::serialization::ContextSerializable>::serialize(
+                    <u32 as ::ractor_wormhole::serialization::ContextTransmaterializable>::immaterialize(
                         field1, ctx,
                     )
                     .await?;
                 let field_bytes_field2 =
-                    <String as ::ractor_wormhole::serialization::ContextSerializable>::serialize(
+                    <String as ::ractor_wormhole::serialization::ContextTransmaterializable>::immaterialize(
                         field2, ctx,
                     )
                     .await?;
@@ -149,8 +149,8 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
         Ok(buffer)
     }
 
-    async fn deserialize(
-        ctx: &::ractor_wormhole::serialization::ActorSerializationContext,
+    async fn rematerialize(
+        ctx: &::ractor_wormhole::serialization::TransmaterializationContext,
         data: &[u8],
     ) -> ::ractor_wormhole::serialization::SerializationResult<Self> {
         let mut offset = 0;
@@ -181,7 +181,7 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
                 let field1_bytes = &payload_data[payload_offset..payload_offset + field1_len];
                 payload_offset += field1_len;
                 let field1 =
-                    <u32 as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+                    <u32 as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(
                         ctx,
                         field1_bytes,
                     )
@@ -195,7 +195,7 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
                 let field2_bytes = &payload_data[payload_offset..payload_offset + field2_len];
                 payload_offset += field2_len;
                 let field2 =
-                    <String as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+                    <String as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(
                         ctx,
                         field2_bytes,
                     )
@@ -215,7 +215,7 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
                 let field1_bytes = &payload_data[payload_offset..payload_offset + field1_len];
                 payload_offset += field1_len;
                 let field1 =
-                    <u32 as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+                    <u32 as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(
                         ctx,
                         field1_bytes,
                     )
@@ -229,7 +229,7 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
                 let field2_bytes = &payload_data[payload_offset..payload_offset + field2_len];
                 payload_offset += field2_len;
                 let field2 =
-                    <String as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+                    <String as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(
                         ctx,
                         field2_bytes,
                     )
@@ -239,7 +239,7 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
             }
             _ => {
                 return Err(
-                    ::ractor_wormhole::serialization::serialization_proxies::anyhow!(
+                    ::ractor_wormhole::serialization::transmaterialization_proxies::anyhow!(
                         "Unknown variant: {}",
                         variant_name
                     ),
@@ -249,8 +249,8 @@ impl ::ractor_wormhole::serialization::ContextSerializable for DummyEnum {
 
         if data.len() != offset {
             return Err(
-                ::ractor_wormhole::serialization::serialization_proxies::anyhow!(
-                    "Deserialization did not consume all data! Buffer length: {}, consumed: {}",
+                ::ractor_wormhole::serialization::transmaterialization_proxies::anyhow!(
+                    "Rematerialization did not consume all data! Buffer length: {}, consumed: {}",
                     data.len(),
                     offset
                 ),
@@ -303,7 +303,7 @@ fn for_field(field: &NamedField) -> Result<(TokenStream, TokenStream), venial::E
     }
 
     let serialize = quote! {
-        let #ident_field_bytes = <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::serialize(self.#field_name, ctx).await?;
+        let #ident_field_bytes = <#field_type as ::ractor_wormhole::serialization::ContextTransmaterializable>::immaterialize(self.#field_name, ctx).await?;
         buffer.extend_from_slice(&(#ident_field_bytes.len() as u64).to_le_bytes());
         buffer.extend_from_slice(&#ident_field_bytes);
     };
@@ -313,7 +313,7 @@ fn for_field(field: &NamedField) -> Result<(TokenStream, TokenStream), venial::E
         offset += 8;
         let #ident_field_bytes = &data[offset..offset + #ident_field_len];
         offset += #ident_field_len;
-        let #ident_field = <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(ctx, #ident_field_bytes).await?;
+        let #ident_field = <#field_type as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(ctx, #ident_field_bytes).await?;
     };
 
     Ok((serialize, deserialize))
@@ -344,8 +344,9 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
     };
 
     // Generate trait bounds for generic parameters
-    let extended_where_clause = input
-        .create_derive_where_clause(quote! {::ractor_wormhole::serialization::ContextSerializable});
+    let extended_where_clause = input.create_derive_where_clause(
+        quote! {::ractor_wormhole::serialization::ContextTransmaterializable},
+    );
 
     match &input.fields {
         venial::Fields::Named(named_fields) => {
@@ -365,9 +366,9 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
             });
 
             let q = quote! {
-                #[::ractor_wormhole::serialization::serialization_proxies::async_trait]
-                impl #impl_generics ::ractor_wormhole::serialization::ContextSerializable for #struct_name #type_generics #extended_where_clause {
-                    async fn serialize(self, ctx: &::ractor_wormhole::serialization::ActorSerializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
+                #[::ractor_wormhole::serialization::transmaterialization_proxies::async_trait]
+                impl #impl_generics ::ractor_wormhole::serialization::ContextTransmaterializable for #struct_name #type_generics #extended_where_clause {
+                    async fn immaterialize(self, ctx: &::ractor_wormhole::serialization::TransmaterializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
                         let mut buffer = Vec::new();
 
                         #(#serialize)*
@@ -375,13 +376,13 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
                         Ok(buffer)
                     }
 
-                    async fn deserialize(ctx: &::ractor_wormhole::serialization::ActorSerializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
+                    async fn rematerialize(ctx: &::ractor_wormhole::serialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
                         let mut offset = 0;
 
                         #(#deserialize)*
 
                         if data.len() != offset {
-                            return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Deserialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
+                            return Err(::ractor_wormhole::serialization::transmaterialization_proxies::anyhow!("Rematerialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
                         }
 
                         Ok(Self { #(#field_names),* })
@@ -404,7 +405,7 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
                 let index = proc_macro2::Literal::usize_unsuffixed(i);
 
                 let serialize_field = quote! {
-                    let #field_bytes_ident = <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::serialize(
+                    let #field_bytes_ident = <#field_type as ::ractor_wormhole::serialization::ContextTransmaterializable>::immaterialize(
                         self.#index, ctx
                     ).await?;
                     buffer.extend_from_slice(&(#field_bytes_ident.len() as u64).to_le_bytes());
@@ -431,16 +432,16 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
                     let #field_bytes_ident = &data[offset..offset + #field_len_ident];
                     offset += #field_len_ident;
                     let #field_value_ident =
-                        <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+                        <#field_type as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(
                             ctx, #field_bytes_ident
                         ).await?;
                 });
             }
 
             let q = quote! {
-                #[::ractor_wormhole::serialization::serialization_proxies::async_trait]
-                impl #impl_generics ::ractor_wormhole::serialization::ContextSerializable for #struct_name #type_generics #extended_where_clause {
-                    async fn serialize(self, ctx: &::ractor_wormhole::serialization::ActorSerializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
+                #[::ractor_wormhole::serialization::transmaterialization_proxies::async_trait]
+                impl #impl_generics ::ractor_wormhole::serialization::ContextTransmaterializable for #struct_name #type_generics #extended_where_clause {
+                    async fn immaterialize(self, ctx: &::ractor_wormhole::serialization::TransmaterializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
                         let mut buffer = Vec::new();
 
                         #(#serialize_fields)*
@@ -448,13 +449,13 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
                         Ok(buffer)
                     }
 
-                    async fn deserialize(ctx: &::ractor_wormhole::serialization::ActorSerializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
+                    async fn rematerialize(ctx: &::ractor_wormhole::serialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
                         let mut offset = 0;
 
                         #(#deserialize_fields)*
 
                         if data.len() != offset {
-                            return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Deserialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
+                            return Err(::ractor_wormhole::serialization::transmaterialization_proxies::anyhow!("Rematerialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
                         }
 
                         Ok(Self(#(#field_value_idents),*))
@@ -467,17 +468,17 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
         venial::Fields::Unit => {
             // Handle unit structs like `struct EmptyStruct;`
             let q = quote! {
-                #[::ractor_wormhole::serialization::serialization_proxies::async_trait]
-                impl #impl_generics ::ractor_wormhole::serialization::ContextSerializable for #struct_name #type_generics #extended_where_clause {
-                    async fn serialize(self, _ctx: &::ractor_wormhole::serialization::ActorSerializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
-                        // Unit structs have no data to serialize
+                #[::ractor_wormhole::serialization::transmaterialization_proxies::async_trait]
+                impl #impl_generics ::ractor_wormhole::serialization::ContextTransmaterializable for #struct_name #type_generics #extended_where_clause {
+                    async fn immaterialize(self, _ctx: &::ractor_wormhole::serialization::TransmaterializationContext) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8> >  {
+                        // Unit structs have no data to immaterialize
                         Ok(Vec::new())
                     }
 
-                    async fn deserialize(_ctx: &::ractor_wormhole::serialization::ActorSerializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
+                    async fn rematerialize(_ctx: &::ractor_wormhole::serialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::serialization::SerializationResult<Self>  {
                         // Ensure we received empty data
                         if data.len() != 0 {
-                            return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Unit struct should have no data to deserialize, but buffer has len={}", data.len()));
+                            return Err(::ractor_wormhole::serialization::transmaterialization_proxies::anyhow!("Unit struct should have no data to rematerialize, but buffer has len={}", data.len()));
                         }
                         Ok(Self)
                     }
@@ -529,7 +530,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                     let field_bytes_ident = format_ident!("field_bytes_{}", i);
 
                     let serialize_field = quote! {
-                        let #field_bytes_ident = <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::serialize(
+                        let #field_bytes_ident = <#field_type as ::ractor_wormhole::serialization::ContextTransmaterializable>::immaterialize(
                             #field_ident, ctx
                         ).await?;
                         buffer.extend_from_slice(&(#field_bytes_ident.len() as u64).to_le_bytes());
@@ -565,7 +566,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                         let #field_bytes_ident = &payload_data[payload_offset..payload_offset + #field_len_ident];
                         payload_offset += #field_len_ident;
                         let #field_value_ident =
-                            <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+                            <#field_type as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(
                                 ctx, #field_bytes_ident
                             ).await?;
                     });
@@ -624,7 +625,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                         let #field_bytes_ident = &payload_data[payload_offset..payload_offset + #field_len_ident];
                         payload_offset += #field_len_ident;
                         let #field_value_ident =
-                            <#field_type as ::ractor_wormhole::serialization::ContextSerializable>::deserialize(
+                            <#field_type as ::ractor_wormhole::serialization::ContextTransmaterializable>::rematerialize(
                                 ctx, #field_bytes_ident
                             ).await?;
                     });
@@ -647,11 +648,11 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
 
     // Complete implementation
     let q = quote! {
-        #[::ractor_wormhole::serialization::serialization_proxies::async_trait]
-        impl ::ractor_wormhole::serialization::ContextSerializable for #enum_name {
-            async fn serialize(
+        #[::ractor_wormhole::serialization::transmaterialization_proxies::async_trait]
+        impl ::ractor_wormhole::serialization::ContextTransmaterializable for #enum_name {
+            async fn immaterialize(
                 self,
-                ctx: &::ractor_wormhole::serialization::ActorSerializationContext,
+                ctx: &::ractor_wormhole::serialization::TransmaterializationContext,
             ) -> ::ractor_wormhole::serialization::SerializationResult<Vec<u8>> {
                 let mut buffer = Vec::new();
 
@@ -666,8 +667,8 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 Ok(buffer)
             }
 
-            async fn deserialize(
-                ctx: &::ractor_wormhole::serialization::ActorSerializationContext,
+            async fn rematerialize(
+                ctx: &::ractor_wormhole::serialization::TransmaterializationContext,
                 data: &[u8],
             ) -> ::ractor_wormhole::serialization::SerializationResult<Self> {
                 let mut offset = 0;
@@ -689,12 +690,12 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let result = match variant_name.as_str() {
                     #(#deserialize_arms)*
                     _ => {
-                        return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Unknown variant: {}", variant_name));
+                        return Err(::ractor_wormhole::serialization::transmaterialization_proxies::anyhow!("Unknown variant: {}", variant_name));
                     }
                 };
 
                 if data.len() != offset {
-                    return Err(::ractor_wormhole::serialization::serialization_proxies::anyhow!("Deserialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
+                    return Err(::ractor_wormhole::serialization::transmaterialization_proxies::anyhow!("Rematerialization did not consume all data! Buffer length: {}, consumed: {}", data.len(), offset));
                 }
 
                 Ok(result)

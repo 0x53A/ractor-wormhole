@@ -33,20 +33,19 @@ It would be trivial to implement transports for TCP or stdio.
 
 Ractor Wormhole uses a custom serialization scheme. This is required because it enables fishing ``ActorRef``s and ``RpcReplyPort``s out of deeply nested enums and structs, and then reconstructing everything on the other side.
 
-This means all types that should be passed through the portal need to implement the custom trait ``ContextSerializable``.
+Objects that pass through a portal are immaterialized, and then rematerialized on the other side. Consequently, all Messages need to implement the trait ``ContextTransmaterializable``.
 
-Unfortunately, because Ractor Wormhole is a seperate crate from ractor, and the lack of specialisation, and the damned orphan roles, I found it impossible to write a fully generic automatic adapter for existing serialization libraries (serde and/or bincode).
+Unfortunately, because Ractor Wormhole is a separate crate from ractor, and the lack of specialization, and the damned orphan rules, I found it impossible to write a fully generic automatic adapter for existing serialization libraries (serde and/or bincode).
 
-The top level Message type needs to be either a primitive type for which this crate already provides an implementation, or a user defined type with the trait ``ContextSerializable`` implemented.
+The top-level Message type needs to be either a primitive type for which this crate already provides an implementation, or a user-defined type with the trait ``ContextTransmaterializable`` implemented.
 
-For individual fields, you can use automatic adaption when using our ``derive`` macro.
+For individual fields, you can then use automatic adaption when using our ``derive`` macro.
 
-**(Note: #[serde] and #[bincode] are not yet implemented)``
+**(Note: #[serde] and #[bincode] are not yet implemented)**
 
 Example:
 
 ```rust
-
 // these types already have serialization logic defined
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct SomeData { 
@@ -60,7 +59,7 @@ pub struct OtherData {
 
 
 // the actual message type needs our derive macro ...
-#[derive(WormholeSerializable)]
+#[derive(WormholeTransmaterializable)]
 pub struct WormholeMessage {
     // .. but we can use annotations that for the fields, it should delegate to an existing serialization library
     #[serde] pub a: SomeData,
@@ -70,12 +69,12 @@ pub struct WormholeMessage {
 
 This strongly couples this crate to serde and bincode, which I'm not exactly happy about, but well, better than nothing.
 
-It's important that both ``ActorRef<T>`` and ``RpcReplyPort<T>`` MUST **always** be serialized through the ``ContextSerializable`` interface!
-                            
+It's important that both ``ActorRef<T>`` and ``RpcReplyPort<T>`` MUST **always** be transmaterialized through the ``ContextSerializable`` interface! Otherwise they can't be properly reconstituted on the other side.
+
+
 ## Relationship to Ractor Cluster
 
 This project is not related to, and does not depend on, the ractor native clustering. It can be used in conjunction with a cluster on one or both sides.
-
 
 ## Components
 
@@ -85,7 +84,7 @@ While you technically could instantiate multiple ``Nexus``es (Nexi?), (there are
 
 When you have the Nexus and one or more Portals, you can publish Actors to them.
 
-Actors published to the Nexus are immediatly available to all Portals, current and future. Actors published to a specific Portal are only available to that Portal and not any neighboring ones.
+Actors published to the Nexus are immediately available to all Portals, current and future. Actors published to a specific Portal are only available to that Portal and not any neighboring ones.
 
 
 ## Example

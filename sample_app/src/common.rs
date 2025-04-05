@@ -2,19 +2,19 @@
 
 use ractor::{ActorRef, RpcReplyPort};
 use ractor_cluster_derive::RactorMessage;
-use ractor_wormhole_derive::WormholeSerializable;
+use ractor_wormhole_derive::WormholeTransmaterializable;
 
-#[derive(Debug, Clone, WormholeSerializable)]
+#[derive(Debug, Clone, WormholeTransmaterializable)]
 pub struct UserAlias(String);
-#[derive(Debug, Clone, WormholeSerializable)]
+#[derive(Debug, Clone, WormholeTransmaterializable)]
 pub struct ChatMessage(String);
 
-#[derive(Debug, RactorMessage, WormholeSerializable)]
+#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
 pub enum ChatServerMessage {
     PostMessage(ChatMessage),
 }
 
-#[derive(Debug, RactorMessage, WormholeSerializable)]
+#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
 pub enum ChatClientMessage {
     AssignAlias(String),
     MessageReceived(UserAlias, ChatMessage),
@@ -22,19 +22,19 @@ pub enum ChatClientMessage {
 
 // ----------------------------------------------------------------------------------
 
-#[derive(Debug, RactorMessage, WormholeSerializable)]
+#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
 pub enum PingPongMsg {
     Ping(ActorRef<PingPongMsg>),
     Pong,
 }
 
-#[derive(Debug, RactorMessage, WormholeSerializable)]
+#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
 pub enum ClientToServerMessage {
     Print(String),
     GetPingPong(RpcReplyPort<ActorRef<PingPongMsg>>),
 }
 
-#[derive(Debug, RactorMessage, WormholeSerializable)]
+#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
 pub enum ServerToClientMessage {
     Ask(RpcReplyPort<String>),
 }
