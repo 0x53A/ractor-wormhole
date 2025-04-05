@@ -8,7 +8,7 @@
 pub mod conduit;
 pub mod gateway;
 pub mod portal;
-pub mod serialization;
+pub mod transmaterialization;
 pub mod util;
 
 extern crate self as ractor_wormhole;

@@ -1,4 +1,4 @@
-use ractor_wormhole::serialization::ContextTransmaterializable;
+use ractor_wormhole::transmaterialization::ContextTransmaterializable;
 use ractor_wormhole_derive::WormholeTransmaterializable;
 
 // Structs

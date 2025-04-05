@@ -3,7 +3,7 @@ mod connection;
 use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
     portal::{PortalActorMessage, UserFriendlyPortal},
-    serialization::GetReceiver,
+    transmaterialization::GetReceiver,
     util::{ActorRef_Ask, FnActor},
 };
 use std::time::Duration;

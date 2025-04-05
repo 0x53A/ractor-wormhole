@@ -11,11 +11,11 @@ use std::{collections::HashMap, fmt::Display, pin::Pin};
 use crate::{
     conduit::{ConduitMessage, ConduitSink},
     gateway::RemoteActorId,
-    serialization::{ContextTransmaterializable, GetReceiver, TransmaterializationContext},
+    transmaterialization::{ContextTransmaterializable, GetReceiver, TransmaterializationContext},
     util::{ActorRef_Ask, FnActor},
 };
 
-use crate::serialization::internal_serializations::SimpleByteTransmaterializable;
+use crate::transmaterialization::internal_serializations::SimpleByteTransmaterializable;
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -209,7 +209,7 @@ impl UserFriendlyPortal for ActorRef<PortalActorMessage> {
                         // Create a regular closure that returns a boxed and pinned future
                         Box::pin(async move {
                             let bytes: Vec<u8> =
-                                crate::serialization::ContextTransmaterializable::immaterialize(
+                                crate::transmaterialization::ContextTransmaterializable::immaterialize(
                                     msg, &ctx,
                                 )
                                 .await?;
