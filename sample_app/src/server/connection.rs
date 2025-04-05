@@ -83,13 +83,20 @@ async fn handle_connection(
     let ws_sender: gateway::WebSocketSink = Box::pin(ws_sender);
     let ws_receiver: gateway::WebSocketSource = Box::pin(ws_receiver);
 
-    let connection = call_t!(actor_ref, WSGatewayMessage::Connected, 100, addr, ws_sender);
+    let connection_identifier = format!("ws://{}", addr);
+    let connection = call_t!(
+        actor_ref,
+        WSGatewayMessage::Connected,
+        100,
+        connection_identifier.clone(),
+        ws_sender
+    );
 
     match connection {
         Ok(connection_actor) => {
             info!("Connection actor started for: {}", addr);
 
-            gateway::receive_loop(ws_receiver, addr, connection_actor).await
+            gateway::receive_loop(ws_receiver, connection_identifier, connection_actor).await
         }
         Err(e) => error!("Error starting connection actor: {}", e),
     }

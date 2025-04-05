@@ -41,6 +41,8 @@ The top level Message type needs to be either a primitive type for which this cr
 
 For individual fields, you can use automatic adaption when using our ``derive`` macro.
 
+**(Note: #[serde] and #[bincode] are not yet implemented)``
+
 Example:
 
 ```rust
@@ -66,13 +68,24 @@ pub struct WormholeMessage {
 }
 ```
 
-This strongly couples this crate to serde and bincode, which i'm not exactly happy about, but well, better than nothing.
+This strongly couples this crate to serde and bincode, which I'm not exactly happy about, but well, better than nothing.
 
 It's important that both ``ActorRef<T>`` and ``RpcReplyPort<T>`` MUST **always** be serialized through the ``ContextSerializable`` interface!
                             
 ## Relationship to Ractor Cluster
 
 This project is not related to, and does not depend on, the ractor native clustering. It can be used in conjunction with a cluster on one or both sides.
+
+
+## Components
+
+You create your ractor actors as usual. You instantiate one ``Nexus``. This Nexus can hold multiple ``Portal``s (endpoints of connections). Two Portals connect to each other through a ``Conduit``. The exact instantiation of this Portal depends on the chosen Conduit (transport). In the case of Websocket, which is implemented in this library, the server side will listen on a specific port and create one Portal per connected client; in the case of the Websocket client, it will establish a websocket connection to a server and wrap that connection in a Portal.
+
+While you technically could instantiate multiple ``Nexus``es (Nexi?), (there are no static variables or anything), there isn't really any upside to it.
+
+When you have the Nexus and one or more Portals, you can publish Actors to them.
+
+Actors published to the Nexus are immediatly available to all Portals, current and future. Actors published to a specific Portal are only available to that Portal and not any neighboring ones.
 
 
 ## Example

@@ -300,7 +300,7 @@ pub struct WSConnectionState {
 }
 
 pub struct WSConnectionArgs {
-    addr: SocketAddr,
+    identifier: String,
     sender: WebSocketSink,
     local_id: LocalConnectionId,
     config: PortalConfig,
@@ -367,14 +367,17 @@ impl Actor for WSConnection {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             WSConnectionMessage::Text(text) => {
-                info!("Received text message from {}: {}", state.args.addr, text);
+                info!(
+                    "Received text message from {}: {}",
+                    state.args.identifier, text
+                );
 
                 match &state.channel_state {
                     ChannelState::Opening { self_introduction } => {
                         let remote_introduction: Introduction = serde_json::from_str(&text)?;
                         info!(
                             "Received introduction from {}: {:?}",
-                            state.args.addr, remote_introduction
+                            state.args.identifier, remote_introduction
                         );
                         let channel_id = ConnectionKey(u128::from_le_bytes(xor_arrays(
                             self_introduction.channel_id_contribution,
@@ -395,7 +398,7 @@ impl Actor for WSConnection {
             WSConnectionMessage::Binary(data) => {
                 info!(
                     "Received binary message from {}: {} bytes",
-                    state.args.addr,
+                    state.args.identifier,
                     data.len()
                 );
 
@@ -408,7 +411,7 @@ impl Actor for WSConnection {
                     }
                     ChannelState::Open { channel_id, .. } => {
                         let msg = CrossGatewayMessage::deserialize(&data)?;
-                        info!("Received message from {}: {:?}", state.args.addr, msg);
+                        info!("Received message from {}: {:?}", state.args.identifier, msg);
 
                         match msg {
                             CrossGatewayMessage::RequestActorByName(id, name) => {
@@ -525,7 +528,7 @@ impl Actor for WSConnection {
                 }
             }
             WSConnectionMessage::Close => {
-                info!("Closing connection to {}", state.args.addr);
+                info!("Closing connection to {}", state.args.identifier);
                 myself.stop(Some("Connection closed".into()));
             }
 
@@ -723,7 +726,7 @@ impl Actor for WSConnection {
 #[derive(RactorMessage)]
 pub enum WSGatewayMessage {
     Connected(
-        SocketAddr,
+        String,
         WebSocketSink,
         RpcReplyPort<ActorRef<WSConnectionMessage>>,
     ),
@@ -735,12 +738,12 @@ pub enum WSGatewayMessage {
 pub struct WSGateway;
 pub struct WSGatewayState {
     args: WSGatewayArgs,
-    connections: HashMap<ActorId, (SocketAddr, ActorRef<WSConnectionMessage>, JoinHandle<()>)>,
+    connections: HashMap<ActorId, (String, ActorRef<WSConnectionMessage>, JoinHandle<()>)>,
 }
 
 #[derive(RactorMessage)]
 pub struct OnActorConnectedMessage {
-    pub addr: SocketAddr,
+    pub identifier: String,
     pub actor_ref: ActorRef<WSConnectionMessage>,
 }
 
@@ -774,15 +777,15 @@ impl Actor for WSGateway {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            WSGatewayMessage::Connected(addr, ws_stream, reply) => {
-                info!("New WebSocket connection from: {}", addr);
+            WSGatewayMessage::Connected(identifier, ws_stream, reply) => {
+                info!("New WebSocket connection from: {}", identifier);
 
                 // Create a new connection actor
                 let (actor_ref, handle) = ractor::Actor::spawn_linked(
                     None,
                     WSConnection,
                     WSConnectionArgs {
-                        addr,
+                        identifier: identifier.clone(),
                         sender: ws_stream,
                         local_id: LocalConnectionId(rand::random()),
                         config: PortalConfig {
@@ -794,13 +797,14 @@ impl Actor for WSGateway {
                 .await?;
 
                 // Store the new connection
-                state
-                    .connections
-                    .insert(actor_ref.get_id(), (addr, actor_ref.clone(), handle));
+                state.connections.insert(
+                    actor_ref.get_id(),
+                    (identifier.clone(), actor_ref.clone(), handle),
+                );
 
                 if let Some(callback) = &state.args.on_client_connected {
                     callback.send_message(OnActorConnectedMessage {
-                        addr,
+                        identifier,
                         actor_ref: actor_ref.clone(),
                     })?;
                 }
@@ -871,7 +875,7 @@ pub async fn start_gateway(
 
 pub async fn receive_loop(
     mut ws_receiver: WebSocketSource,
-    addr: SocketAddr,
+    identifier: String,
     actor_ref: ActorRef<WSConnectionMessage>,
 ) {
     // Process incoming messages
@@ -893,20 +897,20 @@ pub async fn receive_loop(
                 RawMessage::Close(close_frame) => {
                     info!(
                         "Connection with {} closed because of reason: {:?}",
-                        addr, close_frame
+                        identifier, close_frame
                     );
                     break;
                 }
                 _ => {}
             },
             Err(e) => {
-                error!("Error receiving message from {}: {}", e, addr);
+                error!("Error receiving message from {}: {}", e, identifier);
                 break;
             }
         }
     }
 
-    info!("Connection with {} closed", addr);
+    info!("Connection with {} closed", identifier);
     let _ = actor_ref.cast(WSConnectionMessage::Close);
 }
 

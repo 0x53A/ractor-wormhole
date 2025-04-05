@@ -82,15 +82,24 @@ async fn connect_to_server(
     let ws_receiver: gateway::WebSocketSource = Box::pin(ws_receiver);
 
     // Register the connection with the gateway actor
-    let connection = call_t!(gateway, WSGatewayMessage::Connected, 100, addr, ws_sender);
+    let connection_identifier = format!("ws://{}", addr);
+    let connection = call_t!(
+        gateway,
+        WSGatewayMessage::Connected,
+        100,
+        connection_identifier,
+        ws_sender
+    );
 
     match connection {
         Ok(connection_actor) => {
             info!("Connection actor started for: {}", addr);
 
             let connection_actor_copy = connection_actor.clone();
+            let connection_identifier = format!("ws://{}", addr);
             tokio::spawn(async move {
-                gateway::receive_loop(ws_receiver, addr, connection_actor_copy).await
+                gateway::receive_loop(ws_receiver, connection_identifier, connection_actor_copy)
+                    .await
             });
 
             Ok(connection_actor)
