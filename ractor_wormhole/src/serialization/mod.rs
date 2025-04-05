@@ -80,7 +80,9 @@ impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> GetReceiver
 }
 
 impl TransmaterializationContext {
-    pub async fn immaterialize_replychannel<T: ContextTransmaterializable + Send + Sync + 'static>(
+    pub async fn immaterialize_replychannel<
+        T: ContextTransmaterializable + Send + Sync + 'static,
+    >(
         &self,
         rpc: RpcReplyPort<T>,
     ) -> SerializationResult<Vec<u8>> {
@@ -212,7 +214,8 @@ impl TransmaterializationContext {
 /// All serialization schemes must be platform independent.
 #[async_trait]
 pub trait ContextTransmaterializable {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>>;
+    async fn immaterialize(self, ctx: &TransmaterializationContext)
+    -> SerializationResult<Vec<u8>>;
     async fn rematerialize(
         ctx: &TransmaterializationContext,
         data: &[u8],

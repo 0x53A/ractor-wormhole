@@ -9,7 +9,9 @@ use ractor_wormhole::{
 use std::time::Duration;
 use tokio::time;
 
-use crate::common::{ClientToServerMessage, PingPongMsg, ServerToClientMessage};
+use crate::common::{
+    ClientToServerMessage, PingPongMsg, ServerToClientMessage, start_pingpong_actor,
+};
 
 pub async fn start_local_actor() -> Result<ActorRef<ServerToClientMessage>, anyhow::Error> {
     let (local_actor, _) = FnActor::<ServerToClientMessage>::start_fn(async |mut ctx| {
@@ -77,25 +79,12 @@ pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
     println!("Remote pingpong actor ref: {:?}", remote_pingpong);
     assert_eq!(remote_pingpong.get_status(), ActorStatus::Running);
 
-    let (local_pinpong, _) = FnActor::<PingPongMsg>::start_fn(async |mut ctx| {
-        while let Some(msg) = ctx.rx.recv().await {
-            match msg {
-                PingPongMsg::Ping(rpc_reply_port) => {
-                    println!("Received ping, sending pong");
-                    rpc_reply_port.send_message(PingPongMsg::Pong).unwrap();
-                }
-                PingPongMsg::Pong => {
-                    println!("Received pong");
-                }
-            }
-        }
-    })
-    .await?;
+    let local_pingpong = start_pingpong_actor().await?;
 
-    println!("Local pingpong actor ref: {:?}", local_pinpong);
+    println!("Local pingpong actor ref: {:?}", local_pingpong);
 
     remote_pingpong
-        .send_message(PingPongMsg::Ping(local_pinpong.clone()))
+        .send_message(PingPongMsg::Ping(local_pingpong.clone()))
         .unwrap();
 
     println!("Sent ping to remote pingpong actor");

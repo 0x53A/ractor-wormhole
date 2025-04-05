@@ -23,7 +23,10 @@ use static_assertions::{const_assert, const_assert_eq};
 impl<T: ContextTransmaterializable + ractor::Message + Send + Sync + 'static + std::fmt::Debug>
     ContextTransmaterializable for ActorRef<T>
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         ctx.immaterialize_actor_ref(&self).await
     }
 
@@ -39,7 +42,10 @@ impl<T: ContextTransmaterializable + ractor::Message + Send + Sync + 'static + s
 impl<T: ContextTransmaterializable + Send + Sync + 'static + std::fmt::Debug>
     ContextTransmaterializable for RpcReplyPort<T>
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         ctx.immaterialize_replychannel(self).await
     }
 
@@ -103,7 +109,10 @@ impl<T: ContextTransmaterializable + Send + Sync + 'static> ContextTransmaterial
 
 #[async_trait]
 impl ContextTransmaterializable for Vec<u8> {
-    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        _ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8 + self.len());
         let length = self.len() as u64;
         buffer.extend_from_slice(&length.to_le_bytes());
@@ -125,7 +134,10 @@ impl ContextTransmaterializable for Vec<u8> {
 
 #[async_trait]
 impl ContextTransmaterializable for String {
-    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        _ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8 + self.len());
         let length = self.len() as u64;
         buffer.extend_from_slice(&length.to_le_bytes());
@@ -214,7 +226,10 @@ const_assert!(std::mem::size_of::<usize>() <= 8);
 
 #[async_trait]
 impl ContextTransmaterializable for usize {
-    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        _ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8);
         // note: serialize as u64 so it's platform independent
         buffer.extend_from_slice(&(self as u64).to_le_bytes());
@@ -236,7 +251,10 @@ const_assert!(std::mem::size_of::<isize>() <= 8);
 
 #[async_trait]
 impl ContextTransmaterializable for isize {
-    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        _ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8);
         // note: serialize as i64 so it's platform independent
         buffer.extend_from_slice(&(self as i64).to_le_bytes());
@@ -256,7 +274,10 @@ impl ContextTransmaterializable for isize {
 
 #[async_trait]
 impl ContextTransmaterializable for bool {
-    async fn immaterialize(self, _ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        _ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(1);
         buffer.extend_from_slice(if self { &[1] } else { &[0] });
         Ok(buffer)

@@ -3,7 +3,7 @@
 use ractor::async_trait;
 
 use super::{
-    TransmaterializationContext, ContextTransmaterializable, SerializationResult,
+    ContextTransmaterializable, SerializationResult, TransmaterializationContext,
     util::{require_buffer_size, require_min_buffer_size},
 };
 
@@ -13,7 +13,10 @@ impl<T0> ContextTransmaterializable for (T0,)
 where
     T0: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem_bytes = self.0.immaterialize(ctx).await?;
@@ -49,7 +52,10 @@ where
     T0: ContextTransmaterializable + Send + Sync + 'static,
     T1: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem0_bytes = self.0.immaterialize(ctx).await?;
@@ -98,7 +104,10 @@ where
     T1: ContextTransmaterializable + Send + Sync + 'static,
     T2: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem0_bytes = self.0.immaterialize(ctx).await?;
@@ -160,7 +169,10 @@ where
     T2: ContextTransmaterializable + Send + Sync + 'static,
     T3: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem0_bytes = self.0.immaterialize(ctx).await?;
@@ -235,7 +247,10 @@ where
     T3: ContextTransmaterializable + Send + Sync + 'static,
     T4: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem0_bytes = self.0.immaterialize(ctx).await?;
@@ -323,7 +338,10 @@ where
     T4: ContextTransmaterializable + Send + Sync + 'static,
     T5: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem0_bytes = self.0.immaterialize(ctx).await?;
@@ -424,7 +442,10 @@ where
     T5: ContextTransmaterializable + Send + Sync + 'static,
     T6: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem0_bytes = self.0.immaterialize(ctx).await?;
@@ -540,7 +561,10 @@ where
     T6: ContextTransmaterializable + Send + Sync + 'static,
     T7: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem0_bytes = self.0.immaterialize(ctx).await?;
@@ -668,7 +692,10 @@ where
     T7: ContextTransmaterializable + Send + Sync + 'static,
     T8: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let elem0_bytes = self.0.immaterialize(ctx).await?;
@@ -812,7 +839,10 @@ where
     T8: ContextTransmaterializable + Send + Sync + 'static,
     T9: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         // Elements 0-9
@@ -970,7 +1000,10 @@ where
     T9: ContextTransmaterializable + Send + Sync + 'static,
     T10: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         // Elements 0-10
@@ -1141,7 +1174,10 @@ where
     T10: ContextTransmaterializable + Send + Sync + 'static,
     T11: ContextTransmaterializable + Send + Sync + 'static,
 {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>> {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> SerializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         // Elements 0-11

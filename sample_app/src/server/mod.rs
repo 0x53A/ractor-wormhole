@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 
 use ractor_wormhole::{gateway::UserFriendlyPortal, util::FnActor};
 
-use crate::common::{ClientToServerMessage, PingPongMsg};
+use crate::common::{ClientToServerMessage, start_pingpong_actor};
 
 pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
     // create a callback for when a client connects
@@ -13,22 +13,9 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
 
     connection::start_server(bind, ctx_on_client_connected.actor_ref).await?;
 
-    let pinpong = FnActor::<PingPongMsg>::start_fn(async |mut ctx| {
-        while let Some(msg) = ctx.rx.recv().await {
-            match msg {
-                PingPongMsg::Ping(rpc_reply_port) => {
-                    println!("Received ping, sending pong");
-                    rpc_reply_port.send_message(PingPongMsg::Pong).unwrap();
-                }
-                PingPongMsg::Pong => {
-                    println!("Received pong");
-                }
-            }
-        }
-    })
-    .await?;
+    let pinpong = start_pingpong_actor().await?;
 
-    let pingpong_box = Box::new(pinpong.0.clone());
+    let pingpong_box = Box::new(pinpong.clone());
 
     // create a local actor and publish it on the connection
     let (local_actor, _) = FnActor::<ClientToServerMessage>::start_fn(async move |mut ctx| {
