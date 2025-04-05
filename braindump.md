@@ -7,3 +7,8 @@
 * add a more generic ``SerializationAdapter`` option to the derive macro
 
 * make it possible to publish actors on the **Gateway**, not the connection, so they are immediatly available to all clients
+
+* get rid of the SocketAddr in gateway
+
+* two TODOs in derive_tests (and add more test cases)
+

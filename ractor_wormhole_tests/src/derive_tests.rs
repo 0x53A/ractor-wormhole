@@ -59,6 +59,7 @@ pub struct TwoTupleStruct(f32, f64);
 // -----------------------------------------------------------------------------
 
 // note: this shows a 'unreachable' warning, todo: fix in 'WormholeSerializable'
+#[allow(unreachable_code)]
 #[derive(Debug, Clone, WormholeSerializable)]
 pub enum EmptyEnum {}
 
