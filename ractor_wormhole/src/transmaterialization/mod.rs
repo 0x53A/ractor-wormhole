@@ -13,7 +13,7 @@ use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
 
 use crate::{
     nexus::RemoteActorId,
-    portal::{MsgReceiver, NexusResult, PortalActorMessage, UserFriendlyPortal},
+    portal::{MsgReceiver, NexusResult, Portal, PortalActorMessage},
     util::ActorRef_Ask,
 };
 

@@ -15,7 +15,7 @@ use crate::conduit;
 pub async fn start_server(
     nexus: ActorRef<NexusActorMessage>,
     bind: SocketAddr,
-) -> Result<ActorRef<NexusActorMessage>, anyhow::Error> {
+) -> Result<(), anyhow::Error> {
     // Create a TCP listener
     let listener = TcpListener::bind(&bind).await?;
     info!("WebSocket server listening on: {}", bind);
@@ -30,7 +30,7 @@ pub async fn start_server(
         }
     });
 
-    Ok(nexus)
+    Ok(())
 }
 
 async fn handle_connection(

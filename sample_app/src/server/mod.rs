@@ -3,11 +3,9 @@ mod alias_gen;
 use std::net::SocketAddr;
 
 use anyhow::anyhow;
-use ractor_wormhole::{
-    conduit::websocket, nexus::start_nexus, portal::UserFriendlyPortal, util::FnActor,
-};
+use ractor_wormhole::{conduit::websocket, nexus::start_nexus, portal::Portal, util::FnActor};
 
-use crate::common::{ClientToServerMessage, start_pingpong_actor};
+use crate::common::start_pingpong_actor;
 
 pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
     // Initialize logger
@@ -18,6 +16,8 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
     // create a callback for when a client connects
     let (mut ctx_on_client_connected, _) = FnActor::start().await?;
 
+    // create the nexus. whenever a new portal is opened (aka a websocket-client connects),
+    //  the callback will be invoked
     let nexus = start_nexus(Some(ctx_on_client_connected.actor_ref.clone()))
         .await
         .map_err(|err| anyhow!(err))?;
@@ -26,32 +26,18 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
 
     let pinpong = start_pingpong_actor().await?;
 
-    let pingpong_box = Box::new(pinpong.clone());
-
-    // create a local actor and publish it on the connection
-    let (local_actor, _) = FnActor::<ClientToServerMessage>::start_fn(async move |mut ctx| {
-        while let Some(msg) = ctx.rx.recv().await {
-            match msg {
-                ClientToServerMessage::GetPingPong(rpc_reply_port) => {
-                    let _ = rpc_reply_port.send(*pingpong_box.clone());
-                }
-                ClientToServerMessage::Print(text) => {
-                    println!("Received text from Client: {}", text)
-                }
-            }
-        }
-    })
-    .await?;
-
     // loop around the client connection receiver
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
+        // note: the portal needs a little bit of time for the handshake
+        //  todo: expose this, so the app can wait for the portal to be ready
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-        // new connection, publish our main actor on it
+        // new connection: publish our main actor on it
         msg.actor_ref
-            .publish_named_actor("root".to_string(), local_actor.clone())
+            .publish_named_actor("pingpong".to_string(), pinpong.clone())
             .await?;
     }
 
+    // note: this is never reached as the server is never stopped and the loop above never terminates
     Ok(())
 }

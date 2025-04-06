@@ -168,8 +168,9 @@ pub enum PortalActorMessage {
 
 impl ractor::Message for PortalActorMessage {}
 
+/// wrap the `ActorRef<PortalActorMessage>` in a more user-friendly interface
 #[async_trait]
-pub trait UserFriendlyPortal {
+pub trait Portal {
     async fn instantiate_proxy_for_remote_actor<
         T: ContextTransmaterializable + ractor::Message + Send + Sync + std::fmt::Debug,
     >(
@@ -185,7 +186,7 @@ pub trait UserFriendlyPortal {
 }
 
 #[async_trait]
-impl UserFriendlyPortal for ActorRef<PortalActorMessage> {
+impl Portal for ActorRef<PortalActorMessage> {
     async fn instantiate_proxy_for_remote_actor<
         T: ContextTransmaterializable + ractor::Message + Send + Sync + std::fmt::Debug,
     >(

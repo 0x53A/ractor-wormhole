@@ -1,6 +1,6 @@
 // note: typically, client and server would be in separate crates, with a shared crate defining these interfaces.
 
-use ractor::{ActorRef, RpcReplyPort, concurrency::Duration};
+use ractor::{ActorRef, concurrency::Duration};
 use ractor_cluster_derive::RactorMessage;
 use ractor_wormhole::WormholeTransmaterializable;
 use ractor_wormhole::{portal::NexusResult, util::FnActor};
@@ -27,17 +27,6 @@ pub enum ChatClientMessage {
 pub enum PingPongMsg {
     Ping(ActorRef<PingPongMsg>),
     Pong(ActorRef<PingPongMsg>),
-}
-
-#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
-pub enum ClientToServerMessage {
-    Print(String),
-    GetPingPong(RpcReplyPort<ActorRef<PingPongMsg>>),
-}
-
-#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
-pub enum ServerToClientMessage {
-    Ask(RpcReplyPort<String>),
 }
 
 // ----------------------------------------------------------------------------------
