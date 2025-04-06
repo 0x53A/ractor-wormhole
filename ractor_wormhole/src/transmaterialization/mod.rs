@@ -149,7 +149,7 @@ impl TransmaterializationContext {
         let published_id = self
             .connection
             .ask(
-                |rpc| PortalActorMessage::PublishActor(local_actor.get_cell(), receiver, rpc),
+                |rpc| PortalActorMessage::PublishActor(local_actor.get_cell(), receiver, Some(rpc)),
                 None,
             )
             .await?;
@@ -172,7 +172,7 @@ impl TransmaterializationContext {
         let published_id = self
             .connection
             .ask(
-                |rpc| PortalActorMessage::PublishActor(actor_ref.get_cell(), receiver, rpc),
+                |rpc| PortalActorMessage::PublishActor(actor_ref.get_cell(), receiver, Some(rpc)),
                 None,
             )
             .await?;

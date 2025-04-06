@@ -302,3 +302,8 @@ The default implementation looks like this:
 ```
 
 It would be great if instead of ``None`` it wrote **why** it stopped itself.
+
+### More fine-grained actor linking
+
+Currently, if two actors are linked, and one of them dies, the other is killed.
+I'd like to have a version of linking where the child is killed if the parent stops, BUT the parent is not affected by the child.

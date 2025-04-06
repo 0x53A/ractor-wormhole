@@ -231,7 +231,13 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 name = "client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger",
+ "ractor",
  "ractor_wormhole",
+ "shared",
+ "tokio",
 ]
 
 [[package]]
@@ -1073,7 +1079,14 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger",
+ "ractor",
  "ractor_wormhole",
+ "rand",
+ "shared",
+ "tokio",
 ]
 
 [[package]]

@@ -299,3 +299,24 @@ impl ContextTransmaterializable for bool {
 }
 
 // -------------------------------------------------------------------------------------------------------
+
+#[async_trait]
+impl ContextTransmaterializable for () {
+    async fn immaterialize(
+        self,
+        _ctx: &TransmaterializationContext,
+    ) -> TransmaterializationResult<Vec<u8>> {
+        let buffer = Vec::with_capacity(0);
+        Ok(buffer)
+    }
+
+    async fn rematerialize(
+        _ctx: &TransmaterializationContext,
+        data: &[u8],
+    ) -> TransmaterializationResult<Self> {
+        require_buffer_size(data, 0)?;
+        Ok(())
+    }
+}
+
+// -------------------------------------------------------------------------------------------------------

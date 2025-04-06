@@ -149,15 +149,17 @@ pub enum PortalActorMessage {
         String,
         ActorCell,
         Box<dyn MsgReceiver + Send>,
-        Option<RpcReplyPort<RemoteActorId>>,
+        Option<RpcReplyPort<Option<RemoteActorId>>>,
     ),
 
     /// publish a local actor, making it available to the remote side of the portal.
     /// It is published under a random id, which would need to be passed to the remote side through some kind of existing channel.
+    /// Note: if you include a RpcReplyPort, you must wait until the handshake is finished and the portals are fully connected.
+    ///        if you do NOT include a RpcReplyPort, you can register the actor immediatly.
     PublishActor(
         ActorCell,
         Box<dyn MsgReceiver + Send>,
-        RpcReplyPort<RemoteActorId>,
+        Option<RpcReplyPort<RemoteActorId>>,
     ),
 
     /// looks up an actor by name on the **remote** side of the portal. Returns None if no actor was registered under that name.
@@ -181,7 +183,7 @@ pub trait Portal {
         &self,
         name: String,
         actor_ref: ActorRef<T>,
-    ) -> NexusResult<RemoteActorId>;
+    ) -> NexusResult<Option<RemoteActorId>>;
 }
 
 #[async_trait]
@@ -238,7 +240,7 @@ impl Portal for ActorRef<PortalActorMessage> {
         &self,
         name: String,
         actor_ref: ActorRef<T>,
-    ) -> NexusResult<RemoteActorId> {
+    ) -> NexusResult<Option<RemoteActorId>> {
         let receiver = actor_ref.get_receiver();
 
         let response = self
@@ -521,10 +523,12 @@ impl Actor for PortalActor {
             }
 
             PortalActorMessage::PublishNamedActor(name, actor_cell, receiver, reply) => {
-                let PortalConduitState::Open { channel_id, .. } = &state.channel_state else {
-                    error!("PublishNamedActor called before handshake");
-                    return Ok(());
-                };
+                if reply.is_some()
+                    && !matches!(state.channel_state, PortalConduitState::Open { .. })
+                {
+                    error!("PublishNamedActor with rpc=Some called before handshake");
+                    //return Ok(());
+                }
 
                 let existing = state
                     .published_actors
@@ -563,22 +567,26 @@ impl Actor for PortalActor {
                     None => info!("Actor with name {} published", name),
                 }
 
-                let remote_actor_id = RemoteActorId {
-                    connection_key: *channel_id,
-                    side: state.args.local_id,
-                    id: opaque_actor_id,
-                };
-
                 if let Some(rpc) = reply {
-                    rpc.send(remote_actor_id)?;
+                    if let PortalConduitState::Open { channel_id } = &state.channel_state {
+                        let remote_actor_id = RemoteActorId {
+                            connection_key: *channel_id,
+                            side: state.args.local_id,
+                            id: opaque_actor_id,
+                        };
+                        rpc.send(Some(remote_actor_id))?;
+                    } else {
+                        rpc.send(None)?;
+                    };
                 }
             }
 
             PortalActorMessage::PublishActor(actor_cell, receiver, rpc) => {
-                let PortalConduitState::Open { channel_id, .. } = &state.channel_state else {
-                    error!("PublishActor called before handshake");
+                if rpc.is_some() && !matches!(state.channel_state, PortalConduitState::Open { .. })
+                {
+                    error!("PublishActor with rpc=Some called before handshake");
                     return Ok(());
-                };
+                }
 
                 let existing = state
                     .published_actors
@@ -608,13 +616,20 @@ impl Actor for PortalActor {
                     }
                 };
 
-                let remote_actor_id = RemoteActorId {
-                    connection_key: *channel_id,
-                    side: state.args.local_id,
-                    id: opaque_actor_id,
-                };
+                if let Some(rpc) = rpc {
+                    let PortalConduitState::Open { channel_id, .. } = &state.channel_state else {
+                        error!("PublishActor called before handshake");
+                        return Ok(());
+                    };
 
-                rpc.send(remote_actor_id)?;
+                    let remote_actor_id = RemoteActorId {
+                        connection_key: *channel_id,
+                        side: state.args.local_id,
+                        id: opaque_actor_id,
+                    };
+
+                    rpc.send(remote_actor_id)?;
+                }
             }
 
             PortalActorMessage::QueryNamedRemoteActor(name, reply) => {

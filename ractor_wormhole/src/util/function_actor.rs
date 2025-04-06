@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use ractor::{
-    Actor, ActorCell, ActorProcessingErr, ActorRef, Message, SpawnErr, async_trait,
-    concurrency::JoinHandle,
+    Actor, ActorCell, ActorProcessingErr, ActorRef, Message, SpawnErr, SupervisionEvent,
+    async_trait, concurrency::JoinHandle,
 };
 
 // -------------------------------------------------------------------------------------------------------
@@ -62,6 +62,29 @@ impl<T: Message + Sync> Actor for FnActorImpl<T> {
                 Err(ActorProcessingErr::from(err))
             }
         }
+    }
+
+    // by default, an actor would stop when a child dies.
+    async fn handle_supervisor_evt(
+        &self,
+        _myself: ActorRef<Self::Msg>,
+        message: SupervisionEvent,
+        _state: &mut Self::State,
+    ) -> Result<(), ActorProcessingErr> {
+        match message {
+            SupervisionEvent::ActorTerminated(who, _, _)
+            | SupervisionEvent::ActorFailed(who, _) => {
+                // log it,
+                tracing::error!(
+                    "FnActor: Child actor {} terminated ({:?})",
+                    who.get_id(),
+                    who.get_name()
+                );
+                // but do not stop though
+            }
+            _ => {}
+        }
+        Ok(())
     }
 }
 
