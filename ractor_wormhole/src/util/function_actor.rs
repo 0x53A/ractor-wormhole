@@ -81,7 +81,7 @@ impl<T: Message + Sync> FnActor<T> {
         let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE); // todo lmao
 
         let args = FnActorArgs { tx };
-        let (actor_ref, handle) = Actor::spawn(None, FnActorImpl::new(), args).await?;
+        let (actor_ref, handle) = FnActorImpl::spawn(None, FnActorImpl::new(), args).await?;
         Ok((FnActorCtx { rx, actor_ref }, handle))
     }
 
@@ -94,7 +94,7 @@ impl<T: Message + Sync> FnActor<T> {
 
         let args = FnActorArgs { tx };
         let (actor_ref, handle) =
-            Actor::spawn_linked(None, FnActorImpl::new(), args, supervisor).await?;
+        FnActorImpl::spawn_linked(None, FnActorImpl::new(), args, supervisor).await?;
         Ok((FnActorCtx { rx, actor_ref }, handle))
     }
 

@@ -12,19 +12,13 @@ use ractor_wormhole::{
 };
 
 pub async fn start_server(
+    nexus: ActorRef<NexusActorMessage>,
     bind: SocketAddr,
-    on_client_connected: ActorRef<OnActorConnectedMessage>,
 ) -> Result<ActorRef<NexusActorMessage>, anyhow::Error> {
-    // Initialize logger
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-    );
 
     // Create a TCP listener
     let listener = TcpListener::bind(&bind).await?;
     info!("WebSocket server listening on: {}", bind);
-
-    let nexus = start_nexus(Some(on_client_connected)).await.unwrap();
 
     // Accept connections
     let nexus_copy = nexus.clone();
@@ -63,7 +57,7 @@ async fn handle_connection(
                 Message::Text(text) => ConduitMessage::Text(text.to_string()),
                 Message::Binary(bin) => ConduitMessage::Binary(bin.into()),
                 Message::Close(_) => ConduitMessage::Close(None),
-                _ => ConduitMessage::Other,
+                _ => panic!("todo"),
             };
 
             Ok(msg)

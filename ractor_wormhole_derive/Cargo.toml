@@ -10,5 +10,3 @@ proc-macro = true
 proc-macro2 = "1.0.94"
 quote = "1.0.40"
 venial = "0.6.1"
-
-ractor_wormhole_base = { path = "../ractor_wormhole_base" }

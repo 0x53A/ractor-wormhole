@@ -3,15 +3,23 @@ mod connection;
 
 use std::net::SocketAddr;
 
-use ractor_wormhole::{portal::UserFriendlyPortal, util::FnActor};
+use anyhow::anyhow;
+use ractor_wormhole::{nexus::start_nexus, portal::UserFriendlyPortal, util::FnActor};
 
 use crate::common::{ClientToServerMessage, start_pingpong_actor};
 
 pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
+    // Initialize logger
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
     // create a callback for when a client connects
     let (mut ctx_on_client_connected, _) = FnActor::start().await?;
 
-    connection::start_server(bind, ctx_on_client_connected.actor_ref).await?;
+    let nexus = start_nexus(Some(ctx_on_client_connected.actor_ref.clone())).await.map_err(|err| anyhow!(err)) ?;
+
+    connection::start_server(nexus, bind).await?;
 
     let pinpong = start_pingpong_actor().await?;
 

@@ -2,6 +2,7 @@ mod connection;
 
 use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
+    nexus::start_nexus,
     portal::{PortalActorMessage, UserFriendlyPortal},
     transmaterialization::GetReceiver,
     util::{ActorRef_Ask, FnActor},
@@ -34,7 +35,15 @@ pub async fn start_local_actor() -> Result<ActorRef<ServerToClientMessage>, anyh
 }
 
 pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
-    let (_nexus, portal) = connection::establish_connection(server_url).await?;
+    // Initialize logger
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
+    // Start the nexus actor
+    let nexus = start_nexus(None).await.unwrap();
+
+    let (portal) = connection::connect_to_server(nexus, server_url).await?;
 
     // create a local actor and publish it on the portal
     let local_actor: ActorRef<ServerToClientMessage> = start_local_actor().await?;

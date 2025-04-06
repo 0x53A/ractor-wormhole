@@ -7,7 +7,6 @@ pub enum ConduitMessage {
     Text(String),
     Binary(Vec<u8>),
     Close(Option<String>),
-    Other,
 }
 
 pub type ConduitError = anyhow::Error;

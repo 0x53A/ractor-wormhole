@@ -12,3 +12,7 @@ pub mod transmaterialization;
 pub mod util;
 
 extern crate self as ractor_wormhole;
+
+// re-export the derive macro
+#[cfg(feature = "derive")]
+pub use ractor_wormhole_derive::WormholeTransmaterializable;

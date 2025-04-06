@@ -78,7 +78,7 @@ impl Actor for NexusActor {
                 info!("New WebSocket connection from: {}", identifier);
 
                 // Create a new portal actor
-                let (actor_ref, handle) = ractor::Actor::spawn_linked(
+                let (actor_ref, handle) = PortalActor::spawn_linked(
                     None,
                     PortalActor,
                     PortalActorArgs {
@@ -154,7 +154,8 @@ impl Actor for NexusActor {
 pub async fn start_nexus(
     on_client_connected: Option<ActorRef<OnActorConnectedMessage>>,
 ) -> Result<ActorRef<NexusActorMessage>, ractor::ActorProcessingErr> {
-    let (nexus_ref, handle) = ractor::Actor::spawn(
+
+    let (nexus_ref, _handle) = NexusActor::spawn(
         Some(String::from("nexus")),
         NexusActor,
         NexusActorArgs {
@@ -162,9 +163,6 @@ pub async fn start_nexus(
         },
     )
     .await?;
-
-    // question: do I need to detach?
-    let _ = handle;
 
     Ok(nexus_ref)
 }

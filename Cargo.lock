@@ -1199,7 +1199,6 @@ dependencies = [
  "log",
  "ractor",
  "ractor_cluster_derive",
- "ractor_wormhole_base",
  "ractor_wormhole_derive",
  "rand",
  "serde",
@@ -1219,40 +1218,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ractor_wormhole_base"
-version = "0.1.0"
-dependencies = [
- "axum",
- "bincode",
- "bytes",
- "clap",
- "env_logger",
- "futures",
- "log",
- "ractor",
- "ractor_cluster_derive",
- "rand",
- "serde",
- "serde_json",
- "tokio",
- "tokio-tungstenite",
- "tower-http",
- "tracing",
- "tracing-glog",
- "tracing-subscriber",
- "tracing-test",
- "tungstenite",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "ractor_wormhole_derive"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "ractor_wormhole_base",
  "venial",
 ]
 
@@ -1270,7 +1240,6 @@ dependencies = [
  "ractor",
  "ractor_cluster_derive",
  "ractor_wormhole",
- "ractor_wormhole_derive",
  "rand",
  "serde",
  "serde_json",

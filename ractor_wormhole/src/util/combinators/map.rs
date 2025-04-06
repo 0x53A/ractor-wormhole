@@ -106,7 +106,7 @@ impl<TFrom: Send + Sync + ractor::Message + 'static, TTo: Send + Sync + ractor::
             to: Box::new(to),
         };
 
-        Actor::spawn_linked(None, MappedActor::new(), args, self.get_cell()).await
+        MappedActor::spawn_linked(None, MappedActor::new(), args, self.get_cell()).await
     }
 }
 

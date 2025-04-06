@@ -114,7 +114,7 @@ impl TransmaterializationContext {
 
         let timeout = rpc.get_timeout().unwrap_or(self.default_rpc_port_timeout);
 
-        let (local_actor, _handle) = Actor::spawn_linked(
+        let (local_actor, _handle) = RpcProxyActor::spawn_linked(
             None,
             RpcProxyActor::<T>::new(),
             RpcProxyActorArgs {

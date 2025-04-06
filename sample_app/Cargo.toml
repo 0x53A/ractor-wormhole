@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 ractor_wormhole = { path = "../ractor_wormhole" }
-ractor_wormhole_derive = { path = "../ractor_wormhole_derive" }
+#ractor_wormhole_derive = { path = "../ractor_wormhole_derive" }
 
 axum = { version = "0.8.3", features = [ "tokio", "http1", "http2" ] }
 bytes = "1.10.1"

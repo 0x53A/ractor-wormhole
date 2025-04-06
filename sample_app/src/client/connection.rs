@@ -1,4 +1,4 @@
-use futures::{SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt, future};
 use log::{error, info};
 use ractor::{ActorRef, call_t};
 use std::net::SocketAddr;
@@ -6,7 +6,9 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message,
 };
+use tungstenite::client::IntoClientRequest;
 use url::Url;
+
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
@@ -14,62 +16,61 @@ use ractor_wormhole::{
     portal::PortalActorMessage,
 };
 
-pub async fn establish_connection(
-    server_url: String,
-) -> Result<(ActorRef<NexusActorMessage>, ActorRef<PortalActorMessage>), anyhow::Error> {
-    // Initialize logger
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-    );
-
-    // Parse the URL
-    let url = Url::parse(&server_url)?;
-    info!("Connecting to WebSocket server at: {}", url);
-
-    // Start the nexus actor
-    let nexus = start_nexus(None).await.unwrap();
-
-    // Connect to the server
-    let portal = connect_to_server(url, nexus.clone()).await?;
-
-    Ok((nexus, portal))
-}
-
-async fn connect_to_server(
-    url: Url,
+pub async fn connect_to_server<R>(
     nexus: ActorRef<NexusActorMessage>,
-) -> Result<ActorRef<PortalActorMessage>, anyhow::Error> {
+    request: R,
+) -> Result<ActorRef<PortalActorMessage>, anyhow::Error>
+where
+    R: IntoClientRequest + Unpin,
+{
+    let r = request.into_client_request()?;
+    let uri = r.uri().clone();
+    info!("Connecting to WebSocket server at: {}", uri);
+
     // Connect to the WebSocket server
-    let (ws_stream, _) = match connect_async(url.as_str()).await {
+    let (ws_stream, _) = match connect_async(r).await {
         Ok(conn) => {
-            info!("WebSocket connection established to: {}", url);
+            info!("WebSocket connection established to: {}", uri);
             conn
         }
         Err(e) => {
-            error!("Failed to connect to WebSocket server: {}", e);
+            error!("Failed to connect to WebSocket server at {}: {}", uri, e);
             return Err(e.into());
         }
     };
 
-    let addr = get_peer_addr(&ws_stream).unwrap();
-
     // Split the WebSocket stream
     let (ws_sender, ws_receiver) = ws_stream.split();
 
-    let ws_receiver = ws_receiver.map(|element| match element {
-        Ok(msg) => {
-            let msg = match msg {
-                Message::Text(text) => ConduitMessage::Text(text.to_string()),
-                Message::Binary(bin) => ConduitMessage::Binary(bin.into()),
-                Message::Close(_) => ConduitMessage::Close(None),
-                _ => ConduitMessage::Other,
-            };
+    // map the tungstenite messages to ConduitMessage
+    let ws_receiver = ws_receiver.filter_map(|element| {
+        let output = match element {
+            Ok(msg) => {
+                let msg = match msg {
+                    Message::Text(text) => Some(ConduitMessage::Text(text.to_string())),
+                    Message::Binary(bin) => Some(ConduitMessage::Binary(bin.into())),
+                    Message::Close(Some(reason)) => Some(ConduitMessage::Close(Some(format!(
+                        "Close code: {:?}, reason: {}",
+                        reason.code, reason.reason
+                    )))),
+                    Message::Close(None) => Some(ConduitMessage::Close(None)),
+                    _unhandled => None,
+                };
 
-            Ok(msg)
+                Ok(msg)
+            }
+            Err(e) => Err(ConduitError::from(e)),
+        };
+
+        match output {
+            Ok(Some(msg)) => future::ready(Some(Ok(msg))),
+            Ok(None) => future::ready(None),
+            Err(e) => future::ready(Some(Err(e)))
         }
-        Err(e) => Err(ConduitError::from(e)),
+        
     });
 
+    // map the ConduitMessage to tungstenite messages
     let ws_sender = ws_sender.with(|element: ConduitMessage| async {
         let msg = match element {
             ConduitMessage::Text(text) => Message::text(text),
@@ -84,21 +85,20 @@ async fn connect_to_server(
     let ws_receiver: ConduitSource = Box::pin(ws_receiver);
 
     // Register the portal with the nexus actor
-    let portal_identifier = format!("ws://{}", addr);
+    let portal_identifier = uri.to_string();
     let portal = call_t!(
         nexus,
         NexusActorMessage::Connected,
         100,
-        portal_identifier,
+        portal_identifier.clone(),
         ws_sender
     );
 
     match portal {
         Ok(portal_actor) => {
-            info!("Portal actor started for: {}", addr);
+            info!("Portal actor started for: {}", uri);
 
             let portal_actor_copy = portal_actor.clone();
-            let portal_identifier = format!("ws://{}", addr);
             tokio::spawn(async move {
                 nexus::receive_loop(ws_receiver, portal_identifier, portal_actor_copy).await
             });
@@ -109,24 +109,5 @@ async fn connect_to_server(
             error!("Error starting portal actor: {}", e);
             Err(e.into())
         }
-    }
-}
-
-fn get_peer_addr(ws_stream: &WebSocketStream<MaybeTlsStream<TcpStream>>) -> Option<SocketAddr> {
-    // Access the inner MaybeTlsStream
-    let maybe_tls_stream = ws_stream.get_ref();
-
-    match maybe_tls_stream {
-        MaybeTlsStream::Plain(tcp_stream) => {
-            // If it's a plain TCP stream
-            tcp_stream.peer_addr().ok()
-        }
-        #[cfg(feature = "tokio-tungstenite/native-tls")]
-        MaybeTlsStream::NativeTls(tls_stream) => {
-            // If it's a TLS stream
-            tls_stream.get_ref().peer_addr().ok()
-        }
-        // Handle other variants based on what's available in your tokio-tungstenite version
-        _ => None,
     }
 }
