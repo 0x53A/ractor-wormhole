@@ -9,7 +9,6 @@ use tokio_tungstenite::{
 use tungstenite::client::IntoClientRequest;
 use url::Url;
 
-
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
     nexus::{self, NexusActorMessage, start_nexus},
@@ -65,9 +64,8 @@ where
         match output {
             Ok(Some(msg)) => future::ready(Some(Ok(msg))),
             Ok(None) => future::ready(None),
-            Err(e) => future::ready(Some(Err(e)))
+            Err(e) => future::ready(Some(Err(e))),
         }
-        
     });
 
     // map the ConduitMessage to tungstenite messages

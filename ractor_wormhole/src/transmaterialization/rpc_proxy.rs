@@ -130,7 +130,8 @@ pub mod tests {
 
         // create the proxy
         let args = RpcProxyActorArgs { rpc_reply_port };
-        let (rpc_proxy, _handle) = RpcProxyActor::spawn(None, RpcProxyActor::<u32>::new(), args).await?;
+        let (rpc_proxy, _handle) =
+            RpcProxyActor::spawn(None, RpcProxyActor::<u32>::new(), args).await?;
 
         // on the other side, create a new RpcReplyPort from the actor
         let rpc_reply_port_2 = rpc_reply_port_from_actor_ref(rpc_proxy.clone(), None);

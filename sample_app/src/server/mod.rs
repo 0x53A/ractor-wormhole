@@ -17,7 +17,9 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
     // create a callback for when a client connects
     let (mut ctx_on_client_connected, _) = FnActor::start().await?;
 
-    let nexus = start_nexus(Some(ctx_on_client_connected.actor_ref.clone())).await.map_err(|err| anyhow!(err)) ?;
+    let nexus = start_nexus(Some(ctx_on_client_connected.actor_ref.clone()))
+        .await
+        .map_err(|err| anyhow!(err))?;
 
     connection::start_server(nexus, bind).await?;
 

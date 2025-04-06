@@ -15,7 +15,6 @@ pub async fn start_server(
     nexus: ActorRef<NexusActorMessage>,
     bind: SocketAddr,
 ) -> Result<ActorRef<NexusActorMessage>, anyhow::Error> {
-
     // Create a TCP listener
     let listener = TcpListener::bind(&bind).await?;
     info!("WebSocket server listening on: {}", bind);

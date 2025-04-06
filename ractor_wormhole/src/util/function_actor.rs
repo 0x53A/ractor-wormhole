@@ -94,7 +94,7 @@ impl<T: Message + Sync> FnActor<T> {
 
         let args = FnActorArgs { tx };
         let (actor_ref, handle) =
-        FnActorImpl::spawn_linked(None, FnActorImpl::new(), args, supervisor).await?;
+            FnActorImpl::spawn_linked(None, FnActorImpl::new(), args, supervisor).await?;
         Ok((FnActorCtx { rx, actor_ref }, handle))
     }
 

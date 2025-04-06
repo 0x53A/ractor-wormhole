@@ -154,7 +154,6 @@ impl Actor for NexusActor {
 pub async fn start_nexus(
     on_client_connected: Option<ActorRef<OnActorConnectedMessage>>,
 ) -> Result<ActorRef<NexusActorMessage>, ractor::ActorProcessingErr> {
-
     let (nexus_ref, _handle) = NexusActor::spawn(
         Some(String::from("nexus")),
         NexusActor,

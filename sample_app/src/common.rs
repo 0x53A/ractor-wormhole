@@ -2,8 +2,8 @@
 
 use ractor::{ActorRef, RpcReplyPort, concurrency::Duration};
 use ractor_cluster_derive::RactorMessage;
-use ractor_wormhole::{portal::NexusResult, util::FnActor};
 use ractor_wormhole::WormholeTransmaterializable;
+use ractor_wormhole::{portal::NexusResult, util::FnActor};
 
 #[derive(Debug, Clone, WormholeTransmaterializable)]
 pub struct UserAlias(String);
