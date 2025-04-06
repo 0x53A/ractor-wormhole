@@ -51,7 +51,6 @@ pub async fn receive_loop(
                     );
                     break;
                 }
-                _ => {}
             },
             Err(e) => {
                 error!("Error receiving message from {}: {}", e, identifier);

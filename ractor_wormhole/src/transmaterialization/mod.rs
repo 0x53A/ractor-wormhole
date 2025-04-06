@@ -10,6 +10,7 @@ pub use rpc_proxy::*;
 // -------------------------------------------------------------------------------------------------------
 
 use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
+use util::require_buffer_size;
 
 use crate::{
     nexus::RemoteActorId,
@@ -19,16 +20,33 @@ use crate::{
 
 // -------------------------------------------------------------------------------------------------------
 
-pub type SerializationError = anyhow::Error;
+pub type TransmaterializationError = anyhow::Error;
 
-pub type SerializationResult<T> = Result<T, SerializationError>;
+pub type TransmaterializationResult<T> = Result<T, TransmaterializationError>;
 
 // -------------------------------------------------------------------------------------------------------
 
+/// this represents an RpcReplyPort. A new Actor of type `RpcProxyActor` is created.
 #[derive(bincode::Encode, bincode::Decode)]
-pub struct SerializedRpcReplyPort {
+struct ProxiedRpcReplyPort {
     pub timeout_ms: Option<u128>,
     pub remote_actor_id: RemoteActorId,
+}
+
+impl SimpleByteTransmaterializable for ProxiedRpcReplyPort {
+    fn immaterialize(&self) -> TransmaterializationResult<Vec<u8>> {
+        Ok(bincode::encode_to_vec(self, bincode::config::standard())?)
+    }
+
+    fn rematerialize(data: &[u8]) -> TransmaterializationResult<Self>
+    where
+        Self: Sized,
+    {
+        let (rpc, consumed): (ProxiedRpcReplyPort, _) =
+            bincode::decode_from_slice(data, bincode::config::standard())?;
+        require_buffer_size(data, consumed)?;
+        Ok(rpc)
+    }
 }
 
 // -------------------------------------------------------------------------------------------------------
@@ -86,7 +104,7 @@ impl TransmaterializationContext {
     >(
         &self,
         rpc: RpcReplyPort<T>,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         /*
                 When sending a Message with an RpcReplyPort through the portal to a remote actor ...
                 ─────────────────────────────────────────────────────────────────────────────────────
@@ -136,7 +154,7 @@ impl TransmaterializationContext {
             )
             .await?;
 
-        let structured = SerializedRpcReplyPort {
+        let structured = ProxiedRpcReplyPort {
             timeout_ms: Some(timeout.as_millis()),
             remote_actor_id: published_id,
         };
@@ -148,7 +166,7 @@ impl TransmaterializationContext {
     pub async fn immaterialize_actor_ref<T: ContextTransmaterializable + ractor::Message + Sync>(
         &self,
         actor_ref: &ActorRef<T>,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         let receiver = actor_ref.get_receiver();
 
         let published_id = self
@@ -169,9 +187,9 @@ impl TransmaterializationContext {
     >(
         &self,
         buffer: &[u8],
-    ) -> SerializationResult<RpcReplyPort<T>> {
+    ) -> TransmaterializationResult<RpcReplyPort<T>> {
         // deserialize from bytes
-        let structured: SerializedRpcReplyPort = SerializedRpcReplyPort::rematerialize(buffer)?;
+        let structured: ProxiedRpcReplyPort = ProxiedRpcReplyPort::rematerialize(buffer)?;
 
         let timeout: Option<Duration> = structured
             .timeout_ms
@@ -195,7 +213,7 @@ impl TransmaterializationContext {
     >(
         &self,
         buffer: &[u8],
-    ) -> SerializationResult<ActorRef<T>> {
+    ) -> TransmaterializationResult<ActorRef<T>> {
         let remote_actor_id = RemoteActorId::rematerialize(buffer)?;
 
         let actor_cell = self
@@ -215,12 +233,14 @@ impl TransmaterializationContext {
 /// All serialization schemes must be platform independent.
 #[async_trait]
 pub trait ContextTransmaterializable {
-    async fn immaterialize(self, ctx: &TransmaterializationContext)
-    -> SerializationResult<Vec<u8>>;
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> TransmaterializationResult<Vec<u8>>;
     async fn rematerialize(
         ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self>
+    ) -> TransmaterializationResult<Self>
     where
         Self: Sized;
 }

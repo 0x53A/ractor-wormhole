@@ -140,7 +140,7 @@ pub enum PortalActorMessage {
     Binary(Vec<u8>),
     Close,
 
-    SerializeMessage(RemoteActorId, TransmitMessageF),
+    ImmaterializeMessage(RemoteActorId, TransmitMessageF),
     TransmitMessage(RemoteActorId, Vec<u8>),
 
     /// publish a local actor under a known name, making it available to the remote side of the portal.
@@ -218,7 +218,7 @@ impl Portal for ActorRef<PortalActorMessage> {
                     });
 
                     if let Err(err) =
-                        portal_ref.send_message(PortalActorMessage::SerializeMessage(remote_id, f))
+                        portal_ref.send_message(PortalActorMessage::ImmaterializeMessage(remote_id, f))
                     {
                         error!("Failed to send message to portal: {}", err);
                     }
@@ -638,7 +638,7 @@ impl Actor for PortalActor {
                 state.args.sender.flush().await?;
             }
 
-            PortalActorMessage::SerializeMessage(target, msg_f) => {
+            PortalActorMessage::ImmaterializeMessage(target, msg_f) => {
                 let PortalConduitState::Open { .. } = &state.channel_state else {
                     error!("TransmitMessage called before handshake");
                     return Ok(());

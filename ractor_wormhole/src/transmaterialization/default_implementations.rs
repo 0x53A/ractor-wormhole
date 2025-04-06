@@ -26,14 +26,14 @@ impl<T: ContextTransmaterializable + ractor::Message + Send + Sync + 'static + s
     async fn immaterialize(
         self,
         ctx: &TransmaterializationContext,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         ctx.immaterialize_actor_ref(&self).await
     }
 
     async fn rematerialize(
         ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self> {
+    ) -> TransmaterializationResult<Self> {
         ctx.rematerialize_actor_ref(data).await
     }
 }
@@ -45,14 +45,14 @@ impl<T: ContextTransmaterializable + Send + Sync + 'static + std::fmt::Debug>
     async fn immaterialize(
         self,
         ctx: &TransmaterializationContext,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         ctx.immaterialize_replychannel(self).await
     }
 
     async fn rematerialize(
         ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self> {
+    ) -> TransmaterializationResult<Self> {
         ctx.rematerialize_replychannel(data).await
     }
 }
@@ -64,7 +64,7 @@ impl<T: ContextTransmaterializable + Send + Sync + 'static> ContextTransmaterial
     default async fn immaterialize(
         self,
         ctx: &TransmaterializationContext,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8 + self.len() * 8);
         let count = self.len() as u64;
         buffer.extend_from_slice(&count.to_le_bytes());
@@ -82,7 +82,7 @@ impl<T: ContextTransmaterializable + Send + Sync + 'static> ContextTransmaterial
     default async fn rematerialize(
         ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self> {
+    ) -> TransmaterializationResult<Self> {
         let mut offset = 0;
         require_min_buffer_size(data, 8)?;
         let count = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
@@ -112,7 +112,7 @@ impl ContextTransmaterializable for Vec<u8> {
     async fn immaterialize(
         self,
         _ctx: &TransmaterializationContext,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8 + self.len());
         let length = self.len() as u64;
         buffer.extend_from_slice(&length.to_le_bytes());
@@ -123,7 +123,7 @@ impl ContextTransmaterializable for Vec<u8> {
     async fn rematerialize(
         _ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self> {
+    ) -> TransmaterializationResult<Self> {
         let length = u64::from_le_bytes(data[0..8].try_into()?) as usize;
         require_buffer_size(data, 8 + length)?;
         Ok(data[8..8 + length].to_vec())
@@ -137,7 +137,7 @@ impl ContextTransmaterializable for String {
     async fn immaterialize(
         self,
         _ctx: &TransmaterializationContext,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8 + self.len());
         let length = self.len() as u64;
         buffer.extend_from_slice(&length.to_le_bytes());
@@ -148,7 +148,7 @@ impl ContextTransmaterializable for String {
     async fn rematerialize(
         _ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self> {
+    ) -> TransmaterializationResult<Self> {
         let length = u64::from_le_bytes(data[0..8].try_into()?) as usize;
         require_buffer_size(data, 8 + length)?;
         let string_data = &data[8..8 + length];
@@ -166,7 +166,7 @@ macro_rules! impl_context_transmaterializable_for_le_bytes {
             default async fn immaterialize(
                 self,
                 _ctx: &TransmaterializationContext,
-            ) -> SerializationResult<Vec<u8>> {
+            ) -> TransmaterializationResult<Vec<u8>> {
                 let mut buffer = Vec::with_capacity($size);
                 buffer.extend_from_slice(&self.to_le_bytes());
                 Ok(buffer)
@@ -175,7 +175,7 @@ macro_rules! impl_context_transmaterializable_for_le_bytes {
             default async fn rematerialize(
                 _ctx: &TransmaterializationContext,
                 data: &[u8],
-            ) -> SerializationResult<Self> {
+            ) -> TransmaterializationResult<Self> {
                 require_buffer_size(data, $size)?;
                 Ok(<$type>::from_le_bytes(data[0..$size].try_into()?))
             }
@@ -229,7 +229,7 @@ impl ContextTransmaterializable for usize {
     async fn immaterialize(
         self,
         _ctx: &TransmaterializationContext,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8);
         // note: serialize as u64 so it's platform independent
         buffer.extend_from_slice(&(self as u64).to_le_bytes());
@@ -239,7 +239,7 @@ impl ContextTransmaterializable for usize {
     async fn rematerialize(
         _ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self> {
+    ) -> TransmaterializationResult<Self> {
         require_buffer_size(data, 8)?;
         Ok(u64::from_le_bytes(data[0..8].try_into()?) as usize)
     }
@@ -254,7 +254,7 @@ impl ContextTransmaterializable for isize {
     async fn immaterialize(
         self,
         _ctx: &TransmaterializationContext,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(8);
         // note: serialize as i64 so it's platform independent
         buffer.extend_from_slice(&(self as i64).to_le_bytes());
@@ -264,7 +264,7 @@ impl ContextTransmaterializable for isize {
     async fn rematerialize(
         _ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self> {
+    ) -> TransmaterializationResult<Self> {
         require_buffer_size(data, 8)?;
         Ok(i64::from_le_bytes(data[0..8].try_into()?) as isize)
     }
@@ -277,7 +277,7 @@ impl ContextTransmaterializable for bool {
     async fn immaterialize(
         self,
         _ctx: &TransmaterializationContext,
-    ) -> SerializationResult<Vec<u8>> {
+    ) -> TransmaterializationResult<Vec<u8>> {
         let mut buffer = Vec::with_capacity(1);
         buffer.extend_from_slice(if self { &[1] } else { &[0] });
         Ok(buffer)
@@ -286,7 +286,7 @@ impl ContextTransmaterializable for bool {
     async fn rematerialize(
         _ctx: &TransmaterializationContext,
         data: &[u8],
-    ) -> SerializationResult<Self> {
+    ) -> TransmaterializationResult<Self> {
         require_buffer_size(data, 1)?;
         if data[0] == 0 {
             return Ok(false);

@@ -14,8 +14,8 @@ use venial::NamedField;
 /*
 #[async_trait]
 pub trait ContextTransmaterializable {
-    async fn immaterialize(self, ctx: &TransmaterializationContext) -> SerializationResult<Vec<u8>>;
-    async fn rematerialize(ctx: &TransmaterializationContext, data: &[u8]) -> SerializationResult<Self>
+    async fn immaterialize(self, ctx: &TransmaterializationContext) -> TransmaterializationResult<Vec<u8>>;
+    async fn rematerialize(ctx: &TransmaterializationContext, data: &[u8]) -> TransmaterializationResult<Self>
     where
         Self: Sized;
 }
@@ -35,7 +35,7 @@ impl ::ractor_wormhole::transmaterialization::ContextTransmaterializable for Dum
     async fn immaterialize(
         self,
         ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,
-    ) -> ::ractor_wormhole::transmaterialization::SerializationResult<Vec<u8>> {
+    ) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let field_bytes_dummy =
@@ -52,7 +52,7 @@ impl ::ractor_wormhole::transmaterialization::ContextTransmaterializable for Dum
     async fn rematerialize(
         ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,
         data: &[u8],
-    ) -> ::ractor_wormhole::transmaterialization::SerializationResult<Self> {
+    ) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Self> {
         let mut offset = 0;
 
         let field_len_dummy = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
@@ -99,7 +99,7 @@ impl ::ractor_wormhole::transmaterialization::ContextTransmaterializable for Dum
     async fn immaterialize(
         self,
         ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,
-    ) -> ::ractor_wormhole::transmaterialization::SerializationResult<Vec<u8>> {
+    ) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         let (case, bytes): (String, Vec<u8>) = match self {
@@ -152,7 +152,7 @@ impl ::ractor_wormhole::transmaterialization::ContextTransmaterializable for Dum
     async fn rematerialize(
         ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,
         data: &[u8],
-    ) -> ::ractor_wormhole::transmaterialization::SerializationResult<Self> {
+    ) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Self> {
         let mut offset = 0;
 
         // Read the variant name
@@ -368,7 +368,7 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
             let q = quote! {
                 #[::ractor_wormhole::transmaterialization::transmaterialization_proxies::async_trait]
                 impl #impl_generics ::ractor_wormhole::transmaterialization::ContextTransmaterializable for #struct_name #type_generics #extended_where_clause {
-                    async fn immaterialize(self, ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext) -> ::ractor_wormhole::transmaterialization::SerializationResult<Vec<u8> >  {
+                    async fn immaterialize(self, ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Vec<u8> >  {
                         let mut buffer = Vec::new();
 
                         #(#serialize)*
@@ -376,7 +376,7 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
                         Ok(buffer)
                     }
 
-                    async fn rematerialize(ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::transmaterialization::SerializationResult<Self>  {
+                    async fn rematerialize(ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Self>  {
                         let mut offset = 0;
 
                         #(#deserialize)*
@@ -441,7 +441,7 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
             let q = quote! {
                 #[::ractor_wormhole::transmaterialization::transmaterialization_proxies::async_trait]
                 impl #impl_generics ::ractor_wormhole::transmaterialization::ContextTransmaterializable for #struct_name #type_generics #extended_where_clause {
-                    async fn immaterialize(self, ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext) -> ::ractor_wormhole::transmaterialization::SerializationResult<Vec<u8> >  {
+                    async fn immaterialize(self, ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Vec<u8> >  {
                         let mut buffer = Vec::new();
 
                         #(#serialize_fields)*
@@ -449,7 +449,7 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
                         Ok(buffer)
                     }
 
-                    async fn rematerialize(ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::transmaterialization::SerializationResult<Self>  {
+                    async fn rematerialize(ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Self>  {
                         let mut offset = 0;
 
                         #(#deserialize_fields)*
@@ -470,12 +470,12 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
             let q = quote! {
                 #[::ractor_wormhole::transmaterialization::transmaterialization_proxies::async_trait]
                 impl #impl_generics ::ractor_wormhole::transmaterialization::ContextTransmaterializable for #struct_name #type_generics #extended_where_clause {
-                    async fn immaterialize(self, _ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext) -> ::ractor_wormhole::transmaterialization::SerializationResult<Vec<u8> >  {
+                    async fn immaterialize(self, _ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Vec<u8> >  {
                         // Unit structs have no data to immaterialize
                         Ok(Vec::new())
                     }
 
-                    async fn rematerialize(_ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::transmaterialization::SerializationResult<Self>  {
+                    async fn rematerialize(_ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext, data: &[u8]) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Self>  {
                         // Ensure we received empty data
                         if data.len() != 0 {
                             return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("Unit struct should have no data to rematerialize, but buffer has len={}", data.len()));
@@ -653,7 +653,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
             async fn immaterialize(
                 self,
                 ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,
-            ) -> ::ractor_wormhole::transmaterialization::SerializationResult<Vec<u8>> {
+            ) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Vec<u8>> {
                 let mut buffer = Vec::new();
 
                 let (case, bytes): (String, Vec<u8>) = match self {
@@ -670,7 +670,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
             async fn rematerialize(
                 ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,
                 data: &[u8],
-            ) -> ::ractor_wormhole::transmaterialization::SerializationResult<Self> {
+            ) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Self> {
                 let mut offset = 0;
 
                 // Read the variant name

@@ -1,4 +1,3 @@
-use futures::{SinkExt, StreamExt};
 use log::info;
 use ractor::{
     Actor, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, async_trait,
@@ -182,36 +181,3 @@ pub struct RemoteActorId {
     /// the unique id of the actor
     pub id: OpaqueActorId,
 }
-
-// pub struct ProxyActorState {
-//     pub args: ProxyActorArgs,
-// }
-// pub struct ProxyActorArgs {
-//     remote_actor_id: ActorId,
-// }
-
-// #[async_trait]
-// impl<T: Send + Sync + ractor::Message + 'static> Actor for ProxyActor<T> {
-//     type Msg = T;
-//     type State = ProxyActorState;
-//     type Arguments = ProxyActorArgs;
-
-//     async fn pre_start(
-//         &self,
-//         _myself: ActorRef<Self::Msg>,
-//         args: Self::Arguments,
-//     ) -> Result<Self::State, ActorProcessingErr> {
-//         Ok(ProxyActorState { args })
-//     }
-
-//     async fn handle(
-//         &self,
-//         _myself: ActorRef<Self::Msg>,
-//         message: Self::Msg,
-//         _state: &mut Self::State,
-//     ) -> Result<(), ActorProcessingErr> {
-//         todo!();
-
-//         Ok(())
-//     }
-// }
