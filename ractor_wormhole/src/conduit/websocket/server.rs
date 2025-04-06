@@ -1,5 +1,4 @@
-use core::panic;
-use futures::{SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt, future};
 use log::{error, info};
 use ractor::{ActorRef, call_t};
 use std::net::SocketAddr;
@@ -8,8 +7,10 @@ use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
-    nexus::{self, NexusActorMessage},
+    nexus::NexusActorMessage,
 };
+
+use crate::conduit;
 
 pub async fn start_server(
     nexus: ActorRef<NexusActorMessage>,
@@ -50,26 +51,35 @@ async fn handle_connection(
 
     let (ws_sender, ws_receiver) = ws_stream.split();
 
-    let ws_receiver = ws_receiver.map(|element| match element {
-        Ok(msg) => {
-            let msg = match msg {
-                Message::Text(text) => ConduitMessage::Text(text.to_string()),
-                Message::Binary(bin) => ConduitMessage::Binary(bin.into()),
-                Message::Close(_) => ConduitMessage::Close(None),
-                _ => panic!("todo"),
-            };
+    // Map the tungstenite messages to ConduitMessage
+    let ws_receiver = ws_receiver.filter_map(|element| {
+        let output = match element {
+            Ok(msg) => {
+                let msg = match msg {
+                    Message::Text(text) => Some(ConduitMessage::Text(text.to_string())),
+                    Message::Binary(bin) => Some(ConduitMessage::Binary(bin.into())),
+                    Message::Close(_) => Some(ConduitMessage::Close(None)),
+                    _ => None,
+                };
 
-            Ok(msg)
+                Ok(msg)
+            }
+            Err(e) => Err(ConduitError::from(e)),
+        };
+
+        match output {
+            Ok(Some(msg)) => future::ready(Some(Ok(msg))),
+            Ok(None) => future::ready(None),
+            Err(e) => future::ready(Some(Err(e))),
         }
-        Err(e) => Err(ConduitError::from(e)),
     });
 
+    // Convert the ConduitMessage to tungstenite Message
     let ws_sender = ws_sender.with(|element: ConduitMessage| async {
         let msg = match element {
             ConduitMessage::Text(text) => Message::text(text),
             ConduitMessage::Binary(bin) => Message::binary(bin),
             ConduitMessage::Close(_) => Message::Close(None),
-            _ => panic!("Unsupported message type"),
         };
         Ok(msg)
     });
@@ -89,7 +99,7 @@ async fn handle_connection(
     match portal {
         Ok(portal_actor) => {
             info!("Portal actor started for: {}", addr);
-            nexus::receive_loop(ws_receiver, portal_identifier, portal_actor).await
+            conduit::receive_loop(ws_receiver, portal_identifier, portal_actor).await
         }
         Err(e) => error!("Error starting portal actor: {}", e),
     }

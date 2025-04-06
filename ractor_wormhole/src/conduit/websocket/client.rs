@@ -6,9 +6,11 @@ use tungstenite::client::IntoClientRequest;
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
-    nexus::{self, NexusActorMessage},
+    nexus::NexusActorMessage,
     portal::PortalActorMessage,
 };
+
+use crate::conduit;
 
 pub async fn connect_to_server<R>(
     nexus: ActorRef<NexusActorMessage>,
@@ -69,7 +71,6 @@ where
             ConduitMessage::Text(text) => Message::text(text),
             ConduitMessage::Binary(bin) => Message::binary(bin),
             ConduitMessage::Close(_) => Message::Close(None),
-            _ => panic!("Unsupported message type"),
         };
         Ok(msg)
     });
@@ -85,22 +86,14 @@ where
         100,
         portal_identifier.clone(),
         ws_sender
-    );
+    )?;
 
-    match portal {
-        Ok(portal_actor) => {
-            info!("Portal actor started for: {}", uri);
+    info!("Portal actor started for: {}", uri);
 
-            let portal_actor_copy = portal_actor.clone();
-            tokio::spawn(async move {
-                nexus::receive_loop(ws_receiver, portal_identifier, portal_actor_copy).await
-            });
+    let portal_actor_copy = portal.clone();
+    tokio::spawn(async move {
+        conduit::receive_loop(ws_receiver, portal_identifier, portal_actor_copy).await
+    });
 
-            Ok(portal_actor)
-        }
-        Err(e) => {
-            error!("Error starting portal actor: {}", e);
-            Err(e.into())
-        }
-    }
+    Ok(portal)
 }

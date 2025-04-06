@@ -1,10 +1,11 @@
 mod alias_gen;
-mod connection;
 
 use std::net::SocketAddr;
 
 use anyhow::anyhow;
-use ractor_wormhole::{nexus::start_nexus, portal::UserFriendlyPortal, util::FnActor};
+use ractor_wormhole::{
+    conduit::websocket, nexus::start_nexus, portal::UserFriendlyPortal, util::FnActor,
+};
 
 use crate::common::{ClientToServerMessage, start_pingpong_actor};
 
@@ -21,7 +22,7 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
         .await
         .map_err(|err| anyhow!(err))?;
 
-    connection::start_server(nexus, bind).await?;
+    websocket::server::start_server(nexus, bind).await?;
 
     let pinpong = start_pingpong_actor().await?;
 

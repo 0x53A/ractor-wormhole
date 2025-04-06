@@ -1,5 +1,5 @@
 use futures::{SinkExt, StreamExt};
-use log::{error, info};
+use log::info;
 use ractor::{
     Actor, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, async_trait,
     concurrency::{Duration, JoinHandle},
@@ -8,7 +8,7 @@ use ractor_cluster_derive::RactorMessage;
 use std::collections::HashMap;
 
 use crate::{
-    conduit::{ConduitMessage, ConduitSink, ConduitSource},
+    conduit::ConduitSink,
     portal::{
         ConduitID, LocalPortalId, OpaqueActorId, PortalActor, PortalActorArgs, PortalActorMessage,
         PortalConfig,
@@ -164,47 +164,6 @@ pub async fn start_nexus(
     .await?;
 
     Ok(nexus_ref)
-}
-
-pub async fn receive_loop(
-    mut ws_receiver: ConduitSource,
-    identifier: String,
-    actor_ref: ActorRef<PortalActorMessage>,
-) {
-    // Process incoming messages
-    while let Some(msg) = ws_receiver.next().await {
-        match msg {
-            Ok(msg) => match msg {
-                ConduitMessage::Text(text) => {
-                    if let Err(err) = actor_ref.cast(PortalActorMessage::Text(text.to_string())) {
-                        error!("Error sending text message to actor: {}", err);
-                        break;
-                    }
-                }
-                ConduitMessage::Binary(data) => {
-                    if let Err(err) = actor_ref.cast(PortalActorMessage::Binary(data.to_vec())) {
-                        error!("Error sending binary message to actor: {}", err);
-                        break;
-                    }
-                }
-                ConduitMessage::Close(close_frame) => {
-                    info!(
-                        "Portal with {} closed because of reason: {:?}",
-                        identifier, close_frame
-                    );
-                    break;
-                }
-                _ => {}
-            },
-            Err(e) => {
-                error!("Error receiving message from {}: {}", e, identifier);
-                break;
-            }
-        }
-    }
-
-    info!("Portal with {} closed", identifier);
-    let _ = actor_ref.cast(PortalActorMessage::Close);
 }
 
 // ---------------------------------------------------------------------------------
