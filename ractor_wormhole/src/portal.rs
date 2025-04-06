@@ -4,8 +4,6 @@ use ractor::{
     Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, async_trait,
     concurrency::Duration,
 };
-use ractor_cluster_derive::RactorMessage;
-use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display, pin::Pin};
 
 use crate::{
@@ -19,9 +17,9 @@ use crate::transmaterialization::internal_serializations::SimpleByteTransmateria
 
 // -------------------------------------------------------------------------------------------------------
 
+// note: the introduction is json serialized
 /// The **local** portal identifier
 #[derive(
-    RactorMessage,
     Debug,
     bincode::Encode,
     bincode::Decode,
@@ -29,8 +27,8 @@ use crate::transmaterialization::internal_serializations::SimpleByteTransmateria
     PartialEq,
     Eq,
     Hash,
-    Serialize,
-    Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
     Copy,
 )]
 pub struct LocalPortalId(pub u128);
@@ -166,6 +164,7 @@ pub enum PortalActorMessage {
     QueryNamedRemoteActor(String, RpcReplyPort<NexusResult<RemoteActorId>>),
 }
 
+#[cfg(feature = "ractor_cluster")]
 impl ractor::Message for PortalActorMessage {}
 
 /// wrap the `ActorRef<PortalActorMessage>` in a more user-friendly interface
@@ -274,7 +273,8 @@ pub enum PortalConduitState {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+// note: the introduction is json serialized
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Introduction {
     pub channel_id_contribution: uuid::Bytes,
     pub version: String,

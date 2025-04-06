@@ -4,7 +4,6 @@ use ractor::{
     Actor, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, async_trait,
     concurrency::{Duration, JoinHandle},
 };
-use ractor_cluster_derive::RactorMessage;
 use std::collections::HashMap;
 
 use crate::{
@@ -21,7 +20,10 @@ use crate::{
 // -------------------------------------------------------------------------------------------------------
 
 // Messages for the nexus actor
-#[derive(RactorMessage)]
+#[cfg_attr(
+    feature = "ractor_cluster",
+    derive(ractor_cluster_derive::RactorMessage)
+)]
 pub enum NexusActorMessage {
     Connected(
         String,
@@ -38,7 +40,10 @@ pub struct NexusActorState {
     portals: HashMap<ActorId, (String, ActorRef<PortalActorMessage>, JoinHandle<()>)>,
 }
 
-#[derive(RactorMessage)]
+#[cfg_attr(
+    feature = "ractor_cluster",
+    derive(ractor_cluster_derive::RactorMessage)
+)]
 pub struct OnActorConnectedMessage {
     pub identifier: String,
     pub actor_ref: ActorRef<PortalActorMessage>,
@@ -167,21 +172,6 @@ pub async fn start_nexus(
 }
 
 // ---------------------------------------------------------------------------------
-
-// pub struct ProxyActor<T: Send + Sync + ractor::Message + 'static> {
-//     _a: PhantomData<T>,
-// }
-// impl<T: Send + Sync + ractor::Message + 'static> Default for ProxyActor<T> {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
-// impl<T: Send + Sync + ractor::Message + 'static> ProxyActor<T> {
-//     pub fn new() -> Self {
-//         ProxyActor { _a: PhantomData }
-//     }
-// }
 
 #[derive(bincode::Encode, bincode::Decode, Debug, Clone, Copy)]
 pub struct RemoteActorId {

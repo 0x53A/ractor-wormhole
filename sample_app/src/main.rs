@@ -41,6 +41,11 @@ async fn main() {
 }
 
 async fn run() -> Result<(), anyhow::Error> {
+    // Initialize logger
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
     let cli = Cli::parse();
 
     match cli.command {

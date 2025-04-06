@@ -4,6 +4,11 @@ members = [
     "ractor_wormhole",
     "ractor_wormhole_derive",
     "ractor_wormhole_tests",
-    "sample_app"
+
+    "sample_app",
+
+    "chat_app/client",
+    "chat_app/server",
+    "chat_app/shared"
 ]
 

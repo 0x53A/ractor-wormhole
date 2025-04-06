@@ -1,5 +1,3 @@
-mod alias_gen;
-
 use std::net::SocketAddr;
 
 use anyhow::anyhow;
@@ -8,11 +6,6 @@ use ractor_wormhole::{conduit::websocket, nexus::start_nexus, portal::Portal, ut
 use crate::common::start_pingpong_actor;
 
 pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
-    // Initialize logger
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-    );
-
     // create a callback for when a client connects
     let (mut ctx_on_client_connected, _) = FnActor::start().await?;
 

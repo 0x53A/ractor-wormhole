@@ -76,6 +76,8 @@ It's important that both ``ActorRef<T>`` and ``RpcReplyPort<T>`` MUST **always**
 
 This project is not related to, and does not depend on, the ractor native clustering. It can be used in conjunction with a cluster on one or both sides.
 
+If you use it together with ``ractor-cluster``, do enable the feature ``ractor_cluster`` in this crate.
+
 ## Components
 
 You create your ractor actors as usual. You instantiate one ``Nexus``. This Nexus can hold multiple ``Portal``s (endpoints of connections). Two Portals connect to each other through a ``Conduit``. The exact instantiation of this Portal depends on the chosen Conduit (transport). In the case of Websocket, which is implemented in this library, the server side will listen on a specific port and create one Portal per connected client; in the case of the Websocket client, it will establish a websocket connection to a server and wrap that connection in a Portal.

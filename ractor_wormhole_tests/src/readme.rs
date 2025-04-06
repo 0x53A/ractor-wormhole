@@ -9,12 +9,15 @@
 use std::any;
 
 use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr, async_trait};
-use ractor_cluster_derive::RactorMessage;
 use ractor_wormhole::util::FnActor;
 
 pub struct MyActor;
 
-#[derive(RactorMessage, Debug)]
+#[cfg_attr(
+    feature = "ractor_cluster",
+    derive(ractor_cluster_derive::RactorMessage)
+)]
+#[derive(Debug)]
 pub struct MyMessage {}
 pub struct MyArgs {}
 pub struct MyState {}

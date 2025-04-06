@@ -1,5 +1,6 @@
-use ractor_wormhole::transmaterialization::ContextTransmaterializable;
-use ractor_wormhole_derive::WormholeTransmaterializable;
+use ractor_wormhole::{
+    WormholeTransmaterializable, transmaterialization::ContextTransmaterializable,
+};
 
 // Structs
 // -----------------------------------------------------------------------------

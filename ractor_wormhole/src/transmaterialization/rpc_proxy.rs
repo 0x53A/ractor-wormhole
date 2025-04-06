@@ -12,6 +12,7 @@ pub struct RpcProxyMsg<T: Send + Sync + 'static> {
     pub data: T,
 }
 
+#[cfg(feature = "ractor_cluster")]
 impl<T: Send + Sync + 'static> ractor::Message for RpcProxyMsg<T> {}
 
 // -------------------------------------------------------------------------------------------------------

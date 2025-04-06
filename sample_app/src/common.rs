@@ -1,29 +1,12 @@
 // note: typically, client and server would be in separate crates, with a shared crate defining these interfaces.
 
 use ractor::{ActorRef, concurrency::Duration};
-use ractor_cluster_derive::RactorMessage;
 use ractor_wormhole::WormholeTransmaterializable;
 use ractor_wormhole::{portal::NexusResult, util::FnActor};
 
-#[derive(Debug, Clone, WormholeTransmaterializable)]
-pub struct UserAlias(String);
-#[derive(Debug, Clone, WormholeTransmaterializable)]
-pub struct ChatMessage(String);
-
-#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
-pub enum ChatServerMessage {
-    PostMessage(ChatMessage),
-}
-
-#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
-pub enum ChatClientMessage {
-    AssignAlias(String),
-    MessageReceived(UserAlias, ChatMessage),
-}
-
 // ----------------------------------------------------------------------------------
 
-#[derive(Debug, RactorMessage, WormholeTransmaterializable)]
+#[derive(Debug, WormholeTransmaterializable)]
 pub enum PingPongMsg {
     Ping(ActorRef<PingPongMsg>),
     Pong(ActorRef<PingPongMsg>),
