@@ -43,7 +43,7 @@ pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
     // Start the nexus actor
     let nexus = start_nexus(None).await.unwrap();
 
-    let (portal) = connection::connect_to_server(nexus, server_url).await?;
+    let portal = connection::connect_to_server(nexus, server_url).await?;
 
     // create a local actor and publish it on the portal
     let local_actor: ActorRef<ServerToClientMessage> = start_local_actor().await?;

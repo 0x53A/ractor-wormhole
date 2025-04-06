@@ -8,7 +8,7 @@ use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
-    nexus::{self, NexusActorMessage, OnActorConnectedMessage, start_nexus},
+    nexus::{self, NexusActorMessage},
 };
 
 pub async fn start_server(

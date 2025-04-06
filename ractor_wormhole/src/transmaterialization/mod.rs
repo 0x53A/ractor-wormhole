@@ -232,8 +232,6 @@ pub mod transmaterialization_proxies {
     pub use ::anyhow::anyhow;
     pub use ::ractor::async_trait;
 
-    use super::*;
-
     #[cfg(feature = "serde")]
     pub mod serde_proxy {
 

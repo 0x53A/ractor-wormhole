@@ -1,17 +1,12 @@
 use futures::{SinkExt, StreamExt, future};
 use log::{error, info};
 use ractor::{ActorRef, call_t};
-use std::net::SocketAddr;
-use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message,
-};
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tungstenite::client::IntoClientRequest;
-use url::Url;
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
-    nexus::{self, NexusActorMessage, start_nexus},
+    nexus::{self, NexusActorMessage},
     portal::PortalActorMessage,
 };
 
