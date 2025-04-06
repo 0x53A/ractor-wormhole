@@ -1,5 +1,8 @@
 #![feature(fn_traits)]
 #![feature(try_find)]
+#![feature(let_chains)]
+
+mod ui;
 
 use clap::Parser;
 use ractor::{ActorRef, concurrency::Duration};
@@ -10,6 +13,7 @@ use ractor_wormhole::{
     util::{ActorRef_Ask, FnActor},
 };
 use shared::ChatClientMessage;
+use ui::{UIMsg, spawn_ui_actor};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -27,19 +31,18 @@ async fn main() {
     }
 }
 
-pub async fn start_chatclient_actor() -> NexusResult<ActorRef<ChatClientMessage>> {
-    let (actor_ref, _) = FnActor::<ChatClientMessage>::start_fn(async |mut ctx| {
+pub async fn start_chatclient_actor(
+    ui: ActorRef<UIMsg>,
+) -> NexusResult<ActorRef<ChatClientMessage>> {
+    let (actor_ref, _) = FnActor::<ChatClientMessage>::start_fn(async move |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
             match msg {
                 ChatClientMessage::MessageReceived(user_alias, chat_msg) => {
-                    println!(
-                        "Message from {}: {}",
-                        user_alias.to_string(),
-                        chat_msg.to_string()
-                    );
+                    ui.send_message(UIMsg::AddChatMessage(user_alias, chat_msg))
+                        .unwrap();
                 }
                 ChatClientMessage::UserConnected(user_alias) => {
-                    println!("User connected: {}", user_alias.to_string());
+                    ui.send_message(UIMsg::UserConnected(user_alias)).unwrap();
                 }
             }
         }
@@ -56,6 +59,11 @@ async fn run() -> Result<(), anyhow::Error> {
     // );
 
     let cli = Cli::parse();
+
+    color_eyre::install().map_err(|err| anyhow::anyhow!(err))?;
+    let terminal = ratatui::init();
+
+    let ui = spawn_ui_actor(terminal).await;
 
     // Start the nexus actor
     let nexus = start_nexus(None).await.unwrap();
@@ -78,7 +86,7 @@ async fn run() -> Result<(), anyhow::Error> {
         .instantiate_proxy_for_remote_actor(remote_hub_address)
         .await?;
 
-    let local_chat_client = start_chatclient_actor().await?;
+    let local_chat_client = start_chatclient_actor(ui.clone()).await?;
     let (user_alias, remote_chat_server) = remote_hub
         .ask(
             |rpc| shared::HubMessage::Connect(local_chat_client, rpc),
@@ -86,23 +94,15 @@ async fn run() -> Result<(), anyhow::Error> {
         )
         .await?;
 
-    println!("Connected to server as: {}", user_alias.to_string());
+    ui.send_message(UIMsg::Connected(
+        user_alias.clone(),
+        remote_chat_server.clone(),
+    ))?;
 
-    loop {
-        let mut line_buf = String::new();
-        let _ = std::io::stdin().read_line(&mut line_buf)?;
-        let () = remote_chat_server
-            .ask(
-                |rpc| {
-                    shared::ChatServerMessage::PostMessage(
-                        shared::ChatMessage(line_buf.clone()),
-                        rpc,
-                    )
-                },
-                None,
-            )
-            .await?;
-    }
+    // wait for ui to exit
+    ui.wait(None).await?;
+
+    ratatui::restore();
 
     Ok(())
 }
