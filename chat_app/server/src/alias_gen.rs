@@ -1,10 +1,13 @@
-use rand::Rng;
+use rand::{SeedableRng, rngs::SmallRng, seq::IndexedRandom};
 
 /// Generates random user aliases in the format "adjective noun"
 pub struct AliasGenerator {
     adjectives: Vec<&'static str>,
     nouns: Vec<&'static str>,
+    rng: SmallRng,
 }
+
+static_assertions::assert_impl_all!(AliasGenerator: Send, Sync);
 
 impl AliasGenerator {
     /// Creates a new AliasGenerator with predefined lists of adjectives and nouns
@@ -75,32 +78,40 @@ impl AliasGenerator {
             "nightstalker",
         ];
 
-        Self { adjectives, nouns }
+        let rng = rand::rngs::SmallRng::from_os_rng();
+
+        Self {
+            adjectives,
+            nouns,
+            rng,
+        }
+    }
+
+    fn get_pair(&mut self) -> (&'static str, &'static str) {
+        let adjective = self.adjectives.choose(&mut self.rng).unwrap();
+        let noun = self.nouns.choose(&mut self.rng).unwrap();
+
+        (adjective, noun)
     }
 
     /// Generates a random alias
-    pub fn generate(&self) -> String {
-        let mut rng = rand::thread_rng();
-
-        let adjective = self.adjectives[rng.gen_range(0..self.adjectives.len())];
-        let noun = self.nouns[rng.gen_range(0..self.nouns.len())];
-
+    pub fn _generate(&mut self) -> String {
+        let (adjective, noun) = self.get_pair();
         format!("{} {}", adjective, noun)
     }
 
+    fn capitalize_first_letter(word: &str) -> String {
+        let mut chars = word.chars();
+        let first = chars.next().unwrap().to_uppercase();
+        let rest: String = chars.collect();
+        format!("{}{}", first, rest)
+    }
+
     /// Generates a random alias with capitalized words
-    pub fn generate_capitalized(&self) -> String {
-        let alias = self.generate();
-        alias
-            .split_whitespace()
-            .map(|word| {
-                let mut chars = word.chars();
-                match chars.next() {
-                    None => String::new(),
-                    Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-                }
-            })
-            .collect::<Vec<String>>()
-            .join(" ")
+    pub fn generate_capitalized(&mut self) -> String {
+        let (adjective, noun) = self.get_pair();
+        let adjective = Self::capitalize_first_letter(adjective);
+        let noun = Self::capitalize_first_letter(noun);
+        format!("{} {}", adjective, noun)
     }
 }

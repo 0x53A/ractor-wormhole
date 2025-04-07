@@ -32,7 +32,7 @@ struct ChatServerState {
 
 pub async fn start_chatserver_actor() -> NexusResult<ActorRef<Msg>> {
     let (actor_ref, _) = FnActor::<Msg>::start_fn(async |mut ctx| {
-        let alias_generator = alias_gen::AliasGenerator::new();
+        let mut alias_generator = alias_gen::AliasGenerator::new();
 
         let mut state = ChatServerState {
             clients: HashMap::new(),
@@ -67,7 +67,7 @@ pub async fn start_chatserver_actor() -> NexusResult<ActorRef<Msg>> {
                     }
                 }
                 Msg::Connect(portal, new_client, rpc) => {
-                    let user_alias = UserAlias(alias_generator.generate());
+                    let user_alias = UserAlias(alias_generator.generate_capitalized());
                     state
                         .clients
                         .insert(portal.get_id(), (new_client.clone(), user_alias.clone()));

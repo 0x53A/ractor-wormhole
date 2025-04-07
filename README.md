@@ -1,4 +1,11 @@
-                            
+> [!NOTE]  
+> This project is still being built. Some of the descriptions are aspirational, not factional.
+
+> [!CAUTION]
+> This is a private project. Do not use it if you wouldn't be comfortable with maintaining it yourself at any point.
+
+
+
                             
       x~~            x~~     
      xxx~~          xxx~~       

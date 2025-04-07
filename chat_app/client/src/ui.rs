@@ -1,7 +1,7 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use futures_util::StreamExt;
 use ractor::ActorRef;
-use ractor_wormhole::util::{ActorRef_Ask, ActorRef_FilterMap, ActorRef_Map, FnActor};
+use ractor_wormhole::util::{ActorRef_Ask, ActorRef_FilterMap as _, FnActor};
 use shared::{ChatMessage, ChatServerMessage, UserAlias};
 
 use ratatui::{
@@ -71,7 +71,8 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
     let (actor_ref, _) = FnActor::<UIMsg>::start_fn(async move |mut ctx| {
         let mut state = UIState::new();
 
-        let (key_receiver, _) = ctx
+        // this receives a message of type crossterm::Event and forwards it to this actor
+        let (key_input_event_receiver, _) = ctx
             .actor_ref
             .clone()
             .filter_map(|evt| {
@@ -85,7 +86,8 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
             })
             .await
             .unwrap();
-        tokio::spawn(event_reader_loop(key_receiver));
+        
+        tokio::spawn(event_reader_loop(key_input_event_receiver));
 
         // draw the initial UI
         terminal.draw(|frame| state.ui(frame)).unwrap();
@@ -107,7 +109,7 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
                 UIMsg::InputEvent(key) => match key.code {
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         // kill actor on CTRL+C
-                        return;
+                        state.exit = true;
                     }
                     KeyCode::Esc => {
                         state.composer.clear();
@@ -158,6 +160,11 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
                 }
             }
 
+            if state.exit {
+                // exit the UI
+                return;
+            }
+
             // after processing any event, redraw
             terminal.draw(|frame| state.ui(frame)).unwrap();
         }
@@ -179,11 +186,11 @@ impl UIState {
                 Constraint::Length(3), // Composer area
             ])
             .margin(1)
-            .split(frame.size());
+            .split(frame.area());
 
         // Create outer border
         let outer_block = Block::default().borders(Borders::ALL);
-        frame.render_widget(outer_block, frame.size());
+        frame.render_widget(outer_block, frame.area());
 
         // Title area with username
         let title = format!(

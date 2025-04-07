@@ -1,3 +1,4 @@
+#[cfg(any(feature = "websocket_client", feature = "websocket_server"))]
 pub mod websocket;
 
 use futures::{Sink, Stream, StreamExt};
