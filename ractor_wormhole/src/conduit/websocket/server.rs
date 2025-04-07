@@ -33,10 +33,10 @@ pub async fn start_server(
     Ok(())
 }
 
-async fn handle_connection(
+pub async fn handle_connection(
     stream: TcpStream,
     addr: SocketAddr,
-    actor_ref: ActorRef<NexusActorMessage>,
+    nexus: ActorRef<NexusActorMessage>,
 ) {
     // Upgrade the TCP connection to a WebSocket connection
     let ws_stream = match accept_async(stream).await {
@@ -89,7 +89,7 @@ async fn handle_connection(
 
     let portal_identifier = format!("ws://{}", addr);
     let portal = call_t!(
-        actor_ref,
+        nexus,
         NexusActorMessage::Connected,
         100,
         portal_identifier.clone(),

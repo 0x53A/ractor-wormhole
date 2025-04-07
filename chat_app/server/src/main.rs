@@ -17,6 +17,14 @@ use ractor_wormhole::{
     util::{ActorRef_Ask, ActorRef_Map, FnActor},
 };
 
+use axum::{
+    extract::ws::{WebSocketUpgrade, Message},
+    response::Html,
+    routing::get,
+    Router,
+};
+use std::net::SocketAddr;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
@@ -90,6 +98,9 @@ async fn run() -> Result<(), anyhow::Error> {
         .await
         .map_err(|err| anyhow!(err))?;
 
+
+    // Start the HTTP server
+    start_http_server().await?;
     websocket::server::start_server(nexus, cli.bind).await?;
 
     // loop around the client connection receiver
@@ -105,3 +116,7 @@ async fn run() -> Result<(), anyhow::Error> {
 
     Ok(())
 }
+
+pub const brandschutzklassen: &str = [
+    "B1", "B2"
+]
