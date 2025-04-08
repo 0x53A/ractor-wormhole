@@ -1,8 +1,10 @@
 #![feature(fn_traits)]
 #![feature(try_find)]
+#![feature(never_type)]
 
 mod alias_gen;
 mod chat_server;
+mod http_server;
 
 use clap::Parser;
 use ractor::ActorRef;
@@ -11,19 +13,10 @@ use std::net::SocketAddr;
 
 use anyhow::anyhow;
 use ractor_wormhole::{
-    conduit::websocket,
     nexus::start_nexus,
     portal::{NexusResult, Portal, PortalActorMessage},
     util::{ActorRef_Ask, ActorRef_Map, FnActor},
 };
-
-use axum::{
-    extract::ws::{WebSocketUpgrade, Message},
-    response::Html,
-    routing::get,
-    Router,
-};
-use std::net::SocketAddr;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -87,8 +80,6 @@ async fn run() -> Result<(), anyhow::Error> {
     // already start the actual chat server actor
     let chat_server = chat_server::start_chatserver_actor().await?;
 
-    println!("Starting server, binding to: {}", cli.bind);
-
     // create a callback for when a client connects
     let (mut ctx_on_client_connected, _) = FnActor::start().await?;
 
@@ -98,10 +89,14 @@ async fn run() -> Result<(), anyhow::Error> {
         .await
         .map_err(|err| anyhow!(err))?;
 
-
     // Start the HTTP server
-    start_http_server().await?;
-    websocket::server::start_server(nexus, cli.bind).await?;
+    println!("Starting server, binding to: {}", cli.bind);
+    let nexus_clone = nexus.clone();
+    tokio::spawn(async move {
+        http_server::http_server_fn(nexus_clone, cli.bind)
+            .await
+            .unwrap();
+    });
 
     // loop around the client connection receiver
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
@@ -116,7 +111,3 @@ async fn run() -> Result<(), anyhow::Error> {
 
     Ok(())
 }
-
-pub const brandschutzklassen: &str = [
-    "B1", "B2"
-]

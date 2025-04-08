@@ -1,9 +1,11 @@
+//mod server_http;
+
 use futures::{SinkExt, StreamExt, future};
 use log::{error, info};
-use ractor::{ActorRef, call_t};
+use ractor::ActorRef;
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
-use tokio_tungstenite::{accept_async, tungstenite::protocol::Message};
+use tokio_tungstenite::tungstenite::protocol::Message;
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
@@ -12,6 +14,7 @@ use ractor_wormhole::{
 
 use crate::conduit;
 
+/// starts a pure websocket server (using tokio_tungstenite) on the specific bind address.
 pub async fn start_server(
     nexus: ActorRef<NexusActorMessage>,
     bind: SocketAddr,
@@ -39,7 +42,7 @@ pub async fn handle_connection(
     nexus: ActorRef<NexusActorMessage>,
 ) {
     // Upgrade the TCP connection to a WebSocket connection
-    let ws_stream = match accept_async(stream).await {
+    let ws_stream = match tokio_tungstenite::accept_async(stream).await {
         Ok(ws_stream) => ws_stream,
         Err(e) => {
             error!("Error during WebSocket handshake: {}", e);
@@ -49,10 +52,10 @@ pub async fn handle_connection(
 
     info!("WebSocket connection established with: {}", addr);
 
-    let (ws_sender, ws_receiver) = ws_stream.split();
+    let (tx, rx) = ws_stream.split();
 
     // Map the tungstenite messages to ConduitMessage
-    let ws_receiver = ws_receiver.filter_map(|element| {
+    let rx = rx.filter_map(|element| {
         let output = match element {
             Ok(msg) => {
                 let msg = match msg {
@@ -73,9 +76,10 @@ pub async fn handle_connection(
             Err(e) => future::ready(Some(Err(e))),
         }
     });
+    let rx: ConduitSource = Box::pin(rx);
 
     // Convert the ConduitMessage to tungstenite Message
-    let ws_sender = ws_sender.with(|element: ConduitMessage| async {
+    let tx = tx.with(|element: ConduitMessage| async {
         let msg = match element {
             ConduitMessage::Text(text) => Message::text(text),
             ConduitMessage::Binary(bin) => Message::binary(bin),
@@ -83,24 +87,15 @@ pub async fn handle_connection(
         };
         Ok(msg)
     });
-
-    let ws_sender: ConduitSink = Box::pin(ws_sender);
-    let ws_receiver: ConduitSource = Box::pin(ws_receiver);
+    let tx: ConduitSink = Box::pin(tx);
 
     let portal_identifier = format!("ws://{}", addr);
-    let portal = call_t!(
-        nexus,
-        NexusActorMessage::Connected,
-        100,
-        portal_identifier.clone(),
-        ws_sender
-    );
-
-    match portal {
-        Ok(portal_actor) => {
-            info!("Portal actor started for: {}", addr);
-            conduit::receive_loop(ws_receiver, portal_identifier, portal_actor).await
-        }
-        Err(e) => error!("Error starting portal actor: {}", e),
+    if let Err(err) = conduit::from_sink_source(nexus, portal_identifier, tx, rx).await {
+        error!("Error creating portal: {}", err);
     }
 }
+
+// #[cfg(feature = "websocket_server_axum")]
+// pub async fn axum_ws_handler() {
+//     todo!()
+// }

@@ -86,7 +86,7 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
             })
             .await
             .unwrap();
-        
+
         tokio::spawn(event_reader_loop(key_input_event_receiver));
 
         // draw the initial UI

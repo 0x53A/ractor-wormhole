@@ -1,8 +1,9 @@
 use futures::{SinkExt, StreamExt, future};
 use log::{error, info};
 use ractor::{ActorRef, call_t};
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::{
+    connect_async, tungstenite::client::IntoClientRequest, tungstenite::protocol::Message,
+};
 
 use ractor_wormhole::{
     conduit::{ConduitError, ConduitMessage, ConduitSink, ConduitSource},
@@ -36,10 +37,10 @@ where
     };
 
     // Split the WebSocket stream
-    let (ws_sender, ws_receiver) = ws_stream.split();
+    let (tx, rx) = ws_stream.split();
 
     // map the tungstenite messages to ConduitMessage
-    let ws_receiver = ws_receiver.filter_map(|element| {
+    let rx = rx.filter_map(|element| {
         let output = match element {
             Ok(msg) => {
                 let msg = match msg {
@@ -64,9 +65,10 @@ where
             Err(e) => future::ready(Some(Err(e))),
         }
     });
+    let rx: ConduitSource = Box::pin(rx);
 
     // map the ConduitMessage to tungstenite messages
-    let ws_sender = ws_sender.with(|element: ConduitMessage| async {
+    let tx = tx.with(|element: ConduitMessage| async {
         let msg = match element {
             ConduitMessage::Text(text) => Message::text(text),
             ConduitMessage::Binary(bin) => Message::binary(bin),
@@ -74,9 +76,7 @@ where
         };
         Ok(msg)
     });
-
-    let ws_sender: ConduitSink = Box::pin(ws_sender);
-    let ws_receiver: ConduitSource = Box::pin(ws_receiver);
+    let tx: ConduitSink = Box::pin(tx);
 
     // Register the portal with the nexus actor
     let portal_identifier = uri.to_string();
@@ -85,15 +85,15 @@ where
         NexusActorMessage::Connected,
         100,
         portal_identifier.clone(),
-        ws_sender
+        tx
     )?;
 
     info!("Portal actor started for: {}", uri);
 
     let portal_actor_copy = portal.clone();
-    tokio::spawn(async move {
-        conduit::receive_loop(ws_receiver, portal_identifier, portal_actor_copy).await
-    });
+    tokio::spawn(
+        async move { conduit::receive_loop(rx, portal_identifier, portal_actor_copy).await },
+    );
 
     Ok(portal)
 }

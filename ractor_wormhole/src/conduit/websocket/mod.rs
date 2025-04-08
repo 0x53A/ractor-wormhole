@@ -1,4 +1,3 @@
-
 #[cfg(feature = "websocket_client")]
 pub mod client;
 

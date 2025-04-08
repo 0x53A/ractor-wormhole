@@ -2,12 +2,15 @@
 pub mod websocket;
 
 use futures::{Sink, Stream, StreamExt};
-use ractor::ActorRef;
+use ractor::{ActorRef, call_t};
 use std::pin::Pin;
 
 use log::{error, info};
 
-use crate::portal::PortalActorMessage;
+use crate::{
+    nexus::{self, NexusActorMessage},
+    portal::PortalActorMessage,
+};
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -62,4 +65,31 @@ pub async fn receive_loop(
 
     info!("Portal with {} closed", identifier);
     let _ = actor_ref.cast(PortalActorMessage::Close);
+}
+
+pub async fn from_sink_source(
+    nexus: ActorRef<nexus::NexusActorMessage>,
+    portal_identifier: String,
+    sink: ConduitSink,
+    source: ConduitSource,
+) -> Result<ActorRef<PortalActorMessage>, ConduitError> {
+    let portal = call_t!(
+        nexus,
+        NexusActorMessage::Connected,
+        100,
+        portal_identifier.clone(),
+        sink
+    );
+
+    match portal {
+        Ok(portal_actor) => {
+            info!("Portal actor started for: {}", portal_identifier);
+            receive_loop(source, portal_identifier, portal_actor.clone()).await;
+            Ok(portal_actor)
+        }
+        Err(e) => {
+            error!("Error starting portal actor: {}", e);
+            Err(e)?
+        }
+    }
 }
