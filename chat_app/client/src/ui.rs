@@ -46,6 +46,7 @@ pub enum UIMsg {
     AddChatMessage(UserAlias, ChatMessage),
     /// a different user connected
     UserConnected(UserAlias),
+    Disconnected,
     SetMessageInFlight(bool),
 
     InputEvent(KeyEvent),
@@ -105,6 +106,9 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
                 }
                 UIMsg::SetMessageInFlight(is_in_flight) => {
                     state.is_message_in_flight = is_in_flight;
+                }
+                UIMsg::Disconnected => {
+                    state.exit = true;
                 }
                 UIMsg::InputEvent(key) => match key.code {
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {

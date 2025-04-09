@@ -73,4 +73,6 @@ pub enum ChatClientMessage {
     UserConnected(UserAlias),
     /// a user has sent a message
     MessageReceived(UserAlias, ChatMessage),
+    /// this user has been disconnected
+    Disconnect,
 }

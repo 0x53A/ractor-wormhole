@@ -44,6 +44,9 @@ pub async fn start_chatclient_actor(
                 ChatClientMessage::UserConnected(user_alias) => {
                     ui.send_message(UIMsg::UserConnected(user_alias)).unwrap();
                 }
+                ChatClientMessage::Disconnect => {
+                    ui.send_message(UIMsg::Disconnected).unwrap();
+                }
             }
         }
     })

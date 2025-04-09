@@ -5,6 +5,7 @@
 mod alias_gen;
 mod chat_server;
 mod http_server;
+mod hub;
 
 use clap::Parser;
 use ractor::ActorRef;
@@ -34,40 +35,6 @@ async fn main() {
     }
 }
 
-/// spawn a new hub actor, which receives a handle to the one and only chat server, and handle to the specific portal
-async fn spawn_hub(
-    chat_server: ActorRef<chat_server::Msg>,
-    portal: ActorRef<PortalActorMessage>,
-) -> NexusResult<ActorRef<HubMessage>> {
-    let (actor_ref, _) = FnActor::<HubMessage>::start_fn(async move |mut ctx| {
-        while let Some(msg) = ctx.rx.recv().await {
-            match msg {
-                HubMessage::Connect(client_actor_ref, rpc_reply_port) => {
-                    let new_user_alias = chat_server
-                        .ask(
-                            |rpc| chat_server::Msg::Connect(portal.clone(), client_actor_ref, rpc),
-                            None,
-                        )
-                        .await
-                        .unwrap();
-
-                    // build a new proxy actor for the client
-                    let portal_copy = portal.clone();
-                    let (proxy, _) = chat_server
-                        .clone()
-                        .map(move |msg| chat_server::Msg::Public(portal_copy.clone(), msg))
-                        .await
-                        .unwrap();
-
-                    let _ = rpc_reply_port.send((new_user_alias, proxy));
-                }
-            }
-        }
-    })
-    .await?;
-
-    Ok(actor_ref)
-}
 
 async fn run() -> Result<(), anyhow::Error> {
     // Initialize logger
@@ -101,7 +68,7 @@ async fn run() -> Result<(), anyhow::Error> {
     // loop around the client connection receiver
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
         // whenever a client connects, create a new proxy actor for it, and publish it
-        let hub_actor = spawn_hub(chat_server.clone(), msg.actor_ref.clone()).await?;
+        let hub_actor = hub::spawn_hub(chat_server.clone(), msg.actor_ref.clone()).await?;
 
         // new connection: publish our main actor on it
         msg.actor_ref

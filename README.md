@@ -96,11 +96,11 @@ When you have the Nexus and one or more Portals, you can publish Actors to them.
 Actors published to the Nexus are immediately available to all Portals, current and future. Actors published to a specific Portal are only available to that Portal and not any neighboring ones.
 
 
-## Example
+## Examples
 
-With all that out of the way, let's see an example:
+There are two examples in this repository, a simple PingPong actor implementation in [./sample_app](./sample_app), and a chat app  in [./chat_app](./chat_app).
 
-(please also take a look at the sample_app in this repo)
+
 
 Common:
 

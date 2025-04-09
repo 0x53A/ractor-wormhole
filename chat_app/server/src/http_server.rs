@@ -43,7 +43,7 @@ pub async fn http_server_fn(
     }
 }
 
-async fn hello(
+pub async fn hello(
     nexus: ActorRef<NexusActorMessage>,
     mut req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, anyhow::Error> {
@@ -72,7 +72,7 @@ async fn hello(
 }
 
 /// Handle a websocket connection.
-async fn serve_websocket(
+pub async fn serve_websocket(
     nexus: ActorRef<NexusActorMessage>,
     websocket: HyperWebsocket,
 ) -> Result<(), anyhow::Error> {

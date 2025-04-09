@@ -10,5 +10,5 @@ members = [
     "chat_app/client",
     "chat_app/server",
     "chat_app/shared"
-]
+, "chat_app/wasm_client", "chat_app/wasm_server"]
 
