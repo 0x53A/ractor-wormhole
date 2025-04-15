@@ -245,7 +245,7 @@ impl Portal for ActorRef<PortalActorMessage> {
 
         let response = self
             .ask(
-                |rpc| {
+                move |rpc| {
                     PortalActorMessage::PublishNamedActor(
                         name,
                         actor_ref.get_cell(),

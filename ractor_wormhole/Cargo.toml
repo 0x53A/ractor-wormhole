@@ -6,14 +6,19 @@ edition = "2024"
 [dependencies]
 ractor_wormhole_derive = { path = "../ractor_wormhole_derive" }
 
-ractor = { version = "0.15.2", features = ["async-trait"] }
-ractor_cluster_derive = { version = "0.15.2", optional = true }
+ractor = { version = "0.15.3", features = ["async-trait"] }
+ractor_cluster_derive = { version = "0.15.3", optional = true }
 
 # note: the introduction is json serialized
 serde = { version = "1.0.219", features = ["serde_derive"] }
 serde_json = "1.0.140"
-
-tokio = { version = "1.44.1", features = ["full"] }
+tokio = { version = "1.44.1", features = [
+    #"rt-multi-thread",
+    #"net",
+    #"time",
+    #"macros",
+    #"sync"
+]}
 tokio-tungstenite = { version = "0.26.2", optional = true }
 tungstenite = { version = "0.26.2", optional = true }
 
@@ -23,7 +28,6 @@ futures = "0.3.31"
 log = "0.4.27"
 tracing = "0.1.41"
 rand = "0.9.0"
-#url = "2.5.4"
 uuid = { version = "1.16.0", features = ["rng", "v4"] }
 static_assertions = "1.1.0"
 

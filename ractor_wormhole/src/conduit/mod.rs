@@ -22,7 +22,11 @@ pub enum ConduitMessage {
 
 pub type ConduitError = anyhow::Error;
 
+/// the sink, from the point of view of the Conduit; that is, the 'tx' end of a websocket for example.
+/// The conduit writes messages into it.
 pub type ConduitSink = Pin<Box<dyn Sink<ConduitMessage, Error = ConduitError> + Send>>;
+/// the source, from the point of view of the Conduit; that is, the 'rx' end of a websocket for example.
+/// the Conduit (asynchronously) reads messages from it.
 pub type ConduitSource = Pin<Box<dyn Stream<Item = Result<ConduitMessage, ConduitError>> + Send>>;
 
 // -------------------------------------------------------------------------------------------------------

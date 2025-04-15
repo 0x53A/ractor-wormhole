@@ -95,13 +95,13 @@ pub struct FnActor<T> {
 }
 
 // todo
-const MAX_CHANNEL_SIZE: usize = 2305843009213693951 - 1000; // todo lmao
+const MAX_CHANNEL_SIZE: usize = 294967295 - 1000; // todo lmao
 
 impl<T: Message + Sync> FnActor<T> {
     /// start a new actor, and returns a Receive handle to its message queue.
     /// It's the obligation of the caller to poll the receive handle.
     pub async fn start() -> Result<(FnActorCtx<T>, JoinHandle<()>), SpawnErr> {
-        let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE); // todo lmao
+        let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE);
 
         let args = FnActorArgs { tx };
         let (actor_ref, handle) = FnActorImpl::spawn(None, FnActorImpl::new(), args).await?;
@@ -113,7 +113,7 @@ impl<T: Message + Sync> FnActor<T> {
     pub async fn start_linked(
         supervisor: ActorCell,
     ) -> Result<(FnActorCtx<T>, JoinHandle<()>), SpawnErr> {
-        let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE); // todo lmao
+        let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE);
 
         let args = FnActorArgs { tx };
         let (actor_ref, handle) =

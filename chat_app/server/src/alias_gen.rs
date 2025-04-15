@@ -9,6 +9,12 @@ pub struct AliasGenerator {
 
 static_assertions::assert_impl_all!(AliasGenerator: Send, Sync);
 
+impl Default for AliasGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AliasGenerator {
     /// Creates a new AliasGenerator with predefined lists of adjectives and nouns
     pub fn new() -> Self {

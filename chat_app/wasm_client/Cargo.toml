@@ -4,10 +4,22 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+shared = { path = "../shared" }
 eframe = { version = "0.31.1", features = ["default_fonts", "glow", "persistence"] }
 egui = "0.31.1"
 env_logger = "0.11.8"
+ewebsock = "0.8.0"
 log = "0.4.27"
+ractor = "0.15.3"
+ractor_wormhole = { path = "../../ractor_wormhole" }
 serde = { version = "1.0.219", features = ["derive"] }
 wasm-bindgen-futures = "0.4.50"
 web-sys = "0.3.77"
+tokio = "1.44.2"
+tokio_with_wasm = "0.8.2"
+anyhow = "1.0.97"
+futures-util = "0.3.31"
+futures = "0.3.31"
+getrandom = { version = "0.3.2", features = ["wasm_js"] }
+uuid = { version = "1.16.0", features = ["js"] }
+async-trait = "0.1.88"

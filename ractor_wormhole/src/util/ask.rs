@@ -1,71 +1,68 @@
 use anyhow::anyhow;
-use ractor::{ActorRef, RpcReplyPort, async_trait, concurrency::Duration, rpc::CallResult};
+use ractor::{
+    ActorRef, RpcReplyPort,
+    concurrency::{self, Duration},
+};
 
 // -------------------------------------------------------------------------------------------------------
 
 #[allow(non_camel_case_types)]
-#[async_trait]
 pub trait ActorRef_Ask<TMessage: ractor::Message + 'static> {
-    async fn ask<TReply: Send, TMsgBuilder>(
+    fn ask<TReply: Send, TMsgBuilder>(
         &self,
         msg_builder: TMsgBuilder,
         timeout_option: Option<Duration>,
-    ) -> Result<TReply, anyhow::Error>
+    ) -> impl std::future::Future<Output = Result<TReply, anyhow::Error>> + Send
     where
-        TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage + Send;
+        TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage;
 
-    async fn ask_then<TReply: Send + 'static, TMsgBuilder>(
+    fn ask_then<TReply: Send + 'static, TMsgBuilder>(
         &self,
         msg_builder: TMsgBuilder,
         timeout_option: Option<Duration>,
         callback: impl FnOnce(Result<TReply, anyhow::Error>) + Send + 'static,
-    ) -> Result<(), anyhow::Error>
+    ) -> impl std::future::Future<Output = Result<(), anyhow::Error>>
     where
-        TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage + Send;
+        TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage;
 }
 
-#[async_trait]
 impl<TMessage: ractor::Message + 'static> ActorRef_Ask<TMessage> for ActorRef<TMessage> {
-    async fn ask<TReply: Send, TMsgBuilder>(
+    fn ask<TReply: Send, TMsgBuilder>(
         &self,
         msg_builder: TMsgBuilder,
         timeout_option: Option<Duration>,
-    ) -> Result<TReply, anyhow::Error>
+    ) -> impl std::future::Future<Output = Result<TReply, anyhow::Error>> + Send
     where
-        TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage + Send,
+        TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage,
     {
-        let call_result = self.call(msg_builder, timeout_option).await?;
+        // eagerly send the message...
+        let (tx, rx) = concurrency::oneshot();
+        let port: RpcReplyPort<TReply> = match timeout_option {
+            Some(duration) => (tx, duration).into(),
+            None => tx.into(),
+        };
+        let send_msg_result = self.send_message(msg_builder(port));
 
-        match call_result {
-            CallResult::Success(result) => Ok(result),
-            CallResult::Timeout => {
-                let type_str = std::any::type_name::<TMessage>();
-                Err(anyhow!(
-                    "ask: timeout ({:?}) of actor {} [{}]",
-                    timeout_option,
-                    self.get_id(),
-                    type_str
-                ))
-            }
-            CallResult::SenderError => {
-                let type_str = std::any::type_name::<TMessage>();
-                Err(anyhow!(
-                    "ask: SenderError of actor {} [{}]",
-                    self.get_id(),
-                    type_str
-                ))
+        // lazily wait for the reply
+        async move {
+            send_msg_result?;
+
+            if let Some(duration) = timeout_option {
+                Ok(tokio::time::timeout(duration, rx).await??)
+            } else {
+                Ok(rx.await?)
             }
         }
     }
 
-    async fn ask_then<TReply: Send + 'static, TMsgBuilder>(
+    fn ask_then<TReply: Send + 'static, TMsgBuilder>(
         &self,
         msg_builder: TMsgBuilder,
         timeout_option: Option<Duration>,
         callback: impl FnOnce(Result<TReply, anyhow::Error>) + Send + 'static,
-    ) -> Result<(), anyhow::Error>
+    ) -> impl std::future::Future<Output = Result<(), anyhow::Error>>
     where
-        TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage + Send,
+        TMsgBuilder: FnOnce(RpcReplyPort<TReply>) -> TMessage,
     {
         let (tx, rx) = ractor::concurrency::oneshot();
 
@@ -75,24 +72,25 @@ impl<TMessage: ractor::Message + 'static> ActorRef_Ask<TMessage> for ActorRef<TM
             tx.into()
         };
 
+        // Eagerly evaluate msg_builder
         let msg = msg_builder(rpc_reply_port);
-        self.send_message(msg)?;
+        let send_result = self.send_message(msg);
 
-        tokio::spawn(async move {
-            let result = rx.await;
-            match result {
-                Ok(msg) => {
-                    callback(Ok(msg));
-                }
-                Err(err) => {
-                    callback(Err(anyhow!(
+        async move {
+            send_result?;
+
+            tokio::spawn(async move {
+                let result = rx.await;
+                match result {
+                    Ok(msg) => callback(Ok(msg)),
+                    Err(err) => callback(Err(anyhow!(
                         "Failed to receive message from RpcReplyPort: {}",
                         err
-                    )));
+                    ))),
                 }
-            }
-        });
+            });
 
-        Ok(())
+            Ok(())
+        }
     }
 }

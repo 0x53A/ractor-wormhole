@@ -4,29 +4,19 @@
 
 mod embedded_files;
 
-use futures::{SinkExt, StreamExt, future};
 use http_body_util::Full;
 use hyper::body::Bytes;
-use hyper::upgrade::Upgraded;
 use hyper::{Request, Response};
-use hyper_tungstenite::tungstenite::Message;
-use hyper_tungstenite::{HyperWebsocket, WebSocketStream};
 use hyper_util::rt::TokioIo;
 use ractor::ActorRef;
-use ractor_wormhole::conduit::{self, ConduitError, ConduitMessage, ConduitSink, ConduitSource};
 use ractor_wormhole::nexus::NexusActorMessage;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
 use clap::Parser;
-use shared::HubMessage;
 
 use anyhow::anyhow;
-use ractor_wormhole::{
-    nexus::start_nexus,
-    portal::{NexusResult, Portal, PortalActorMessage},
-    util::{ActorRef_Ask, ActorRef_Map, FnActor},
-};
+use ractor_wormhole::{nexus::start_nexus, portal::Portal, util::FnActor};
 
 use log::info;
 
@@ -67,7 +57,6 @@ pub async fn hello(
     nexus: ActorRef<NexusActorMessage>,
     mut req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, anyhow::Error> {
-
     info!("Received request: {:?}", req);
 
     if hyper_tungstenite::is_upgrade_request(&req) {
@@ -88,7 +77,7 @@ pub async fn hello(
             return Ok(Response::new(Full::<Bytes>::from(embedded.data)));
         }
 
-        if path == "" || path == "/" {
+        if path.is_empty() || path == "/" {
             return Ok(Response::new(Full::<Bytes>::from(
                 embedded_files::Asset::get("index.html").unwrap().data,
             )));
@@ -146,9 +135,7 @@ async fn run() -> Result<(), anyhow::Error> {
     println!("Starting server, binding to: {}", cli.bind);
     let nexus_clone = nexus.clone();
     tokio::spawn(async move {
-        http_server_fn(nexus_clone, cli.bind)
-            .await
-            .unwrap();
+        http_server_fn(nexus_clone, cli.bind).await.unwrap();
     });
 
     // loop around the client connection receiver
