@@ -316,7 +316,7 @@ fn inner_main() -> eframe::Result {
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
         let (request_repaint_tx, request_repaint_rx) = std::sync::mpsc::channel();
-        let (nexus, portal, ui_rcv) = init("ws://localhost:8085".to_string(), request_repaint_tx)
+        let (nexus, portal, ui_rcv) = init(".".to_string(), request_repaint_tx)
             .await
             .unwrap();
 
