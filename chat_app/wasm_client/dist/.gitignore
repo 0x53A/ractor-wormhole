@@ -1,0 +1,5 @@
+# this file is mostly to make sure the dist folder exists, otherwise there are compilation errors in the server project
+
+
+*
+!.gitignore

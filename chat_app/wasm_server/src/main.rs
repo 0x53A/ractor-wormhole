@@ -95,6 +95,8 @@ pub async fn hello(
             return Ok(Response::new(Full::<Bytes>::from(
                 embedded_files::Asset::get("index.html").unwrap().data,
             )));
+        } else if path == "/healthz" {
+            return Ok(Response::new(Full::<Bytes>::from("OK")));
         }
 
         Ok(Response::builder()
