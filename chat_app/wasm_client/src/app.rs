@@ -44,8 +44,8 @@ pub enum UiUpdate {
 
 // Helper function to start the actor
 pub async fn start_client_handler_actor(
-    ui_tx: mpsc::Sender<UiUpdate>,
-    request_repaint: std::sync::mpsc::Sender<()>,
+    ui_tx: std::sync::mpsc::Sender<UiUpdate>,
+    request_repaint: tokio::sync::mpsc::Sender<()>,
 ) -> Result<ActorRef<ChatClientMessage>, anyhow::Error> {
     let (actor_ref, _handle) = FnActor::start_fn(async move |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
@@ -61,7 +61,7 @@ pub async fn start_client_handler_actor(
             if let Err(e) = ui_tx.send(update_msg) {
                 log::error!("Failed to send UI update: {e}");
             }
-            request_repaint.send(()).unwrap();
+            request_repaint.send(()).await.unwrap();
         }
     })
     .await?;

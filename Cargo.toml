@@ -18,3 +18,10 @@ members = [
 [patch.crates-io]
 tokio = { git = "https://github.com/0x53A/tokio", branch = "reentrant-current-thread-executor" }
 ractor = { git = "https://github.com/0x53A/ractor", branch = "dev" }
+
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = "s"
+#strip = true

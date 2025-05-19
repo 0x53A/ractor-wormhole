@@ -205,7 +205,7 @@ pub async fn connect_to_server(
 
 pub async fn init(
     url: String,
-    request_repaint_tx: std::sync::mpsc::Sender<()>,
+    request_repaint_tx: tokio::sync::mpsc::Sender<()>,
 ) -> Result<
     (
         ActorRef<NexusActorMessage>,
@@ -272,7 +272,7 @@ async fn inner_main(rt: &tokio::runtime::Runtime) -> eframe::Result {
         ..Default::default()
     };
 
-    let (request_repaint_tx, request_repaint_rx) = std::sync::mpsc::channel();
+    let (request_repaint_tx, mut request_repaint_rx) = tokio::sync::mpsc::channel(1000);
     let (nexus, portal, ui_rcv) = init("ws://localhost:8085".to_string(), request_repaint_tx)
         .await
         .unwrap();
@@ -283,7 +283,7 @@ async fn inner_main(rt: &tokio::runtime::Runtime) -> eframe::Result {
         Box::new(|cc| {
             let eguictx = cc.egui_ctx.clone();
             tokio::task::spawn(async move {
-                while let Ok(()) = request_repaint_rx.recv() {
+                while let Some(()) = request_repaint_rx.recv().await {
                     eguictx.request_repaint();
                 }
             });
@@ -315,7 +315,7 @@ fn inner_main() -> eframe::Result {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
-        let (request_repaint_tx, request_repaint_rx) = std::sync::mpsc::channel();
+        let (request_repaint_tx, mut request_repaint_rx) = tokio::sync::mpsc::channel(1000);
         let (nexus, portal, ui_rcv) = init(".".to_string(), request_repaint_tx)
             .await
             .unwrap();
@@ -327,7 +327,7 @@ fn inner_main() -> eframe::Result {
                 Box::new(|cc| {
                     let eguictx = cc.egui_ctx.clone();
                     wasm_bindgen_futures::spawn_local(async move {
-                        while let Ok(()) = request_repaint_rx.recv() {
+                        while let Some(()) = request_repaint_rx.recv().await {
                             eguictx.request_repaint();
                         }
                     });
