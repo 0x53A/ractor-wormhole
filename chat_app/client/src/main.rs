@@ -26,7 +26,7 @@ struct Cli {
 #[tokio::main]
 async fn main() {
     if let Err(e) = run().await {
-        eprintln!("ERROR: {:#}", e); // Pretty format with all causes
+        eprintln!("ERROR: {e:#}"); // Pretty format with all causes
         std::process::exit(1);
     }
 }
@@ -77,7 +77,7 @@ async fn run() -> Result<(), anyhow::Error> {
     // wait for the portal to be ready (handshake)
     portal
         .ask(
-            |rpc| PortalActorMessage::WaitForHandshake(rpc),
+            PortalActorMessage::WaitForHandshake,
             Some(Duration::from_secs(5)),
         )
         .await?;

@@ -5,6 +5,7 @@ use ractor::{
     concurrency::JoinHandle,
 };
 
+#[cfg(feature = "async-trait")]
 use async_trait::async_trait;
 
 // -------------------------------------------------------------------------------------------------------

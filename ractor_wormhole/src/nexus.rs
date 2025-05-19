@@ -1,3 +1,4 @@
+#[cfg(feature = "async-trait")]
 use async_trait::async_trait;
 use log::info;
 use ractor::{
@@ -91,7 +92,7 @@ impl Actor for NexusActor {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             NexusActorMessage::Connected(identifier, ws_stream, reply) => {
-                info!("New WebSocket connection from: {}", identifier);
+                info!("New WebSocket connection from: {identifier}");
 
                 // Create a new portal actor
                 let (actor_ref, handle) = Actor::spawn_linked(
@@ -152,11 +153,8 @@ impl Actor for NexusActor {
                     .named_actors
                     .insert(name.clone(), (actor_ref, receiver))
                 {
-                    Some(_) => info!(
-                        "Actor with name {} already existed and was overwritten",
-                        name
-                    ),
-                    None => info!("Actor with name {} published", name),
+                    Some(_) => info!("Actor with name {name} already existed and was overwritten"),
+                    None => info!("Actor with name {name} published"),
                 }
             }
             NexusActorMessage::QueryNamedActor(name, reply) => {
@@ -177,20 +175,14 @@ impl Actor for NexusActor {
         match &event {
             SupervisionEvent::ActorTerminated(actor, last_state, reason) => {
                 if let Some((addr, _, _)) = state.portals.remove(&actor.get_id()) {
-                    info!(
-                        "Portal to {} terminated: {:?}, last_state={:#?}",
-                        addr, reason, last_state
-                    );
+                    info!("Portal to {addr} terminated: {reason:?}, last_state={last_state:#?}");
                 }
             }
             SupervisionEvent::ActorFailed(actor, err) => {
                 info!("Actor failed: {:?} - {:?}", actor.get_id(), err);
 
                 if let Some((addr, _, _)) = state.portals.remove(&actor.get_id()) {
-                    info!(
-                        "Portal to {} terminated because actor failed: {:?}",
-                        addr, err
-                    );
+                    info!("Portal to {addr} terminated because actor failed: {err:?}");
                 }
             }
             _ => (),

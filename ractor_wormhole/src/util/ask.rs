@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use ractor::{
     ActorRef, RpcReplyPort,
-    concurrency::{self, Duration, MaybeSend},
+    concurrency::{self, Duration},
 };
 
 // -------------------------------------------------------------------------------------------------------

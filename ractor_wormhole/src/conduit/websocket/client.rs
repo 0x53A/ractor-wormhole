@@ -1,6 +1,6 @@
 use futures::{SinkExt, StreamExt, future};
 use log::{error, info};
-use ractor::{ActorRef, call_t};
+use ractor::ActorRef;
 use tokio_tungstenite::{
     connect_async, tungstenite::client::IntoClientRequest, tungstenite::protocol::Message,
 };
@@ -22,16 +22,16 @@ where
 {
     let r = request.into_client_request()?;
     let uri = r.uri().clone();
-    info!("Connecting to WebSocket server at: {}", uri);
+    info!("Connecting to WebSocket server at: {uri}");
 
     // Connect to the WebSocket server
     let (ws_stream, _) = match connect_async(r).await {
         Ok(conn) => {
-            info!("WebSocket connection established to: {}", uri);
+            info!("WebSocket connection established to: {uri}");
             conn
         }
         Err(e) => {
-            error!("Failed to connect to WebSocket server at {}: {}", uri, e);
+            error!("Failed to connect to WebSocket server at {uri}: {e}");
             return Err(e.into());
         }
     };
@@ -87,7 +87,7 @@ where
         )
         .await?;
 
-    info!("Portal actor started for: {}", uri);
+    info!("Portal actor started for: {uri}");
 
     let portal_actor_copy = portal.clone();
     ractor::concurrency::spawn(async move {

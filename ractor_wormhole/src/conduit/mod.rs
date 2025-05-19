@@ -2,7 +2,7 @@
 pub mod websocket;
 
 use futures::{Sink, Stream, StreamExt};
-use ractor::{ActorRef, call_t};
+use ractor::ActorRef;
 use std::pin::Pin;
 
 use log::{error, info};
@@ -43,32 +43,29 @@ pub async fn receive_loop(
             Ok(msg) => match msg {
                 ConduitMessage::Text(text) => {
                     if let Err(err) = actor_ref.cast(PortalActorMessage::Text(text.to_string())) {
-                        error!("Error sending text message to actor: {}", err);
+                        error!("Error sending text message to actor: {err}");
                         break;
                     }
                 }
                 ConduitMessage::Binary(data) => {
                     if let Err(err) = actor_ref.cast(PortalActorMessage::Binary(data.to_vec())) {
-                        error!("Error sending binary message to actor: {}", err);
+                        error!("Error sending binary message to actor: {err}");
                         break;
                     }
                 }
                 ConduitMessage::Close(close_frame) => {
-                    info!(
-                        "Portal with {} closed because of reason: {:?}",
-                        identifier, close_frame
-                    );
+                    info!("Portal with {identifier} closed because of reason: {close_frame:?}");
                     break;
                 }
             },
             Err(e) => {
-                error!("Error receiving message from {}: {}", e, identifier);
+                error!("Error receiving message from {e}: {identifier}");
                 break;
             }
         }
     }
 
-    info!("Portal with {} closed", identifier);
+    info!("Portal with {identifier} closed");
     let _ = actor_ref.cast(PortalActorMessage::Close);
 }
 
@@ -87,7 +84,7 @@ pub async fn from_sink_source(
 
     match portal {
         Ok(portal_actor) => {
-            info!("Portal actor started for: {}", portal_identifier);
+            info!("Portal actor started for: {portal_identifier}");
             let portal_actor_copy = portal_actor.clone();
             ractor::concurrency::spawn(async move {
                 receive_loop(source, portal_identifier, portal_actor_copy).await;
@@ -95,7 +92,7 @@ pub async fn from_sink_source(
             Ok(portal_actor)
         }
         Err(e) => {
-            error!("Error starting portal actor: {}", e);
+            error!("Error starting portal actor: {e}");
             Err(e)?
         }
     }

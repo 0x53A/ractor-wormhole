@@ -1,9 +1,7 @@
 use futures::SinkExt;
-use ractor::{
-    Actor, ActorProcessingErr, ActorRef, RpcReplyPort, call, cast, concurrency::Duration,
-};
+use ractor::{ActorRef, concurrency::Duration};
 use ractor_wormhole::util::{ActorRef_Ask, FnActor};
-use shared::{ChatClientMessage, ChatMessage, ChatServerMessage, HubMessage, UserAlias};
+use shared::{ChatClientMessage, ChatMessage, ChatServerMessage, UserAlias};
 use std::sync::mpsc;
 
 pub enum ChatEntry {
@@ -51,7 +49,7 @@ pub async fn start_client_handler_actor(
 ) -> Result<ActorRef<ChatClientMessage>, anyhow::Error> {
     let (actor_ref, _handle) = FnActor::start_fn(async move |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
-            log::info!("ClientMessageHandlerActor received: {:?}", msg);
+            log::info!("ClientMessageHandlerActor received: {msg:?}");
             let update_msg = match msg {
                 ChatClientMessage::UserConnected(alias) => UiUpdate::UserConnected(alias),
                 ChatClientMessage::MessageReceived(alias, msg) => {
@@ -61,7 +59,7 @@ pub async fn start_client_handler_actor(
             };
 
             if let Err(e) = ui_tx.send(update_msg) {
-                log::error!("Failed to send UI update: {}", e);
+                log::error!("Failed to send UI update: {e}");
             }
             request_repaint.send(()).unwrap();
         }
@@ -153,7 +151,7 @@ impl TemplateApp {
         // Process any pending UI updates from the receiver channel
         if let Some(rx) = &self.ui_update_rx {
             while let Ok(update) = rx.try_recv() {
-                log::debug!("UI received update: {:?}", update);
+                log::debug!("UI received update: {update:?}");
                 match update {
                     UiUpdate::Connected(alias, server_ref) => {
                         self.user_alias = Some(alias.to_string());
@@ -181,9 +179,9 @@ impl TemplateApp {
                         // Optionally clear other state or attempt reconnect
                     }
                     UiUpdate::Error(err_msg) => {
-                        self.status = format!("Error: {}", err_msg);
+                        self.status = format!("Error: {err_msg}");
                         self.messages
-                            .push(("System".to_string(), format!("Error: {}", err_msg)));
+                            .push(("System".to_string(), format!("Error: {err_msg}")));
                     }
                 }
             }
@@ -218,7 +216,7 @@ impl eframe::App for TemplateApp {
                 ui.separator();
                 // Display connection status and alias
                 if let Some(alias) = &self.user_alias {
-                    ui.label(format!("Alias: {}", alias));
+                    ui.label(format!("Alias: {alias}"));
                 }
                 ui.label(&self.status);
             });
@@ -235,7 +233,7 @@ impl eframe::App for TemplateApp {
                 .show(ui, |ui| {
                     for (alias, msg) in &self.messages {
                         ui.horizontal_wrapped(|ui| {
-                            ui.label(format!("{}:", alias));
+                            ui.label(format!("{alias}:"));
                             ui.label(msg);
                         });
                     }
@@ -256,29 +254,28 @@ impl eframe::App for TemplateApp {
                 let send_button = ui.button("Send");
 
                 // Send message on button click or Enter key press in text edit
-                if send_button.clicked()
+                if (send_button.clicked()
                     || (input_response.lost_focus()
-                        && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                        && ui.input(|i| i.key_pressed(egui::Key::Enter))))
+                    && !self.input_message.trim().is_empty()
                 {
-                    if !self.input_message.trim().is_empty() {
-                        if let Some(server_ref) = &self.chat_server_ref {
-                            let msg_to_send = ChatMessage(self.input_message.clone());
-                            log::info!("Sending message: {}", msg_to_send.0);
-                            let _ = server_ref.ask_then(
-                                |rpc| ChatServerMessage::PostMessage(msg_to_send, rpc),
-                                Some(Duration::from_secs(10)),
-                                |r| match r {
-                                    Ok(_) => log::info!("Message sent successfully"),
-                                    Err(e) => log::error!("Failed to send message: {}", e),
-                                },
-                            );
+                    if let Some(server_ref) = &self.chat_server_ref {
+                        let msg_to_send = ChatMessage(self.input_message.clone());
+                        log::info!("Sending message: {}", msg_to_send.0);
+                        let _ = server_ref.ask_then(
+                            |rpc| ChatServerMessage::PostMessage(msg_to_send, rpc),
+                            Some(Duration::from_secs(10)),
+                            |r| match r {
+                                Ok(_) => log::info!("Message sent successfully"),
+                                Err(e) => log::error!("Failed to send message: {e}"),
+                            },
+                        );
 
-                            self.input_message.clear();
-                            input_response.request_focus(); // Keep focus on input after sending
-                        } else {
-                            self.messages
-                                .push(("System".to_string(), "Not connected.".to_string()));
-                        }
+                        self.input_message.clear();
+                        input_response.request_focus(); // Keep focus on input after sending
+                    } else {
+                        self.messages
+                            .push(("System".to_string(), "Not connected.".to_string()));
                     }
                 }
             });

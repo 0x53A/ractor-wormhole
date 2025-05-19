@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+#[cfg(feature = "async-trait")]
 use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, concurrency::Duration};
 

@@ -11,22 +11,22 @@ use std::{
 
 #[cfg(not(target_arch = "wasm32"))]
 use tokio;
+
 #[cfg(target_arch = "wasm32")]
 use tokio_with_wasm::alias as tokio;
 
 use anyhow::anyhow;
 use app::{UiUpdate, start_client_handler_actor};
 use ewebsock::{WsEvent, WsMessage, WsSender};
-use futures::{SinkExt, StreamExt, channel::mpsc};
+use futures::{SinkExt, StreamExt};
 use log::{error, info};
-use ractor::{ActorRef, ActorStatus, call_t};
+use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
     conduit::{self, ConduitError, ConduitMessage, ConduitSink, ConduitSource},
     nexus::{NexusActorMessage, start_nexus},
-    portal::{NexusResult, Portal, PortalActorMessage},
+    portal::{Portal, PortalActorMessage},
     util::{ActorRef_Ask, FnActor},
 };
-use shared::ChatClientMessage;
 
 use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -87,7 +87,7 @@ pub async fn adapt_WsSender_to_Conduit(sender: WsSender) -> Result<ConduitSink, 
                 ConduitMessage::Text(text) => tx.send(WsMessage::Text(text.to_string())).unwrap(),
                 ConduitMessage::Binary(data) => tx.send(WsMessage::Binary(data.to_vec())).unwrap(),
                 ConduitMessage::Close(close_frame) => {
-                    info!("Closing the WebSocket connection: {:?}", close_frame);
+                    info!("Closing the WebSocket connection: {close_frame:?}");
                     ctx.actor_ref.stop(None);
                 }
             }
@@ -115,7 +115,7 @@ pub async fn connect_to_server(
     nexus: ActorRef<NexusActorMessage>,
     url: String,
 ) -> Result<ActorRef<PortalActorMessage>, anyhow::Error> {
-    info!("Connecting to WebSocket server at: {}", url);
+    info!("Connecting to WebSocket server at: {url}");
 
     let (opened_tx, opened_rx) = tokio::sync::oneshot::channel();
 
@@ -167,7 +167,7 @@ pub async fn connect_to_server(
         )
         .await?;
 
-    info!("Portal actor started for: {}", url);
+    info!("Portal actor started for: {url}");
 
     let portal_actor_copy = portal.clone();
     tokio::spawn(async move {
@@ -363,7 +363,7 @@ fn main() -> eframe::Result {
         .enable_all()
         .build()
         .expect("Failed building the Runtime");
-    return rt.block_on(async { inner_main(&rt).await });
+    rt.block_on(async { inner_main(&rt).await })
 }
 
 // When compiling to web using trunk:

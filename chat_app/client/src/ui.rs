@@ -119,30 +119,30 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
                         state.composer.clear();
                     }
                     KeyCode::Enter => {
-                        if let Some(server) = state.server.clone() {
-                            if !state.composer.is_empty() {
-                                state.is_message_in_flight = true;
+                        if let Some(server) = state.server.clone()
+                            && !state.composer.is_empty()
+                        {
+                            state.is_message_in_flight = true;
 
-                                let msg_to_send = state.composer.clone();
-                                state.composer.clear();
-                                let self_copy = ctx.actor_ref.clone();
-                                server
-                                    .ask_then(
-                                        |rpc| {
-                                            ChatServerMessage::PostMessage(
-                                                ChatMessage(msg_to_send),
-                                                rpc,
-                                            )
-                                        },
-                                        None,
-                                        move |_| {
-                                            self_copy
-                                                .send_message(UIMsg::SetMessageInFlight(false))
-                                                .unwrap();
-                                        },
-                                    )
-                                    .unwrap();
-                            }
+                            let msg_to_send = state.composer.clone();
+                            state.composer.clear();
+                            let self_copy = ctx.actor_ref.clone();
+                            server
+                                .ask_then(
+                                    |rpc| {
+                                        ChatServerMessage::PostMessage(
+                                            ChatMessage(msg_to_send),
+                                            rpc,
+                                        )
+                                    },
+                                    None,
+                                    move |_| {
+                                        self_copy
+                                            .send_message(UIMsg::SetMessageInFlight(false))
+                                            .unwrap();
+                                    },
+                                )
+                                .unwrap();
                         }
                     }
 

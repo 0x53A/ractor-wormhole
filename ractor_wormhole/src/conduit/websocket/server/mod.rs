@@ -21,13 +21,13 @@ pub async fn start_server(
 ) -> Result<(), anyhow::Error> {
     // Create a TCP listener
     let listener = TcpListener::bind(&bind).await?;
-    info!("WebSocket server listening on: {}", bind);
+    info!("WebSocket server listening on: {bind}");
 
     // Accept connections
     let nexus_copy = nexus.clone();
     tokio::spawn(async move {
         while let Ok((stream, addr)) = listener.accept().await {
-            info!("New connection from: {}", addr);
+            info!("New connection from: {addr}");
             let _ = handle_connection(stream, addr, nexus_copy.clone()).await;
         }
     });
@@ -44,12 +44,12 @@ pub async fn handle_connection(
     let ws_stream = match tokio_tungstenite::accept_async(stream).await {
         Ok(ws_stream) => ws_stream,
         Err(e) => {
-            error!("Error during WebSocket handshake: {}", e);
+            error!("Error during WebSocket handshake: {e}");
             return;
         }
     };
 
-    info!("WebSocket connection established with: {}", addr);
+    info!("WebSocket connection established with: {addr}");
 
     let (tx, rx) = ws_stream.split();
 
@@ -88,9 +88,9 @@ pub async fn handle_connection(
     });
     let tx: ConduitSink = Box::pin(tx);
 
-    let portal_identifier = format!("ws://{}", addr);
+    let portal_identifier = format!("ws://{addr}");
     if let Err(err) = conduit::from_sink_source(nexus, portal_identifier, tx, rx).await {
-        error!("Error creating portal: {}", err);
+        error!("Error creating portal: {err}");
     }
 }
 

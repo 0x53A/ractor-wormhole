@@ -1,8 +1,4 @@
-use rand::{
-    SeedableRng,
-    rngs::SmallRng,
-    seq::{IndexedRandom, SliceRandom},
-};
+use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
 
 /// Generates random user aliases in the format "adjective noun"
 pub struct AliasGenerator {
@@ -126,14 +122,14 @@ impl AliasGenerator {
     /// Generates a random alias
     pub fn _generate(&mut self) -> String {
         let (adjective, noun) = self.get_pair();
-        format!("{} {}", adjective, noun)
+        format!("{adjective} {noun}")
     }
 
     fn capitalize_first_letter(word: &str) -> String {
         let mut chars = word.chars();
         let first = chars.next().unwrap().to_uppercase();
         let rest: String = chars.collect();
-        format!("{}{}", first, rest)
+        format!("{first}{rest}")
     }
 
     /// Generates a random alias with capitalized words
@@ -141,7 +137,7 @@ impl AliasGenerator {
         let (adjective, noun) = self.get_pair();
         let adjective = Self::capitalize_first_letter(adjective);
         let noun = Self::capitalize_first_letter(noun);
-        format!("{} {}", adjective, noun)
+        format!("{adjective} {noun}")
     }
 }
 

@@ -220,14 +220,14 @@ impl Portal for ActorRef<PortalActorMessage> {
             FnActor::<T>::start_fn_linked(self.get_cell(), async move |mut ctx| {
                 let type_str = std::any::type_name::<T>();
 
-                info!("Proxy actor started {}", type_str);
+                info!("Proxy actor started {type_str}");
 
                 while let Some(msg) = ctx.rx.recv().await {
-                    info!("Proxy actor received msg: {:#?} [{}]", msg, type_str);
+                    info!("Proxy actor received msg: {msg:#?} [{type_str}]");
                     let remote_id = remote_actor_id;
 
                     let f: TransmitMessageF = Box::new(move |ctx| {
-                        info!("f inside Proxy Actor was called: {:#?} [{}]", msg, type_str);
+                        info!("f inside Proxy Actor was called: {msg:#?} [{type_str}]");
                         // Create a regular closure that returns a boxed and pinned future
                         Box::pin(async move {
                             let bytes: Vec<u8> =
@@ -242,12 +242,11 @@ impl Portal for ActorRef<PortalActorMessage> {
                     if let Err(err) =
                         portal_ref.send_message(PortalActorMessage::ImmaterializeMessage(remote_id, f))
                     {
-                        error!("Failed to send message to portal: {}", err);
+                        error!("Failed to send message to portal: {err}");
                     }
 
                     info!(
-                        "Proxy actor sent WSPortalMessage::TransmitMessage to portal: {:#?} [{}]",
-                        remote_id, type_str
+                        "Proxy actor sent WSPortalMessage::TransmitMessage to portal: {remote_id:#?} [{type_str}]"
                     );
                 }
             })
@@ -275,10 +274,7 @@ impl Portal for ActorRef<PortalActorMessage> {
 
     async fn wait_for_opened(&self, timeout: Duration) -> NexusResult<()> {
         let response = self
-            .ask(
-                move |rpc| PortalActorMessage::WaitForHandshake(rpc),
-                Some(timeout),
-            )
+            .ask(PortalActorMessage::WaitForHandshake, Some(timeout))
             .await?;
 
         Ok(response)
@@ -347,7 +343,7 @@ impl PortalActor {
             .iter()
             .find(|(_k, (v, _))| v.get_id() == actor_cell.get_id());
 
-        let opaque_actor_id = match existing {
+        match existing {
             Some((k, _v)) => {
                 info!(
                     "Actor with id {} was already published under {}",
@@ -366,9 +362,7 @@ impl PortalActor {
                 published_actors.insert(new_id, (actor_cell, receiver));
                 new_id
             }
-        };
-
-        opaque_actor_id
+        }
     }
 }
 
@@ -443,7 +437,7 @@ impl Actor for PortalActor {
                             remote_introduction.channel_id_contribution,
                         )));
 
-                        info!("Handshake complete, channel_id: {}", channel_id);
+                        info!("Handshake complete, channel_id: {channel_id}");
 
                         state.channel_state = PortalConduitState::Open {
                             // self_introduction: self_introduction.clone(),
@@ -456,7 +450,7 @@ impl Actor for PortalActor {
                         }
                     }
                     PortalConduitState::Open { .. } => {
-                        panic!("Received text message after handshake: {}", text);
+                        panic!("Received text message after handshake: {text}");
                     }
                 }
             }
@@ -573,7 +567,7 @@ impl Actor for PortalActor {
                                         response.map_err(|err| err.into());
                                     reply_port.send(mapped)?;
                                 } else {
-                                    error!("Received response for unknown request ID: {}", id);
+                                    error!("Received response for unknown request ID: {id}");
                                 }
                             }
 
@@ -584,7 +578,7 @@ impl Actor for PortalActor {
                                         response.map_err(|err| err.into());
                                     reply_port.send(mapped)?;
                                 } else {
-                                    error!("Received response for unknown request ID: {}", id);
+                                    error!("Received response for unknown request ID: {id}");
                                 }
                             }
 
@@ -647,11 +641,8 @@ impl Actor for PortalActor {
 
                 // note: this overrides an already published actor of the same name.
                 match state.named_actors.insert(name.clone(), opaque_actor_id) {
-                    Some(_) => info!(
-                        "Actor with name {} already existed and was overwritten",
-                        name
-                    ),
-                    None => info!("Actor with name {} published", name),
+                    Some(_) => info!("Actor with name {name} already existed and was overwritten"),
+                    None => info!("Actor with name {name} published"),
                 }
 
                 if let Some(rpc) = reply {
