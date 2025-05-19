@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr, async_trait, concurrency::JoinHandle};
+use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr, concurrency::JoinHandle};
+
+use async_trait::async_trait;
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -42,7 +44,7 @@ struct FilterMapActorArgs<TFrom, TTo> {
     pub filter_map: Box<dyn Fn(TTo) -> Option<TFrom> + Send + 'static>,
 }
 
-#[async_trait]
+#[cfg_attr(feature = "async-trait", async_trait)]
 impl<TFrom: Send + Sync + ractor::Message + 'static, TTo: Send + Sync + ractor::Message + 'static>
     Actor for FilterMapActor<TFrom, TTo>
 {

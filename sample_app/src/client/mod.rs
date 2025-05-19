@@ -12,13 +12,18 @@ use crate::common::{PingPongMsg, start_pingpong_actor};
 
 pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
     // Start the nexus actor
-    let nexus = start_nexus(None).await.unwrap();
+    let nexus = start_nexus(None, None).await.unwrap();
 
     // connect to the server
     let portal = websocket::client::connect_to_server(nexus, server_url).await?;
 
     // wait for the portal to be ready (handshake)
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    portal
+        .ask(
+            |rpc| PortalActorMessage::WaitForHandshake(rpc),
+            Some(Duration::from_secs(5)),
+        )
+        .await?;
 
     // the server has published a named actor
     let remote_pingpong_actor_id = portal

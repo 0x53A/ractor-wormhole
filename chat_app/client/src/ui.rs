@@ -141,7 +141,6 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
                                                 .unwrap();
                                         },
                                     )
-                                    .await
                                     .unwrap();
                             }
                         }

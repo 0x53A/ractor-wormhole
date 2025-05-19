@@ -8,10 +8,15 @@ mod http_server;
 mod hub;
 
 use clap::Parser;
+use ractor::{ActorRef, concurrency::Duration};
 use std::net::SocketAddr;
 
 use anyhow::anyhow;
-use ractor_wormhole::{nexus::start_nexus, portal::Portal, util::FnActor};
+use ractor_wormhole::{
+    nexus::start_nexus,
+    portal::{Portal, PortalActorMessage},
+    util::{ActorRef_Ask, FnActor},
+};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -45,7 +50,7 @@ async fn run() -> Result<(), anyhow::Error> {
 
     // create the nexus. whenever a new portal is opened (aka a websocket-client connects),
     //  the callback will be invoked
-    let nexus = start_nexus(Some(ctx_on_client_connected.actor_ref.clone()))
+    let nexus = start_nexus(None, Some(ctx_on_client_connected.actor_ref.clone()))
         .await
         .map_err(|err| anyhow!(err))?;
 
@@ -60,14 +65,31 @@ async fn run() -> Result<(), anyhow::Error> {
 
     // loop around the client connection receiver
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
-        // whenever a client connects, create a new proxy actor for it, and publish it
-        let hub_actor = hub::spawn_hub(chat_server.clone(), msg.actor_ref.clone()).await?;
-
-        // new connection: publish our main actor on it
-        msg.actor_ref
-            .publish_named_actor("hub".to_string(), hub_actor.clone())
-            .await?;
+        let result = handle_connected_client(&chat_server, msg).await;
+        if let Err(err) = result {
+            eprintln!("Error handling connected client: {:#}", err);
+        }
     }
+
+    Ok(())
+}
+
+async fn handle_connected_client(
+    chat_server: &ActorRef<chat_server::Msg>,
+    msg: ractor_wormhole::nexus::OnActorConnectedMessage,
+) -> Result<(), anyhow::Error> {
+    let hub_actor = hub::spawn_hub(chat_server.clone(), msg.actor_ref.clone()).await?;
+
+    msg.actor_ref
+        .publish_named_actor("hub".to_string(), hub_actor.clone())
+        .await?;
+
+    msg.actor_ref
+        .ask(
+            |rpc| PortalActorMessage::WaitForHandshake(rpc),
+            Some(Duration::from_secs(5)),
+        )
+        .await?;
 
     Ok(())
 }

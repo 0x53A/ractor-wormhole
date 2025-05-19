@@ -5,11 +5,14 @@ edition = "2024"
 
 [dependencies]
 ractor_wormhole = { path = "../ractor_wormhole" }
-ractor = { version = "0.15.3", features = ["async-trait"] }
-ractor_cluster_derive = { version = "0.15.3", optional = true }
-anyhow = { version = "1.0.97", features = ["backtrace"] }
+ractor = { version = "0.15.6", features = [] }
+ractor_cluster_derive = { version = "0.15.6", optional = true }
+anyhow = { version = "1.0.98", features = ["backtrace"] }
+tokio = { version = "1.45.0", features = [] }
+futures = "0.3.31"
+async-trait = "0.1.88"
 
 [features]
 default = []
 ractor_cluster = [ "ractor_wormhole/ractor_cluster", "ractor_cluster_derive", "ractor/cluster"]
-
+async-trait = ["ractor_wormhole/async-trait"]

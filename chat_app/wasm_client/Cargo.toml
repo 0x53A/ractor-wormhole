@@ -10,16 +10,22 @@ egui = "0.31.1"
 env_logger = "0.11.8"
 ewebsock = "0.8.0"
 log = "0.4.27"
-ractor = "0.15.3"
+ractor = "0.15.6"
 ractor_wormhole = { path = "../../ractor_wormhole" }
 serde = { version = "1.0.219", features = ["derive"] }
 wasm-bindgen-futures = "0.4.50"
 web-sys = "0.3.77"
-tokio = "1.44.2"
-tokio_with_wasm = "0.8.2"
-anyhow = "1.0.97"
+tokio = { version = "1.45.0", features = [ ] }
+tokio_with_wasm = "0.8.5"
+anyhow = "1.0.98"
 futures-util = "0.3.31"
 futures = "0.3.31"
-getrandom = { version = "0.3.2", features = ["wasm_js"] }
+getrandom = { version = "0.3.3", features = ["wasm_js"] }
 uuid = { version = "1.16.0", features = ["js"] }
 async-trait = "0.1.88"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1.45.0", features = [ "rt", "rt-multi-thread" ] }
+
+[features]
+async-trait = ["ractor_wormhole/async-trait"]

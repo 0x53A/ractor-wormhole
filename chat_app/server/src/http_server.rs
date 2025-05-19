@@ -50,12 +50,9 @@ pub async fn hello(
     if hyper_tungstenite::is_upgrade_request(&req) {
         let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)?;
 
-        // Spawn a task to handle the websocket connection.
-        tokio::spawn(async move {
-            if let Err(e) = serve_websocket(nexus, websocket).await {
-                eprintln!("Error in websocket connection: {e}");
-            }
-        });
+        if let Err(e) = serve_websocket(nexus, websocket).await {
+            eprintln!("Error in websocket connection: {e}");
+        }
         // Return the response so the spawned future can continue.
         Ok(response)
     } else if req.method() == hyper::Method::GET {

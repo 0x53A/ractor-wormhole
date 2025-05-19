@@ -11,3 +11,20 @@
 * two TODOs in derive_tests (and add more test cases)
 
 * rename NexusResult => ???
+
+* FunctionActors: stop actor when async fn returns
+
+* FunctionActors: add ThreadLocal variant
+
+
+
+## Ractor
+
+```
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+```
+
+```
+#![feature(try_trait_v2)]
+impl<T> Try for CallResult<T> {
+```

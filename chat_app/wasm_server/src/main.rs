@@ -9,7 +9,10 @@ use hyper::body::Bytes;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use ractor::ActorRef;
+use ractor::concurrency::Duration;
 use ractor_wormhole::nexus::NexusActorMessage;
+use ractor_wormhole::portal::PortalActorMessage;
+use ractor_wormhole::util::ActorRef_Ask;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
@@ -73,20 +76,31 @@ pub async fn hello(
     } else if req.method() == hyper::Method::GET {
         let path = req.uri().path();
         info!("GET request for path: {}", path);
-        if let Some(embedded) = embedded_files::Asset::get(path) {
-            return Ok(Response::new(Full::<Bytes>::from(embedded.data)));
-        }
-
-        if path.is_empty() || path == "/" {
+        if let Some(embedded) = embedded_files::Asset::get(path.trim_start_matches("/")) {
+            let mut resp = Response::new(Full::<Bytes>::from(embedded.data));
+            let content_type = match path.rsplit_once(".").unwrap().1 {
+                "html" => "text/html",
+                "js" => "application/javascript",
+                "css" => "text/css",
+                "wasm" => "application/wasm",
+                "json" => "application/json",
+                "png" => "image/png",
+                "ico" => "image/x-icon",
+                _ => "application/octet-stream",
+            };
+            resp.headers_mut()
+                .insert("Content-Type", content_type.parse().unwrap());
+            return Ok(resp);
+        } else if path.is_empty() || path == "/" {
             return Ok(Response::new(Full::<Bytes>::from(
                 embedded_files::Asset::get("index.html").unwrap().data,
             )));
         }
 
-        // Handle regular HTTP requests here.
-        Ok(Response::new(Full::<Bytes>::from(
-            "https://www.youtube.com/watch?v=SXRteMSSZ14",
-        )))
+        Ok(Response::builder()
+            .status(404)
+            .body(Full::<Bytes>::from(format!("404 Not Found: {path}")))
+            .unwrap())
     } else {
         Ok(Response::builder()
             .status(hyper::StatusCode::BAD_REQUEST)
@@ -127,7 +141,7 @@ async fn run() -> Result<(), anyhow::Error> {
 
     // create the nexus. whenever a new portal is opened (aka a websocket-client connects),
     //  the callback will be invoked
-    let nexus = start_nexus(Some(ctx_on_client_connected.actor_ref.clone()))
+    let nexus = start_nexus(None, Some(ctx_on_client_connected.actor_ref.clone()))
         .await
         .map_err(|err| anyhow!(err))?;
 
@@ -140,14 +154,31 @@ async fn run() -> Result<(), anyhow::Error> {
 
     // loop around the client connection receiver
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
-        // whenever a client connects, create a new proxy actor for it, and publish it
-        let hub_actor = hub::spawn_hub(chat_server.clone(), msg.actor_ref.clone()).await?;
-
-        // new connection: publish our main actor on it
-        msg.actor_ref
-            .publish_named_actor("hub".to_string(), hub_actor.clone())
-            .await?;
+        let result = handle_connected_client(&chat_server, msg).await;
+        if let Err(err) = result {
+            eprintln!("Error handling connected client: {:#}", err);
+        }
     }
+
+    Ok(())
+}
+
+async fn handle_connected_client(
+    chat_server: &ActorRef<chat_server::Msg>,
+    msg: ractor_wormhole::nexus::OnActorConnectedMessage,
+) -> Result<(), anyhow::Error> {
+    let hub_actor = hub::spawn_hub(chat_server.clone(), msg.actor_ref.clone()).await?;
+
+    msg.actor_ref
+        .publish_named_actor("hub".to_string(), hub_actor.clone())
+        .await?;
+
+    msg.actor_ref
+        .ask(
+            |rpc| PortalActorMessage::WaitForHandshake(rpc),
+            Some(Duration::from_secs(5)),
+        )
+        .await?;
 
     Ok(())
 }

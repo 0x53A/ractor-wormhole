@@ -1,3 +1,19 @@
+There are a total of 4 projects in this folder.
+
+| Project | targets |
+|---|---|
+|client | native client (ratatui) |
+| server | simple server that only exposes a single websocket |
+| wasm_client | egui client compiled to wasm, runnable in a browser |
+| wasm_server | unlike the name suggests, the server is still natively compiled. It's the server for the wasm client, it includes both the websocket and also serves the static files for the client. |
+
+
+
+
+---------------------------------------------------
+
+
+
 For the server:
 
 ```

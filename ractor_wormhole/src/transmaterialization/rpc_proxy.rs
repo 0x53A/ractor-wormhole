@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 
-use ractor::{
-    Actor, ActorProcessingErr, ActorRef, RpcReplyPort, async_trait, concurrency::Duration,
-};
+use async_trait::async_trait;
+use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, concurrency::Duration};
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -42,7 +41,7 @@ pub struct RpcProxyActorArgs<T> {
     pub rpc_reply_port: RpcReplyPort<T>,
 }
 
-#[async_trait]
+#[cfg_attr(feature = "async-trait", async_trait)]
 impl<T: Send + Sync + 'static> Actor for RpcProxyActor<T> {
     type Msg = RpcProxyMsg<T>;
     type State = RpcProxyActorState<T>;
@@ -98,7 +97,7 @@ pub fn rpc_reply_port_from_actor_ref<T: Send + Sync + 'static>(
     };
 
     // when the reply port is triggered, forward the message to the actor
-    tokio::spawn(async move {
+    ractor::concurrency::spawn(async move {
         let result = rx.await;
         match result {
             Ok(msg) => {

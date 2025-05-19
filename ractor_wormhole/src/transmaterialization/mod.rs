@@ -9,14 +9,14 @@ pub use rpc_proxy::*;
 
 // -------------------------------------------------------------------------------------------------------
 
-use ractor::{Actor, ActorRef, RpcReplyPort, async_trait, concurrency::Duration};
-use util::require_buffer_size;
-
 use crate::{
     nexus::RemoteActorId,
-    portal::{MsgReceiver, NexusResult, Portal, PortalActorMessage},
+    portal::{BoxedRematerializer, MsgRematerializer, NexusResult, Portal, PortalActorMessage},
     util::ActorRef_Ask,
 };
+use async_trait::async_trait;
+use ractor::{Actor, ActorRef, RpcReplyPort, concurrency::Duration};
+use util::require_buffer_size;
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -57,15 +57,16 @@ pub struct TransmaterializationContext {
     pub default_rpc_port_timeout: Duration,
 }
 
-pub trait GetReceiver {
-    fn get_receiver(&self) -> Box<dyn MsgReceiver + Send>;
+pub trait GetRematerializer {
+    fn get_rematerializer() -> BoxedRematerializer;
 }
 
-pub struct Receiver<TMessage> {
+/// implementation of trait 'MsgReceiver'
+pub struct MsgRematerializerImpl<TMessage> {
     _marker: std::marker::PhantomData<TMessage>,
 }
 
-impl<TMessage> Default for Receiver<TMessage> {
+impl<TMessage> Default for MsgRematerializerImpl<TMessage> {
     fn default() -> Self {
         Self {
             _marker: std::marker::PhantomData,
@@ -74,10 +75,10 @@ impl<TMessage> Default for Receiver<TMessage> {
 }
 
 #[async_trait]
-impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> MsgReceiver
-    for Receiver<TMessage>
+impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> MsgRematerializer
+    for MsgRematerializerImpl<TMessage>
 {
-    async fn receive(
+    async fn rematerialize(
         &self,
         actor: ractor::ActorCell,
         data: &[u8],
@@ -88,13 +89,15 @@ impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> MsgReceiver
         actor_ref.send_message(msg)?;
         Ok(())
     }
+
+    fn clone_boxed(&self) -> BoxedRematerializer {
+        Box::new(MsgRematerializerImpl::<TMessage>::default())
+    }
 }
 
-impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> GetReceiver
-    for ActorRef<TMessage>
-{
-    fn get_receiver(&self) -> Box<dyn MsgReceiver + Send> {
-        Box::new(Receiver::<TMessage>::default())
+impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> GetRematerializer for TMessage {
+    fn get_rematerializer() -> BoxedRematerializer {
+        Box::new(MsgRematerializerImpl::<TMessage>::default())
     }
 }
 
@@ -144,7 +147,7 @@ impl TransmaterializationContext {
 
         ractor::time::kill_after(timeout, local_actor.get_cell());
 
-        let receiver = local_actor.get_receiver();
+        let receiver = RpcProxyMsg::<T>::get_rematerializer();
 
         let published_id = self
             .connection
@@ -167,7 +170,7 @@ impl TransmaterializationContext {
         &self,
         actor_ref: &ActorRef<T>,
     ) -> TransmaterializationResult<Vec<u8>> {
-        let receiver = actor_ref.get_receiver();
+        let receiver = T::get_rematerializer();
 
         let published_id = self
             .connection
@@ -250,7 +253,7 @@ pub trait ContextTransmaterializable {
 pub mod transmaterialization_proxies {
 
     pub use ::anyhow::anyhow;
-    pub use ::ractor::async_trait;
+    pub use ::async_trait::async_trait;
 
     #[cfg(feature = "serde")]
     pub mod serde_proxy {

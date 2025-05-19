@@ -6,13 +6,13 @@ edition = "2024"
 [dependencies]
 ractor_wormhole_derive = { path = "../ractor_wormhole_derive" }
 
-ractor = { version = "0.15.3", features = ["async-trait"] }
-ractor_cluster_derive = { version = "0.15.3", optional = true }
+ractor = { version = "0.15.6", features = [] }
+ractor_cluster_derive = { version = "0.15.6", optional = true }
 
 # note: the introduction is json serialized
 serde = { version = "1.0.219", features = ["serde_derive"] }
 serde_json = "1.0.140"
-tokio = { version = "1.44.1", features = [
+tokio = { version = "1.45.0", features = [
     #"rt-multi-thread",
     #"net",
     #"time",
@@ -22,14 +22,19 @@ tokio = { version = "1.44.1", features = [
 tokio-tungstenite = { version = "0.26.2", optional = true }
 tungstenite = { version = "0.26.2", optional = true }
 
-anyhow = { version = "1.0.97", features = ["backtrace"] }
+anyhow = { version = "1.0.98", features = ["backtrace"] }
 bincode = { version = "2.0.1", features = [] }
 futures = "0.3.31"
 log = "0.4.27"
 tracing = "0.1.41"
-rand = "0.9.0"
+rand = "0.9.1"
 uuid = { version = "1.16.0", features = ["rng", "v4"] }
 static_assertions = "1.1.0"
+async-trait = "0.1.88"
+
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.50"
 
 
 [features]
@@ -40,3 +45,4 @@ serde = []
 bincode = []
 websocket_client = ["tungstenite", "tokio-tungstenite", "tokio-tungstenite/native-tls" ]
 websocket_server = ["tungstenite", "tokio-tungstenite"]
+async-trait = ["ractor/async-trait"]

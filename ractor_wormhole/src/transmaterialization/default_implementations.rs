@@ -1,4 +1,5 @@
-use ractor::{ActorRef, RpcReplyPort, async_trait};
+use async_trait::async_trait;
+use ractor::{ActorRef, RpcReplyPort};
 
 use super::{
     util::{require_buffer_size, require_min_buffer_size},

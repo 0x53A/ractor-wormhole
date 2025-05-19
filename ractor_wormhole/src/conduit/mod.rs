@@ -10,6 +10,7 @@ use log::{error, info};
 use crate::{
     nexus::{self, NexusActorMessage},
     portal::PortalActorMessage,
+    util::ActorRef_Ask,
 };
 
 // -------------------------------------------------------------------------------------------------------
@@ -77,18 +78,20 @@ pub async fn from_sink_source(
     sink: ConduitSink,
     source: ConduitSource,
 ) -> Result<ActorRef<PortalActorMessage>, ConduitError> {
-    let portal = call_t!(
-        nexus,
-        NexusActorMessage::Connected,
-        100,
-        portal_identifier.clone(),
-        sink
-    );
+    let portal = nexus
+        .ask(
+            |rpc| NexusActorMessage::Connected(portal_identifier.clone(), sink, rpc),
+            None,
+        )
+        .await;
 
     match portal {
         Ok(portal_actor) => {
             info!("Portal actor started for: {}", portal_identifier);
-            receive_loop(source, portal_identifier, portal_actor.clone()).await;
+            let portal_actor_copy = portal_actor.clone();
+            ractor::concurrency::spawn(async move {
+                receive_loop(source, portal_identifier, portal_actor_copy).await;
+            });
             Ok(portal_actor)
         }
         Err(e) => {

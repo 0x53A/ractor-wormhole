@@ -2,8 +2,10 @@ use std::marker::PhantomData;
 
 use ractor::{
     Actor, ActorCell, ActorProcessingErr, ActorRef, Message, SpawnErr, SupervisionEvent,
-    async_trait, concurrency::JoinHandle,
+    concurrency::JoinHandle,
 };
+
+use async_trait::async_trait;
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -34,7 +36,7 @@ struct FnActorArgs<T> {
     pub tx: tokio::sync::mpsc::Sender<T>,
 }
 
-#[async_trait]
+#[cfg_attr(feature = "async-trait", async_trait)]
 impl<T: Message + Sync> Actor for FnActorImpl<T> {
     type Msg = T;
     type State = FnActorState<T>;
@@ -132,7 +134,7 @@ impl<T: Message + Sync> FnActor<T> {
         let (ctx, handle) = Self::start().await?;
         let actor_ref = ctx.actor_ref.clone();
 
-        tokio::spawn(async move {
+        ractor::concurrency::spawn(async move {
             f(ctx).await;
         });
 
@@ -153,7 +155,7 @@ impl<T: Message + Sync> FnActor<T> {
         let (ctx, handle) = Self::start_linked(supervisor).await?;
         let actor_ref = ctx.actor_ref.clone();
 
-        tokio::spawn(async move {
+        ractor::concurrency::spawn(async move {
             f(ctx).await;
         });
 

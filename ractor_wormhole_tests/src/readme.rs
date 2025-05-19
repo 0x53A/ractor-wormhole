@@ -8,8 +8,10 @@
 
 use std::any;
 
-use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr, async_trait};
+use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr};
 use ractor_wormhole::util::FnActor;
+
+use async_trait::async_trait;
 
 pub struct MyActor;
 
@@ -40,7 +42,7 @@ pub async fn example_1() -> Result<(), anyhow::Error> {
 
 // -------------------------------------------------
 // <| BEGIN |>
-#[async_trait]
+#[cfg_attr(feature = "async-trait", async_trait)]
 impl Actor for MyActor {
     type Msg = MyMessage;
     type State = MyState;

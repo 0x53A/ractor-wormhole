@@ -11,7 +11,7 @@ use ractor_wormhole::{
     portal::PortalActorMessage,
 };
 
-use crate::conduit;
+use crate::{conduit, util::ActorRef_Ask};
 
 pub async fn connect_to_server<R>(
     nexus: ActorRef<NexusActorMessage>,
@@ -80,20 +80,19 @@ where
 
     // Register the portal with the nexus actor
     let portal_identifier = uri.to_string();
-    let portal = call_t!(
-        nexus,
-        NexusActorMessage::Connected,
-        100,
-        portal_identifier.clone(),
-        tx
-    )?;
+    let portal = nexus
+        .ask(
+            |rpc| NexusActorMessage::Connected(portal_identifier.clone(), tx, rpc),
+            None,
+        )
+        .await?;
 
     info!("Portal actor started for: {}", uri);
 
     let portal_actor_copy = portal.clone();
-    tokio::spawn(
-        async move { conduit::receive_loop(rx, portal_identifier, portal_actor_copy).await },
-    );
+    ractor::concurrency::spawn(async move {
+        conduit::receive_loop(rx, portal_identifier, portal_actor_copy).await
+    });
 
     Ok(portal)
 }

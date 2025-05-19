@@ -1,4 +1,6 @@
-use ractor::{ActorRef, SpawnErr, async_trait, concurrency::JoinHandle};
+use ractor::{ActorRef, SpawnErr, concurrency::JoinHandle};
+
+use async_trait::async_trait;
 
 use crate::util::FnActor;
 

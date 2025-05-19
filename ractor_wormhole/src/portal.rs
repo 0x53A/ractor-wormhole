@@ -1,15 +1,18 @@
+use async_trait::async_trait;
 use futures::SinkExt;
 use log::{error, info};
 use ractor::{
-    Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, async_trait,
+    Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
     concurrency::Duration,
 };
 use std::{collections::HashMap, fmt::Display, pin::Pin};
 
 use crate::{
     conduit::{ConduitMessage, ConduitSink},
-    nexus::RemoteActorId,
-    transmaterialization::{ContextTransmaterializable, GetReceiver, TransmaterializationContext},
+    nexus::{NexusActorMessage, RemoteActorId},
+    transmaterialization::{
+        ContextTransmaterializable, GetRematerializer, TransmaterializationContext,
+    },
     util::{ActorRef_Ask, FnActor},
 };
 
@@ -106,14 +109,26 @@ pub enum CrossPortalMessage {
 
 pub type NexusResult<T> = Result<T, anyhow::Error>;
 
+/// helper object that wraps an Actor Message Type, rematerializes a message and then forwards it to the actor.
+/// That's neccessary because the ActorRef is strongly typed, but we lose the generic type information when storing the actor cell.
 #[async_trait]
-pub trait MsgReceiver {
-    async fn receive(
+pub trait MsgRematerializer {
+    async fn rematerialize(
         &self,
         actor: ActorCell,
         data: &[u8],
         ctx: TransmaterializationContext,
     ) -> NexusResult<()>;
+
+    fn clone_boxed(&self) -> Box<dyn MsgRematerializer + Send>;
+}
+
+pub type BoxedRematerializer = Box<dyn MsgRematerializer + Send>;
+
+impl Clone for BoxedRematerializer {
+    fn clone(&self) -> Self {
+        self.clone_boxed()
+    }
 }
 
 type TransmitMessageF = Box<
@@ -148,7 +163,7 @@ pub enum PortalActorMessage {
     PublishNamedActor(
         String,
         ActorCell,
-        Box<dyn MsgReceiver + Send>,
+        BoxedRematerializer,
         Option<RpcReplyPort<Option<RemoteActorId>>>,
     ),
 
@@ -158,12 +173,15 @@ pub enum PortalActorMessage {
     ///        if you do NOT include a RpcReplyPort, you can register the actor immediatly.
     PublishActor(
         ActorCell,
-        Box<dyn MsgReceiver + Send>,
+        BoxedRematerializer,
         Option<RpcReplyPort<RemoteActorId>>,
     ),
 
     /// looks up an actor by name on the **remote** side of the portal. Returns None if no actor was registered under that name.
     QueryNamedRemoteActor(String, RpcReplyPort<NexusResult<RemoteActorId>>),
+
+    /// waits until the portal is fully opened
+    WaitForHandshake(RpcReplyPort<()>),
 }
 
 #[cfg(feature = "ractor_cluster")]
@@ -183,7 +201,9 @@ pub trait Portal {
         &self,
         name: String,
         actor_ref: ActorRef<T>,
-    ) -> NexusResult<Option<RemoteActorId>>;
+    ) -> NexusResult<()>;
+
+    async fn wait_for_opened(&self, timeout: Duration) -> NexusResult<()>;
 }
 
 #[async_trait]
@@ -240,20 +260,24 @@ impl Portal for ActorRef<PortalActorMessage> {
         &self,
         name: String,
         actor_ref: ActorRef<T>,
-    ) -> NexusResult<Option<RemoteActorId>> {
-        let receiver = actor_ref.get_receiver();
+    ) -> NexusResult<()> {
+        let receiver = T::get_rematerializer();
 
+        let response = self.send_message(PortalActorMessage::PublishNamedActor(
+            name,
+            actor_ref.get_cell(),
+            receiver,
+            None,
+        ))?;
+
+        Ok(response)
+    }
+
+    async fn wait_for_opened(&self, timeout: Duration) -> NexusResult<()> {
         let response = self
             .ask(
-                move |rpc| {
-                    PortalActorMessage::PublishNamedActor(
-                        name,
-                        actor_ref.get_cell(),
-                        receiver,
-                        Some(rpc),
-                    )
-                },
-                None,
+                move |rpc| PortalActorMessage::WaitForHandshake(rpc),
+                Some(timeout),
             )
             .await?;
 
@@ -287,11 +311,13 @@ pub struct Introduction {
 pub struct PortalActorState {
     args: PortalActorArgs,
     channel_state: PortalConduitState,
-    published_actors: HashMap<OpaqueActorId, (ActorCell, Box<dyn MsgReceiver + Send>)>,
+    published_actors: HashMap<OpaqueActorId, (ActorCell, BoxedRematerializer)>,
     named_actors: HashMap<String, OpaqueActorId>,
 
     next_request_id: u64,
     open_requests: HashMap<CrossPortalMessageId, RpcReplyPort<NexusResult<RemoteActorId>>>,
+
+    waiting_for_handshake: Vec<RpcReplyPort<()>>,
 }
 
 pub struct PortalActorArgs {
@@ -299,6 +325,7 @@ pub struct PortalActorArgs {
     pub sender: ConduitSink,
     pub local_id: LocalPortalId,
     pub config: PortalConfig,
+    pub parent: ActorRef<NexusActorMessage>,
 }
 
 fn xor_arrays(a: [u8; 16], b: [u8; 16]) -> [u8; 16] {
@@ -309,8 +336,44 @@ fn xor_arrays(a: [u8; 16], b: [u8; 16]) -> [u8; 16] {
     result
 }
 
+impl PortalActor {
+    fn publish_actor(
+        &self,
+        published_actors: &mut HashMap<OpaqueActorId, (ActorCell, BoxedRematerializer)>,
+        actor_cell: ActorCell,
+        receiver: BoxedRematerializer,
+    ) -> OpaqueActorId {
+        let existing = published_actors
+            .iter()
+            .find(|(_k, (v, _))| v.get_id() == actor_cell.get_id());
+
+        let opaque_actor_id = match existing {
+            Some((k, _v)) => {
+                info!(
+                    "Actor with id {} was already published under {}",
+                    actor_cell.get_id(),
+                    k.clone()
+                );
+                *k
+            }
+            None => {
+                let new_id = OpaqueActorId(uuid::Uuid::new_v4().to_u128_le());
+                info!(
+                    "Actor with id {} published as {}",
+                    actor_cell.get_id(),
+                    new_id.0
+                );
+                published_actors.insert(new_id, (actor_cell, receiver));
+                new_id
+            }
+        };
+
+        opaque_actor_id
+    }
+}
+
 // Portal actor implementation
-#[async_trait]
+#[cfg_attr(feature = "async-trait", async_trait)]
 impl Actor for PortalActor {
     type Msg = PortalActorMessage;
     type State = PortalActorState;
@@ -351,6 +414,7 @@ impl Actor for PortalActor {
             named_actors: HashMap::new(),
             open_requests: HashMap::new(),
             next_request_id: 1,
+            waiting_for_handshake: Vec::new(),
         })
     }
 
@@ -379,11 +443,17 @@ impl Actor for PortalActor {
                             remote_introduction.channel_id_contribution,
                         )));
 
+                        info!("Handshake complete, channel_id: {}", channel_id);
+
                         state.channel_state = PortalConduitState::Open {
                             // self_introduction: self_introduction.clone(),
                             // remote_introduction,
                             channel_id,
                         };
+
+                        for x in state.waiting_for_handshake.drain(..) {
+                            let _ = x.send(());
+                        }
                     }
                     PortalConduitState::Open { .. } => {
                         panic!("Received text message after handshake: {}", text);
@@ -424,7 +494,37 @@ impl Actor for PortalActor {
 
                                         Ok(remote_id)
                                     }
-                                    None => Err(ActorRequestError::ActorNotFound),
+                                    None => {
+                                        // we didn't find it in the portal registry, but not all is lost, it could be in the nexus registry.
+                                        let nexus_actor = state.args.parent.clone();
+                                        let actor_published_on_nexus = nexus_actor
+                                            .ask(
+                                                |rpc| NexusActorMessage::QueryNamedActor(name, rpc),
+                                                None,
+                                            )
+                                            .await?;
+
+                                        if let Some((actor_cell, receiver)) =
+                                            actor_published_on_nexus
+                                        {
+                                            let opaque_actor_id = self.publish_actor(
+                                                &mut state.published_actors,
+                                                actor_cell,
+                                                receiver,
+                                            );
+
+                                            // Construct a RemoteActorId for the actor
+                                            let remote_id = RemoteActorId {
+                                                connection_key: *channel_id,
+                                                side: state.args.local_id,
+                                                id: opaque_actor_id,
+                                            };
+
+                                            Ok(remote_id)
+                                        } else {
+                                            Err(ActorRequestError::ActorNotFound)
+                                        }
+                                    }
                                 };
 
                                 // Send response back
@@ -494,7 +594,7 @@ impl Actor for PortalActor {
                                     state.published_actors.get(&target_id.id)
                                 {
                                     receiver
-                                        .receive(
+                                        .rematerialize(
                                             local_actor_cell.clone(),
                                             &data,
                                             TransmaterializationContext {
@@ -522,6 +622,18 @@ impl Actor for PortalActor {
                 myself.stop(Some("Portal closed".into()));
             }
 
+            PortalActorMessage::WaitForHandshake(reply) => {
+                match &state.channel_state {
+                    PortalConduitState::Opening { .. } => {
+                        state.waiting_for_handshake.push(reply);
+                    }
+                    PortalConduitState::Open { .. } => {
+                        reply.send(())?;
+                    }
+                }
+                return Ok(());
+            }
+
             PortalActorMessage::PublishNamedActor(name, actor_cell, receiver, reply) => {
                 if reply.is_some()
                     && !matches!(state.channel_state, PortalConduitState::Open { .. })
@@ -530,33 +642,8 @@ impl Actor for PortalActor {
                     //return Ok(());
                 }
 
-                let existing = state
-                    .published_actors
-                    .iter()
-                    .find(|(_k, (v, _))| v.get_id() == actor_cell.get_id());
-
-                let opaque_actor_id = match existing {
-                    Some((k, _v)) => {
-                        info!(
-                            "Actor with id {} was already published under {}",
-                            actor_cell.get_id(),
-                            k.clone()
-                        );
-                        *k
-                    }
-                    None => {
-                        let new_id = OpaqueActorId(uuid::Uuid::new_v4().to_u128_le());
-                        info!(
-                            "Actor with id {} published as {}",
-                            actor_cell.get_id(),
-                            new_id.0
-                        );
-                        state
-                            .published_actors
-                            .insert(new_id, (actor_cell, receiver));
-                        new_id
-                    }
-                };
+                let opaque_actor_id =
+                    self.publish_actor(&mut state.published_actors, actor_cell, receiver);
 
                 // note: this overrides an already published actor of the same name.
                 match state.named_actors.insert(name.clone(), opaque_actor_id) {
@@ -588,33 +675,8 @@ impl Actor for PortalActor {
                     return Ok(());
                 }
 
-                let existing = state
-                    .published_actors
-                    .iter()
-                    .find(|(_k, (v, _))| v.get_id() == actor_cell.get_id());
-
-                let opaque_actor_id = match existing {
-                    Some((k, _v)) => {
-                        info!(
-                            "Actor with id {} was already published under {}",
-                            actor_cell.get_id(),
-                            k.clone()
-                        );
-                        *k
-                    }
-                    None => {
-                        let new_id = OpaqueActorId(uuid::Uuid::new_v4().to_u128_le());
-                        info!(
-                            "Actor with id {} published as {}",
-                            actor_cell.get_id(),
-                            new_id.0
-                        );
-                        state
-                            .published_actors
-                            .insert(new_id, (actor_cell, receiver));
-                        new_id
-                    }
-                };
+                let opaque_actor_id =
+                    self.publish_actor(&mut state.published_actors, actor_cell, receiver);
 
                 if let Some(rpc) = rpc {
                     let PortalConduitState::Open { channel_id, .. } = &state.channel_state else {
@@ -669,7 +731,7 @@ impl Actor for PortalActor {
                 let myself_copy = myself.clone();
                 let default_rpc_port_timeout = state.args.config.default_rpc_port_timeout;
                 let target_copy = target;
-                tokio::spawn(async move {
+                ractor::concurrency::spawn(async move {
                     let bytes = msg_f(TransmaterializationContext {
                         connection: myself_copy.clone(),
                         default_rpc_port_timeout,

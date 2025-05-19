@@ -28,8 +28,7 @@ pub async fn start_server(
     tokio::spawn(async move {
         while let Ok((stream, addr)) = listener.accept().await {
             info!("New connection from: {}", addr);
-            // Handle each connection in a separate task
-            tokio::spawn(handle_connection(stream, addr, nexus_copy.clone()));
+            let _ = handle_connection(stream, addr, nexus_copy.clone()).await;
         }
     });
 

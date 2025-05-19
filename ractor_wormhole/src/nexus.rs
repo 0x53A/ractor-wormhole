@@ -1,6 +1,7 @@
+use async_trait::async_trait;
 use log::info;
 use ractor::{
-    Actor, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, async_trait,
+    Actor, ActorCell, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
     concurrency::{Duration, JoinHandle},
 };
 use std::collections::HashMap;
@@ -8,8 +9,8 @@ use std::collections::HashMap;
 use crate::{
     conduit::ConduitSink,
     portal::{
-        ConduitID, LocalPortalId, OpaqueActorId, PortalActor, PortalActorArgs, PortalActorMessage,
-        PortalConfig,
+        BoxedRematerializer, ConduitID, LocalPortalId, OpaqueActorId, PortalActor, PortalActorArgs,
+        PortalActorMessage, PortalConfig,
     },
 };
 
@@ -30,6 +31,15 @@ pub enum NexusActorMessage {
         RpcReplyPort<ActorRef<PortalActorMessage>>,
     ),
     GetAllPortals(RpcReplyPort<Vec<ActorRef<PortalActorMessage>>>),
+
+    /// publish a local actor under a known name, making it available to the remote side of all portals.
+    /// On the remote side, it can be looked up by name.
+    PublishNamedActor(String, ActorCell, BoxedRematerializer),
+
+    QueryNamedActor(
+        String,
+        RpcReplyPort<Option<(ActorCell, BoxedRematerializer)>>,
+    ),
 }
 
 // Nexus actor state
@@ -37,6 +47,7 @@ pub struct NexusActor;
 pub struct NexusActorState {
     args: NexusActorArgs,
     portals: HashMap<ActorId, (String, ActorRef<PortalActorMessage>, JoinHandle<()>)>,
+    named_actors: HashMap<String, (ActorCell, BoxedRematerializer)>,
 }
 
 #[cfg_attr(
@@ -53,7 +64,7 @@ pub struct NexusActorArgs {
 }
 
 // Nexus actor implementation
-#[async_trait]
+#[cfg_attr(feature = "async-trait", async_trait)]
 impl Actor for NexusActor {
     type Msg = NexusActorMessage;
     type State = NexusActorState;
@@ -68,6 +79,7 @@ impl Actor for NexusActor {
         Ok(NexusActorState {
             args,
             portals: HashMap::new(),
+            named_actors: HashMap::new(),
         })
     }
 
@@ -82,7 +94,7 @@ impl Actor for NexusActor {
                 info!("New WebSocket connection from: {}", identifier);
 
                 // Create a new portal actor
-                let (actor_ref, handle) = PortalActor::spawn_linked(
+                let (actor_ref, handle) = Actor::spawn_linked(
                     None,
                     PortalActor,
                     PortalActorArgs {
@@ -92,6 +104,7 @@ impl Actor for NexusActor {
                         config: PortalConfig {
                             default_rpc_port_timeout: Duration::from_secs(120),
                         },
+                        parent: myself.clone(),
                     },
                     myself.get_cell(),
                 )
@@ -117,6 +130,39 @@ impl Actor for NexusActor {
             NexusActorMessage::GetAllPortals(reply) => {
                 let portals: Vec<_> = state.portals.values().map(|v| &v.1).cloned().collect();
                 reply.send(portals)?;
+            }
+
+            NexusActorMessage::PublishNamedActor(name, actor_ref, receiver) => {
+                let existing = state.named_actors.iter().find(|(s, _)| **s == name);
+
+                if let Some((_, (existing_actor, _))) = existing {
+                    if existing_actor.get_id() != actor_ref.get_id() {
+                        info!(
+                            "Actor with id {} already published under name '{}', overwriting with {}''",
+                            existing_actor.get_id(),
+                            name,
+                            actor_ref.get_id()
+                        );
+                    } else {
+                        return Ok(());
+                    }
+                }
+
+                match state
+                    .named_actors
+                    .insert(name.clone(), (actor_ref, receiver))
+                {
+                    Some(_) => info!(
+                        "Actor with name {} already existed and was overwritten",
+                        name
+                    ),
+                    None => info!("Actor with name {} published", name),
+                }
+            }
+            NexusActorMessage::QueryNamedActor(name, reply) => {
+                let result = state.named_actors.get(&name).cloned();
+
+                reply.send(result)?;
             }
         }
         Ok(())
@@ -156,10 +202,11 @@ impl Actor for NexusActor {
 
 // Helper function to create and start the nexus actor
 pub async fn start_nexus(
+    name: Option<String>,
     on_client_connected: Option<ActorRef<OnActorConnectedMessage>>,
 ) -> Result<ActorRef<NexusActorMessage>, ractor::ActorProcessingErr> {
     let (nexus_ref, _handle) = NexusActor::spawn(
-        Some(String::from("nexus")),
+        Some(name.unwrap_or(String::from("nexus"))),
         NexusActor,
         NexusActorArgs {
             on_client_connected,
