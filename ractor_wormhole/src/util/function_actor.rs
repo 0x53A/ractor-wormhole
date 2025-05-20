@@ -215,7 +215,7 @@ pub mod fn_actor_tests {
     pub async fn start_fn_example() {
         let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
             while let Some(msg) = ctx.rx.recv().await {
-                println!("Received message: {}", msg);
+                println!("Received message: {msg}");
             }
         })
         .await

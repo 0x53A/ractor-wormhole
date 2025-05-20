@@ -1,10 +1,17 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ractor_wormhole::conduit::{ConduitSink, ConduitSource};
+use ractor_wormhole::conduit::{ConduitMessage, ConduitSink, ConduitSource};
 use ractor_wormhole::portal::{self, Portal};
 use ractor_wormhole::util::{ActorRef_Ask, FnActor};
 
+use futures::channel::mpsc;
+use futures::{SinkExt, StreamExt};
+
+#[cfg_attr(
+    feature = "ractor_cluster",
+    derive(ractor_cluster_derive::RactorMessage)
+)]
 #[derive(Debug, ractor_wormhole::WormholeTransmaterializable)]
 pub struct HelloMsg {
     pub msg: String,

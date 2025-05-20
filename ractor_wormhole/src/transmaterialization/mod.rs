@@ -255,19 +255,21 @@ pub mod transmaterialization_proxies {
     pub use ::anyhow::anyhow;
     pub use ::async_trait::async_trait;
 
+    use super::*;
+
     #[cfg(feature = "serde")]
     pub mod serde_proxy {
 
         use super::*;
 
-        pub fn immaterialize<T: serde::Serialize>(data: T) -> SerializationResult<Vec<u8>> {
+        pub fn immaterialize<T: serde::Serialize>(data: T) -> TransmaterializationResult<Vec<u8>> {
             let json = serde_json::to_vec(&data)?;
             Ok(json)
         }
 
         pub fn rematerialize<T: serde::de::DeserializeOwned>(
             data: &[u8],
-        ) -> SerializationResult<T> {
+        ) -> TransmaterializationResult<T> {
             let deserialized = serde_json::from_slice(data)?;
             Ok(deserialized)
         }
@@ -278,12 +280,12 @@ pub mod transmaterialization_proxies {
 
         use super::*;
 
-        pub fn immaterialize<T: bincode::Encode>(data: T) -> SerializationResult<Vec<u8>> {
+        pub fn immaterialize<T: bincode::Encode>(data: T) -> TransmaterializationResult<Vec<u8>> {
             let json = bincode::encode_to_vec(data, bincode::config::standard())?;
             Ok(json)
         }
 
-        pub fn rematerialize<T: bincode::Decode<()>>(data: &[u8]) -> SerializationResult<T> {
+        pub fn rematerialize<T: bincode::Decode<()>>(data: &[u8]) -> TransmaterializationResult<T> {
             let (deserialized, consumed) =
                 bincode::decode_from_slice::<T, _>(data, bincode::config::standard())?;
             assert!(consumed == data.len());
