@@ -29,7 +29,7 @@ pub struct MyState {}
 pub async fn example_1() -> Result<(), anyhow::Error> {
     let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
         while let Some(msg) = ctx.rx.recv().await {
-            println!("Received message: {}", msg);
+            println!("Received message: {msg}");
         }
     })
     .await?;
@@ -62,7 +62,7 @@ impl Actor for MyActor {
         message: Self::Msg,
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
-        println!("Received message: {:?}", message);
+        println!("Received message: {message:?}");
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ pub async fn start_actor(args: MyArgs) -> Result<ActorRef<MyMessage>, SpawnErr> 
 
         while let Some(msg) = ctx.rx.recv().await {
             // [handle]
-            println!("Received message: {:?}", msg);
+            println!("Received message: {msg:?}");
         }
     })
     .await?;

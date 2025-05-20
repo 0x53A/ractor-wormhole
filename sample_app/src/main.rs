@@ -35,7 +35,7 @@ enum Commands {
 #[tokio::main]
 async fn main() {
     if let Err(e) = run().await {
-        eprintln!("ERROR: {:#}", e); // Pretty format with all causes
+        eprintln!("ERROR: {e:#}"); // Pretty format with all causes
         std::process::exit(1);
     }
 }
@@ -50,11 +50,11 @@ async fn run() -> Result<(), anyhow::Error> {
 
     match cli.command {
         Commands::Client { url } => {
-            println!("Starting client, connecting to: {}", url);
+            println!("Starting client, connecting to: {url}");
             client::run(url).await?;
         }
         Commands::Server { bind } => {
-            println!("Starting server, binding to: {}", bind);
+            println!("Starting server, binding to: {bind}");
             server::run(bind).await?;
         }
     }

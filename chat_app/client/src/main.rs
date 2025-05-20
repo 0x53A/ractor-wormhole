@@ -31,6 +31,7 @@ async fn main() {
     }
 }
 
+/// the local actor which receives messages from the server, converts them to the UI message type and just forwards them.
 pub async fn start_chatclient_actor(
     ui: ActorRef<UIMsg>,
 ) -> NexusResult<ActorRef<ChatClientMessage>> {
@@ -72,7 +73,7 @@ async fn run() -> Result<(), anyhow::Error> {
     let nexus = start_nexus(None, None).await.unwrap();
 
     // connect to the server
-    let portal = websocket::client::connect_to_server(nexus, cli.url).await?;
+    let portal = websocket::client::tokio_tungstenite::connect_to_server(nexus, cli.url).await?;
 
     // wait for the portal to be ready (handshake)
     portal

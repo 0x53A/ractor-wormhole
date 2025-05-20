@@ -29,7 +29,7 @@ struct Cli {
 #[tokio::main]
 async fn main() {
     if let Err(e) = run().await {
-        eprintln!("ERROR: {:#}", e); // Pretty format with all causes
+        eprintln!("ERROR: {e:#}"); // Pretty format with all causes
         std::process::exit(1);
     }
 }
@@ -67,7 +67,7 @@ async fn run() -> Result<(), anyhow::Error> {
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
         let result = handle_connected_client(&chat_server, msg).await;
         if let Err(err) = result {
-            eprintln!("Error handling connected client: {:#}", err);
+            eprintln!("Error handling connected client: {err:#}");
         }
     }
 
@@ -86,7 +86,7 @@ async fn handle_connected_client(
 
     msg.actor_ref
         .ask(
-            |rpc| PortalActorMessage::WaitForHandshake(rpc),
+            PortalActorMessage::WaitForHandshake,
             Some(Duration::from_secs(5)),
         )
         .await?;

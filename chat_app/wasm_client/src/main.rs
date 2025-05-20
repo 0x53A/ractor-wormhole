@@ -316,9 +316,7 @@ fn inner_main() -> eframe::Result {
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
         let (request_repaint_tx, mut request_repaint_rx) = tokio::sync::mpsc::channel(1000);
-        let (nexus, portal, ui_rcv) = init(".".to_string(), request_repaint_tx)
-            .await
-            .unwrap();
+        let (nexus, portal, ui_rcv) = init(".".to_string(), request_repaint_tx).await.unwrap();
 
         let start_result = eframe::WebRunner::new()
             .start(

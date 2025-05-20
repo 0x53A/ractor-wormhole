@@ -15,12 +15,12 @@ pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
     let nexus = start_nexus(None, None).await.unwrap();
 
     // connect to the server
-    let portal = websocket::client::connect_to_server(nexus, server_url).await?;
+    let portal = websocket::client::tokio_tungstenite::connect_to_server(nexus, server_url).await?;
 
     // wait for the portal to be ready (handshake)
     portal
         .ask(
-            |rpc| PortalActorMessage::WaitForHandshake(rpc),
+            PortalActorMessage::WaitForHandshake,
             Some(Duration::from_secs(5)),
         )
         .await?;

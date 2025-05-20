@@ -1,11 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use anyhow::anyhow;
-
-use futures::channel::mpsc;
-use futures::{SinkExt, StreamExt};
-use ractor_wormhole::conduit::{ConduitMessage, ConduitSink, ConduitSource};
+use ractor_wormhole::conduit::{ConduitSink, ConduitSource};
 use ractor_wormhole::portal::{self, Portal};
 use ractor_wormhole::util::{ActorRef_Ask, FnActor};
 

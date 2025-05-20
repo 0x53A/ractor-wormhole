@@ -1,13 +1,11 @@
-use futures::{SinkExt, StreamExt, future};
+use futures::StreamExt;
 use http_body_util::Full;
 use hyper::body::Bytes;
-use hyper::upgrade::Upgraded;
 use hyper::{Request, Response};
-use hyper_tungstenite::tungstenite::Message;
-use hyper_tungstenite::{HyperWebsocket, WebSocketStream};
+use hyper_tungstenite::HyperWebsocket;
 use hyper_util::rt::TokioIo;
 use ractor::ActorRef;
-use ractor_wormhole::conduit::{self, ConduitError, ConduitMessage, ConduitSink, ConduitSource};
+use ractor_wormhole::conduit::{self};
 use ractor_wormhole::nexus::NexusActorMessage;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -79,55 +77,14 @@ pub async fn serve_websocket(
 
     // need to adapt streams
     // Map the tungstenite messages to ConduitMessage
-    let rx = map_ws_to_conduit(rx);
+    let rx = conduit::websocket::server::tokio_tungstenite::map_ws_to_conduit(rx);
 
     // Convert the ConduitMessage to tungstenite Message
-    let tx = map_conduit_to_ws(tx);
+    let tx = conduit::websocket::server::tokio_tungstenite::map_conduit_to_ws(tx);
 
     // it seems to be non-trivial to get the address from hyper, and its usefulness is questionable, anyway, with proxies and vpns and what not.
     let identifier = format!("ws-client://{}", rand::random::<u64>());
     conduit::from_sink_source(nexus, identifier, tx, rx).await?;
 
     Ok(())
-}
-
-fn map_conduit_to_ws(
-    sink: futures::stream::SplitSink<WebSocketStream<TokioIo<Upgraded>>, Message>,
-) -> ConduitSink {
-    let sink = sink.with(|element: ConduitMessage| async {
-        let msg = match element {
-            ConduitMessage::Text(text) => Message::text(text),
-            ConduitMessage::Binary(bin) => Message::binary(bin),
-            ConduitMessage::Close(_) => Message::Close(None),
-        };
-        Ok(msg)
-    });
-    Box::pin(sink)
-}
-
-fn map_ws_to_conduit(
-    source: futures::stream::SplitStream<WebSocketStream<TokioIo<Upgraded>>>,
-) -> ConduitSource {
-    let source = source.filter_map(|element| {
-        let output = match element {
-            Ok(msg) => {
-                let msg = match msg {
-                    Message::Text(text) => Some(ConduitMessage::Text(text.to_string())),
-                    Message::Binary(bin) => Some(ConduitMessage::Binary(bin.into())),
-                    Message::Close(_) => Some(ConduitMessage::Close(None)),
-                    _ => None,
-                };
-
-                Ok(msg)
-            }
-            Err(e) => Err(ConduitError::from(e)),
-        };
-
-        match output {
-            Ok(Some(msg)) => future::ready(Some(Ok(msg))),
-            Ok(None) => future::ready(None),
-            Err(e) => future::ready(Some(Err(e))),
-        }
-    });
-    Box::pin(source)
 }

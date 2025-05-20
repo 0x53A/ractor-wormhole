@@ -50,7 +50,7 @@ pub async fn http_server_fn(
         tokio::task::spawn(async move {
             // Finally, we bind the incoming connection to our `hello` service
             if let Err(err) = connection.await {
-                eprintln!("Error serving connection: {:?}", err);
+                eprintln!("Error serving connection: {err:?}");
             }
         });
     }
@@ -60,7 +60,7 @@ pub async fn hello(
     nexus: ActorRef<NexusActorMessage>,
     mut req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, anyhow::Error> {
-    info!("Received request: {:?}", req);
+    info!("Received request: {req:?}");
 
     if hyper_tungstenite::is_upgrade_request(&req) {
         let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)?;
@@ -75,7 +75,7 @@ pub async fn hello(
         Ok(response)
     } else if req.method() == hyper::Method::GET {
         let path = req.uri().path();
-        info!("GET request for path: {}", path);
+        info!("GET request for path: {path}");
         if let Some(embedded) = embedded_files::Asset::get(path.trim_start_matches("/")) {
             let mut resp = Response::new(Full::<Bytes>::from(embedded.data));
             let content_type = match path.rsplit_once(".").unwrap().1 {
@@ -122,7 +122,7 @@ struct Cli {
 #[tokio::main]
 async fn main() {
     if let Err(e) = run().await {
-        eprintln!("ERROR: {:#}", e); // Pretty format with all causes
+        eprintln!("ERROR: {e:#}"); // Pretty format with all causes
         std::process::exit(1);
     }
 }
@@ -158,7 +158,7 @@ async fn run() -> Result<(), anyhow::Error> {
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
         let result = handle_connected_client(&chat_server, msg).await;
         if let Err(err) = result {
-            eprintln!("Error handling connected client: {:#}", err);
+            eprintln!("Error handling connected client: {err:#}");
         }
     }
 
@@ -177,7 +177,7 @@ async fn handle_connected_client(
 
     msg.actor_ref
         .ask(
-            |rpc| PortalActorMessage::WaitForHandshake(rpc),
+            PortalActorMessage::WaitForHandshake,
             Some(Duration::from_secs(5)),
         )
         .await?;

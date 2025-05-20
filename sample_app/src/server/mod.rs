@@ -21,7 +21,7 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
         .await
         .map_err(|err| anyhow!(err))?;
 
-    websocket::server::start_server(nexus, bind).await?;
+    websocket::server::tokio_tungstenite::start_server(nexus, bind).await?;
 
     let pinpong = start_pingpong_actor().await?;
 
@@ -29,7 +29,7 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
     while let Some(msg) = ctx_on_client_connected.rx.recv().await {
         msg.actor_ref
             .ask(
-                |rpc| PortalActorMessage::WaitForHandshake(rpc),
+                PortalActorMessage::WaitForHandshake,
                 Some(Duration::from_secs(5)),
             )
             .await?;
