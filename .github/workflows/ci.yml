@@ -30,3 +30,27 @@ jobs:
 
       - name: Run tests
         run: cargo test --workspace --verbose ${{ matrix.feature_async_trait && '--features async-trait' || '' }}
+
+  check_wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          override-with: rustup
+
+      - name: Install wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Check WASM default
+        working-directory: ./chat_app/wasm_client
+        run: cargo check -p wasm_client --target wasm32-unknown-unknown
+
+      - name: Check WASM async-trait
+        working-directory: ./chat_app/wasm_client
+        run: cargo check -p wasm_client --target wasm32-unknown-unknown --features async-trait
