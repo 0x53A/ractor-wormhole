@@ -221,7 +221,10 @@ pub async fn init(
 
     let ui_update_tx_copy = ui_update_tx.clone();
 
-    portal.wait_for_opened(Duration::from_secs(5)).await.unwrap();
+    portal
+        .wait_for_opened(Duration::from_secs(5))
+        .await
+        .unwrap();
     info!("WebSocket connection opened");
 
     // the server has published a named actor
@@ -272,7 +275,6 @@ async fn inner_main(rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-
     let cli = Cli::parse();
 
     color_eyre::install().map_err(|err| anyhow::anyhow!(err))?;
@@ -291,9 +293,7 @@ async fn inner_main(rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
 
     let (request_repaint_tx, mut request_repaint_rx) = tokio::sync::mpsc::channel(1000);
 
-    let (nexus, portal, ui_rcv) = init(cli.url, request_repaint_tx)
-        .await
-        .unwrap();
+    let (nexus, portal, ui_rcv) = init(cli.url, request_repaint_tx).await.unwrap();
 
     eframe::run_native(
         "eframe template",
@@ -308,7 +308,8 @@ async fn inner_main(rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
 
             Ok(Box::new(app::TemplateApp::new(cc, portal, ui_rcv)))
         }),
-    ).map_err(|e| anyhow!("{e}"))?;
+    )
+    .map_err(|e| anyhow!("{e}"))?;
 
     Ok(())
 }
