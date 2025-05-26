@@ -1,5 +1,3 @@
-#![feature(cfg_boolean_literals)]
-
 mod derive_wormhole_serializable;
 mod util;
 
