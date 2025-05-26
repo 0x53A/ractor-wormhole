@@ -153,9 +153,9 @@ pub async fn connect_to_server(
         .map_err(|err| anyhow!(err))?;
 
     // Wait for the connection to be opened
-    opened_rx.await?;
+    opened_rx.await.unwrap();
 
-    let ws_tx = adapt_WsSender_to_Conduit(ws_tx).await?;
+    let ws_tx = adapt_WsSender_to_Conduit(ws_tx).await.unwrap();
     let ws_rx = adapt_tokio_receiver_to_Conduit(ws_rx);
 
     // Register the portal with the nexus actor
@@ -215,13 +215,13 @@ pub async fn init(
     anyhow::Error,
 > {
     let nexus = start_nexus(None, None).await.unwrap();
-    let portal = connect_to_server(nexus.clone(), url).await?;
+    let portal = connect_to_server(nexus.clone(), url).await.unwrap();
 
     let (ui_update_tx, ui_update_rx) = std::sync::mpsc::channel();
 
     let ui_update_tx_copy = ui_update_tx.clone();
 
-    portal.wait_for_opened(Duration::from_secs(5)).await?;
+    portal.wait_for_opened(Duration::from_secs(5)).await.unwrap();
     info!("WebSocket connection opened");
 
     // the server has published a named actor
@@ -255,10 +255,27 @@ pub async fn init(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn inner_main(rt: &tokio::runtime::Runtime) -> eframe::Result {
+use clap::Parser;
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Server URL to connect to
+    #[arg(long)]
+    url: String,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn inner_main(rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
+
+
+    let cli = Cli::parse();
+
+    color_eyre::install().map_err(|err| anyhow::anyhow!(err))?;
 
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -273,7 +290,8 @@ async fn inner_main(rt: &tokio::runtime::Runtime) -> eframe::Result {
     };
 
     let (request_repaint_tx, mut request_repaint_rx) = tokio::sync::mpsc::channel(1000);
-    let (nexus, portal, ui_rcv) = init("ws://localhost:8085".to_string(), request_repaint_tx)
+
+    let (nexus, portal, ui_rcv) = init(cli.url, request_repaint_tx)
         .await
         .unwrap();
 
@@ -290,7 +308,9 @@ async fn inner_main(rt: &tokio::runtime::Runtime) -> eframe::Result {
 
             Ok(Box::new(app::TemplateApp::new(cc, portal, ui_rcv)))
         }),
-    )
+    ).map_err(|e| anyhow!("{e}"))?;
+
+    Ok(())
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -356,7 +376,7 @@ fn inner_main() -> eframe::Result {
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> eframe::Result {
+fn main() -> anyhow::Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
