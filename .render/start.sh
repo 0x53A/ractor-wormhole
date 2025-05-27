@@ -1,0 +1,1 @@
+cargo run -p wasm_server --release -- --bind 0.0.0.0:${PORT}

@@ -8,7 +8,6 @@ shared = { path = "../shared" }
 eframe = { version = "0.31.1", features = ["default_fonts", "glow", "persistence"] }
 egui = "0.31.1"
 env_logger = "0.11.8"
-ewebsock = { version = "0.8.0", features = ["tls"] }
 log = "0.4.27"
 ractor = "0.15.6"
 ractor_wormhole = { path = "../../ractor_wormhole", features = [] }
@@ -30,6 +29,8 @@ clap = { version = "4.5.38", features = ["derive"] }
 color-eyre = "0.6.4"
 tokio-tungstenite = { version = "0.24.0", features = ["native-tls"] }
 #tungstenite = { version = "0.26.2", features = [] }
+ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_client"] }
+
 
 [features]
 async-trait = ["ractor_wormhole/async-trait"]

@@ -255,6 +255,7 @@ pub mod transmaterialization_proxies {
     pub use ::anyhow::anyhow;
     pub use ::async_trait::async_trait;
 
+    #[cfg(any(feature = "serde", feature = "bincode"))]
     use super::*;
 
     #[cfg(feature = "serde")]

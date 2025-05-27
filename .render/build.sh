@@ -1,0 +1,1 @@
+rustup target add wasm32-unknown-unknown && cargo install --locked trunk && cd chat_app/wasm_client && trunk build --release && cd ../wasm_server && cargo build --release

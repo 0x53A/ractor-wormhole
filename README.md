@@ -85,6 +85,14 @@ This project is not related to, and does not depend on, the ractor native cluste
 
 If you use it together with ``ractor-cluster``, do enable the feature ``ractor_cluster`` in this crate.
 
+
+## Notes about ``async-trait``
+
+The ractor crate provides a feature named ``async-trait`` which changes the definition of some core traits. Because this feature needs to be consistent for all uses of ractor in the same final compilation, ``ractor-wormhole`` provides the same feature.
+
+Independent of this ractor behavior, this crate uses the ``async-trait`` crate for internal functionality. For example, the trait ``ContextTransmaterializable`` is always decorated with ``#[async_trait]``, irrespective of whether the feature ``async-trait`` is enabled or not. Therefore the feature ``async-trait`` is better understood as ``ractor-async-trait``.
+
+
 ## Components
 
 You create your ractor actors as usual. You instantiate one ``Nexus``. This Nexus can hold multiple ``Portal``s (endpoints of connections). Two Portals connect to each other through a ``Conduit``. The exact instantiation of this Portal depends on the chosen Conduit (transport). In the case of Websocket, which is implemented in this library, the server side will listen on a specific port and create one Portal per connected client; in the case of the Websocket client, it will establish a websocket connection to a server and wrap that connection in a Portal.
