@@ -32,5 +32,8 @@ tokio-tungstenite = { version = "0.24.0", features = ["native-tls"] }
 ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_client"] }
 
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_client_wasm"] }
+
 [features]
 async-trait = ["ractor_wormhole/async-trait"]

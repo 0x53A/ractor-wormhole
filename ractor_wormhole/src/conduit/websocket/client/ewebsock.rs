@@ -13,7 +13,6 @@ use tokio;
 use tokio_with_wasm::alias as tokio;
 
 use anyhow::anyhow;
-use app::{UiUpdate, start_client_handler_actor};
 use ewebsock::{WsEvent, WsMessage, WsSender};
 use futures::{SinkExt, StreamExt};
 use log::{error, info};

@@ -12,6 +12,8 @@ use crate::alias_gen;
 
 // ----------------------------------------------------------------------------------
 
+/// the sum of all messages handled by the chat server. This can either be a message from a client forwarded through the hub,
+/// or a Connect event from a new client.
 pub enum Msg {
     /// forwarded from the hub
     Connect(
