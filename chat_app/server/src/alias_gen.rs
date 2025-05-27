@@ -1,10 +1,9 @@
-use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
+use rand::{SeedableRng, seq::SliceRandom};
 
 /// Generates random user aliases in the format "adjective noun"
 pub struct AliasGenerator {
     adjectives: Vec<&'static str>,
     nouns: Vec<&'static str>,
-    rng: SmallRng,
 
     generated_count: usize,
 }
@@ -100,7 +99,6 @@ impl AliasGenerator {
         Self {
             adjectives,
             nouns,
-            rng,
             generated_count: 0,
         }
     }
