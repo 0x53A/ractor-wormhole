@@ -211,7 +211,7 @@ pub async fn start_nexus(
 
 // ---------------------------------------------------------------------------------
 
-#[derive(bincode::Encode, bincode::Decode, Debug, Clone, Copy)]
+#[derive(bincode::Encode, bincode::Decode, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RemoteActorId {
     /// the portal key uniquely identifies the conduit, it is the same ID on both sides
     pub connection_key: ConduitID,

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use futures::SinkExt;
 use log::{error, info};
 use ractor::{
-    Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
+    Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, actor,
     concurrency::Duration,
 };
 use std::{collections::HashMap, fmt::Display, pin::Pin};
@@ -102,6 +102,8 @@ pub enum CrossPortalMessage {
     ),
 
     SendMessage(RemoteActorId, Box<[u8]>),
+
+    ActorExited(RemoteActorId),
 }
 
 // Portal
@@ -177,11 +179,15 @@ pub enum PortalActorMessage {
         Option<RpcReplyPort<RemoteActorId>>,
     ),
 
+    RegisterProxyForRemoteActor(RemoteActorId, ActorCell),
+
     /// looks up an actor by name on the **remote** side of the portal. Returns None if no actor was registered under that name.
     QueryNamedRemoteActor(String, RpcReplyPort<NexusResult<RemoteActorId>>),
 
     /// waits until the portal is fully opened
     WaitForHandshake(RpcReplyPort<()>),
+
+    LocalActorExited(ractor::ActorId),
 }
 
 #[cfg(feature = "ractor_cluster")]
@@ -252,6 +258,10 @@ impl Portal for ActorRef<PortalActorMessage> {
             })
             .await?;
 
+        self.send_message(PortalActorMessage::RegisterProxyForRemoteActor(
+            remote_actor_id,
+            proxy_actor_ref.get_cell(),
+        ))?;
         Ok(proxy_actor_ref)
     }
 
@@ -308,6 +318,7 @@ pub struct PortalActorState {
     args: PortalActorArgs,
     channel_state: PortalConduitState,
     published_actors: HashMap<OpaqueActorId, (ActorCell, BoxedRematerializer)>,
+    proxies_for_remote_actors: HashMap<RemoteActorId, ActorCell>,
     named_actors: HashMap<String, OpaqueActorId>,
 
     next_request_id: u64,
@@ -335,6 +346,7 @@ fn xor_arrays(a: [u8; 16], b: [u8; 16]) -> [u8; 16] {
 impl PortalActor {
     fn publish_actor(
         &self,
+        myself: ActorRef<PortalActorMessage>,
         published_actors: &mut HashMap<OpaqueActorId, (ActorCell, BoxedRematerializer)>,
         actor_cell: ActorCell,
         receiver: BoxedRematerializer,
@@ -359,7 +371,16 @@ impl PortalActor {
                     actor_cell.get_id(),
                     new_id.0
                 );
-                published_actors.insert(new_id, (actor_cell, receiver));
+                published_actors.insert(new_id, (actor_cell.clone(), receiver));
+
+                ractor::concurrency::spawn(async move {
+                    // wait for the actor to exit
+                    let _ = actor_cell.wait(None).await;
+                    // notify the remote side that the actor has exited
+                    let _ = myself
+                        .send_message(PortalActorMessage::LocalActorExited(actor_cell.get_id()));
+                });
+
                 new_id
             }
         }
@@ -405,6 +426,7 @@ impl Actor for PortalActor {
                 self_introduction: introduction,
             },
             published_actors: HashMap::new(),
+            proxies_for_remote_actors: HashMap::new(),
             named_actors: HashMap::new(),
             open_requests: HashMap::new(),
             next_request_id: 1,
@@ -502,6 +524,7 @@ impl Actor for PortalActor {
                                             actor_published_on_nexus
                                         {
                                             let opaque_actor_id = self.publish_actor(
+                                                myself,
                                                 &mut state.published_actors,
                                                 actor_cell,
                                                 receiver,
@@ -607,6 +630,19 @@ impl Actor for PortalActor {
                                     );
                                 }
                             }
+
+                            CrossPortalMessage::ActorExited(remote_actor_id) => {
+                                let Some(actor_cell) =
+                                    state.proxies_for_remote_actors.remove(&remote_actor_id)
+                                else {
+                                    error!(
+                                        "Received ActorExited for unknown remote actor: {remote_actor_id:?}"
+                                    );
+                                    return Ok(());
+                                };
+
+                                actor_cell.stop(Some("Proxy for remote actor is being shutdown because the real actor exited".into()));
+                            }
                         }
                     }
                 }
@@ -637,7 +673,7 @@ impl Actor for PortalActor {
                 }
 
                 let opaque_actor_id =
-                    self.publish_actor(&mut state.published_actors, actor_cell, receiver);
+                    self.publish_actor(myself, &mut state.published_actors, actor_cell, receiver);
 
                 // note: this overrides an already published actor of the same name.
                 match state.named_actors.insert(name.clone(), opaque_actor_id) {
@@ -667,7 +703,7 @@ impl Actor for PortalActor {
                 }
 
                 let opaque_actor_id =
-                    self.publish_actor(&mut state.published_actors, actor_cell, receiver);
+                    self.publish_actor(myself, &mut state.published_actors, actor_cell, receiver);
 
                 if let Some(rpc) = rpc {
                     let PortalConduitState::Open { channel_id, .. } = &state.channel_state else {
@@ -744,6 +780,47 @@ impl Actor for PortalActor {
 
                 let request = CrossPortalMessage::SendMessage(target, bytes.into_boxed_slice());
                 let bytes = request.immaterialize()?;
+                state
+                    .args
+                    .sender
+                    .send(ConduitMessage::Binary(bytes))
+                    .await?;
+                state.args.sender.flush().await?;
+            }
+
+            PortalActorMessage::RegisterProxyForRemoteActor(remote_actor_id, actor_cell) => {
+                let PortalConduitState::Open { .. } = &state.channel_state else {
+                    error!("RegisterProxyForRemoteActor called before handshake");
+                    return Ok(());
+                };
+
+                state
+                    .proxies_for_remote_actors
+                    .insert(remote_actor_id, actor_cell);
+            }
+
+            PortalActorMessage::LocalActorExited(actor_id) => {
+                let PortalConduitState::Open { channel_id, .. } = &state.channel_state else {
+                    error!("LocalActorExited called before handshake");
+                    return Ok(());
+                };
+
+                let Some(entry) = state
+                    .published_actors
+                    .iter_mut()
+                    .find(|(_k, (v, _))| v.get_id() == actor_id)
+                else {
+                    error!("LocalActorExited called for unknown actor: {actor_id}");
+                    return Ok(());
+                };
+
+                let msg = CrossPortalMessage::ActorExited(RemoteActorId {
+                    connection_key: *channel_id,
+                    side: state.args.local_id,
+                    id: *entry.0,
+                });
+
+                let bytes = msg.immaterialize()?;
                 state
                     .args
                     .sender
