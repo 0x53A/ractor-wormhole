@@ -100,7 +100,14 @@ impl<T: Message + Sync> Actor for FnActorImpl<T> {
 ///
 /// Both of these functions have ``_linked`` variants, which will link the actor to a supervisor using ``ractor::spawn_linked``.
 /// ```rust
-/// # use ractor::util::{FnActor, FnActorCtx};
+/// # use ractor_wormhole::util::{FnActor, FnActorCtx};
+/// # use tokio::runtime;
+/// #
+/// # let rt = runtime::Builder::new_current_thread()
+/// #     .enable_all()
+/// #     .build()
+/// #     .unwrap();
+/// # let _: Result<(), anyhow::Error> = rt.block_on(async {
 /// // spawn actor
 /// let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
 ///     while let Some(msg) = ctx.rx.recv().await {
@@ -111,6 +118,8 @@ impl<T: Message + Sync> Actor for FnActorImpl<T> {
 ///
 /// // Send a message to the actor
 /// actor_ref.send_message(42)?;
+/// # Ok(())
+/// # });
 /// ```
 pub struct FnActor<T> {
     _marker: PhantomData<T>,
