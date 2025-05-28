@@ -94,10 +94,10 @@ impl<T: Message + Sync> Actor for FnActorImpl<T> {
 // -------------------------------------------------------------------------------------------------------
 
 /// A functional abstraction over actor structs.
-/// 
+///
 /// There are a few variations, the primary use is ``start_fn``, which takes an async callback function.
 /// Alternatively you can use ``start``, which returns a raw receiver handle and you'll need to poll it for messages manually.
-/// 
+///
 /// Both of these functions have ``_linked`` variants, which will link the actor to a supervisor using ``ractor::spawn_linked``.
 /// ```rust
 /// # use ractor::util::{FnActor, FnActorCtx};
@@ -108,7 +108,7 @@ impl<T: Message + Sync> Actor for FnActorImpl<T> {
 ///     }
 /// })
 /// .await?;
-/// 
+///
 /// // Send a message to the actor
 /// actor_ref.send_message(42)?;
 /// ```

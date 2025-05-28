@@ -321,3 +321,163 @@ impl ContextTransmaterializable for () {
 }
 
 // -------------------------------------------------------------------------------------------------------
+
+#[async_trait]
+impl<T, E> ContextTransmaterializable for Result<T, E>
+where
+    T: ContextTransmaterializable + Send + Sync + 'static,
+    E: ContextTransmaterializable + Send + Sync + 'static,
+{
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> TransmaterializationResult<Vec<u8>> {
+        match self {
+            Ok(value) => {
+                let mut buffer = Vec::with_capacity(9);
+                buffer.extend_from_slice(&[0u8]);
+
+                let value_bytes = value.immaterialize(ctx).await?;
+                let length: u64 = value_bytes.len() as u64;
+                buffer.extend_from_slice(&length.to_le_bytes());
+                buffer.extend_from_slice(&value_bytes);
+
+                Ok(buffer)
+            }
+            Err(err) => {
+                let mut buffer = Vec::with_capacity(9);
+                buffer.extend_from_slice(&[1u8]);
+                let err_bytes = err.immaterialize(ctx).await?;
+                let length: u64 = err_bytes.len() as u64;
+                buffer.extend_from_slice(&length.to_le_bytes());
+                buffer.extend_from_slice(&err_bytes);
+                Ok(buffer)
+            }
+        }
+    }
+
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
+        data: &[u8],
+    ) -> TransmaterializationResult<Self> {
+        require_min_buffer_size(data, 9)?; // discriminant(1) + length(8)
+        let discriminant = data[0];
+        let mut offset = 1;
+
+        let length = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        offset += 8;
+
+        require_min_buffer_size(data, offset + length)?; // Ensure there are bytes for data
+        let inner_data = &data[offset..offset + length];
+        offset += length;
+
+        require_buffer_size(data, offset)?; // Ensure all data is consumed
+
+        match discriminant {
+            0u8 => {
+                let value = T::rematerialize(ctx, inner_data).await?;
+                Ok(Ok(value))
+            }
+            1u8 => {
+                let err_val = E::rematerialize(ctx, inner_data).await?;
+                Ok(Err(err_val))
+            }
+            _ => Err(anyhow::anyhow!(
+                "Invalid discriminant for Result: {}. Expected 0 for Ok or 1 for Err.",
+                discriminant
+            )),
+        }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------------
+
+#[async_trait]
+impl<T> ContextTransmaterializable for Option<T>
+where
+    T: ContextTransmaterializable + Send + Sync + 'static,
+{
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> TransmaterializationResult<Vec<u8>> {
+        match self {
+            Some(value) => {
+                // Capacity: 1 (discriminant) + 8 (length) + value_bytes.len()
+                // Initial capacity for discriminant and length.
+                let mut buffer = Vec::with_capacity(1 + 8);
+                buffer.push(1u8);
+
+                let value_bytes = value.immaterialize(ctx).await?;
+                let length: u64 = value_bytes.len() as u64;
+                buffer.extend_from_slice(&length.to_le_bytes());
+                buffer.extend_from_slice(&value_bytes);
+
+                Ok(buffer)
+            }
+            None => {
+                // Capacity: 1 (discriminant)
+                let mut buffer = Vec::with_capacity(1);
+                buffer.push(0u8);
+                Ok(buffer)
+            }
+        }
+    }
+
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
+        data: &[u8],
+    ) -> TransmaterializationResult<Self> {
+        require_min_buffer_size(data, 1)?;
+        let discriminant = data[0];
+        let mut offset = 1;
+
+        match discriminant {
+            0u8 => {
+                require_buffer_size(data, offset)?; // Ensure all data is consumed for None
+                Ok(None)
+            }
+            1u8 => {
+                require_min_buffer_size(data, offset + 8)?; // Ensure there are bytes for length
+                let length = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+                offset += 8;
+
+                require_min_buffer_size(data, offset + length)?; // Ensure there are bytes for data
+                let inner_data = &data[offset..offset + length];
+                offset += length;
+
+                require_buffer_size(data, offset)?; // Ensure all data is consumed
+
+                let value = T::rematerialize(ctx, inner_data).await?;
+                Ok(Some(value))
+            }
+            _ => Err(anyhow::anyhow!(
+                "Invalid discriminant for Option: {}. Expected 0 for None or 1 for Some.",
+                discriminant
+            )),
+        }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------------
+
+#[async_trait]
+impl ContextTransmaterializable for anyhow::Error {
+    async fn immaterialize(
+        self,
+        ctx: &TransmaterializationContext,
+    ) -> TransmaterializationResult<Vec<u8>> {
+        let error_string = format!("{}", self);
+        error_string.immaterialize(ctx).await
+    }
+
+    async fn rematerialize(
+        ctx: &TransmaterializationContext,
+        data: &[u8],
+    ) -> TransmaterializationResult<Self> {
+        let error_message = String::rematerialize(ctx, data).await?;
+        Ok(anyhow::anyhow!(error_message))
+    }
+}
+
+// -------------------------------------------------------------------------------------------------------
