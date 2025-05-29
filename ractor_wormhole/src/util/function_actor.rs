@@ -141,6 +141,18 @@ impl<T: Message + Sync> FnActor<T> {
 
     /// start a new actor, and returns a Receive handle to its message queue.
     /// It's the obligation of the caller to poll the receive handle.
+    pub fn start_instant()
+    -> Result<(FnActorCtx<T>, JoinHandle<Result<JoinHandle<()>, SpawnErr>>), SpawnErr> {
+        let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE);
+
+        let args = FnActorArgs { tx };
+        let (actor_ref, handle) =
+            ractor::ActorRuntime::spawn_instant(None, FnActorImpl::new(), args)?;
+        Ok((FnActorCtx { rx, actor_ref }, handle))
+    }
+
+    /// start a new actor, and returns a Receive handle to its message queue.
+    /// It's the obligation of the caller to poll the receive handle.
     pub async fn start_linked(
         supervisor: ActorCell,
     ) -> Result<(FnActorCtx<T>, JoinHandle<()>), SpawnErr> {
@@ -182,6 +194,26 @@ impl<T: Message + Sync> FnActor<T> {
         T: Message + Sync,
     {
         let (ctx, handle) = Self::start_linked(supervisor).await?;
+        let actor_ref = ctx.actor_ref.clone();
+
+        ractor::concurrency::spawn(async move {
+            f(ctx).await;
+        });
+
+        Ok((actor_ref, handle))
+    }
+
+    /// starts a new actor based on a function that takes the Receive handle.
+    /// The function will be executed as a task, it should loop and poll the receive handle.
+    pub fn start_fn_instant<F, Fut>(
+        f: F,
+    ) -> Result<(ActorRef<T>, JoinHandle<Result<JoinHandle<()>, SpawnErr>>), SpawnErr>
+    where
+        F: FnOnce(FnActorCtx<T>) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = ()> + Send,
+        T: Message + Sync,
+    {
+        let (ctx, handle) = Self::start_instant()?;
         let actor_ref = ctx.actor_ref.clone();
 
         ractor::concurrency::spawn(async move {
