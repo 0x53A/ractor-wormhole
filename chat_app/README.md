@@ -30,6 +30,23 @@ cargo run -p client -- --url ws://localhost:8085
 
 ----------------
 
+For the browser:
+
+```
+# one time
+cargo install --locked trunk
+
+# in wasm_client
+trunk build --release
+
+# in wasm_server
+cargo run
+#  or
+cargo build --release
+```
+
+----------------
+
 An instance of the server is also hosted at render.com.
 
 ![alt text](./_md_content/image.png)

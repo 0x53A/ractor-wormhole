@@ -211,7 +211,7 @@ impl<T: Message + Sync> FnActor<T> {
     where
         F: FnOnce(FnActorCtx<T>) -> Fut + Send + 'static,
         Fut: std::future::Future<Output = ()> + Send,
-        T: Message + Sync,
+        T: Message,
     {
         let (ctx, handle) = Self::start_instant()?;
         let actor_ref = ctx.actor_ref.clone();
