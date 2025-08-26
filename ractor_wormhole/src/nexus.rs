@@ -198,7 +198,7 @@ pub async fn start_nexus(
     on_client_connected: Option<ActorRef<OnActorConnectedMessage>>,
 ) -> Result<ActorRef<NexusActorMessage>, ractor::ActorProcessingErr> {
     let (nexus_ref, _handle) = NexusActor::spawn(
-        Some(name.unwrap_or(String::from("nexus"))),
+        name,
         NexusActor,
         NexusActorArgs {
             on_client_connected,
