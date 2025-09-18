@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_server"] }
 shared = { path = "../shared" }
-clap = { version = "4.5.46", features = ["derive"] }
+clap = { version = "4.5.47", features = ["derive"] }
 env_logger = "0.11.8"
 ractor = { version = "0.15.8", features = [] }
 tokio = { version = "1.47.1", features = ["full"] }
@@ -16,7 +16,7 @@ static_assertions = "1.1.0"
 futures = "0.3.31"
 futures-util = "0.3.31"
 hyper = { version = "1.7.0", features = ["full"] }
-hyper-util = { version = "0.1.16", features = ["full"] }
+hyper-util = { version = "0.1.17", features = ["full"] }
 hyper-tungstenite = "0.18.0"
 http-body-util = "0.1.3"
 

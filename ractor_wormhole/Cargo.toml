@@ -10,8 +10,8 @@ ractor = { version = "0.15.8", features = [] }
 ractor_cluster_derive = { version = "0.15.8", optional = true }
 
 # note: the introduction is json serialized
-serde = { version = "1.0.219", features = ["serde_derive"] }
-serde_json = "1.0.143"
+serde = { version = "1.0.225", features = ["serde_derive"] }
+serde_json = "1.0.145"
 tokio = { version = "1.47.1", features = [
     #"rt-multi-thread",
     #"net",
@@ -19,22 +19,22 @@ tokio = { version = "1.47.1", features = [
     #"macros",
     #"sync"
 ]}
-tokio-tungstenite = { version = "0.26.2", optional = true }
+tokio-tungstenite = { version = "0.27.0", optional = true }
 tungstenite = { version = "0.27.0", optional = true }
 
 anyhow = { version = "1.0.99", features = ["backtrace"] }
 bincode = { version = "2.0.1", features = [] }
 futures = "0.3.31"
-log = "0.4.27"
+log = "0.4.28"
 tracing = "0.1.41"
 rand = "0.9.2"
-uuid = { version = "1.18.0", features = ["rng", "v4"] }
+uuid = { version = "1.18.1", features = ["rng", "v4"] }
 static_assertions = "1.1.0"
 async-trait = "0.1.89"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4.50"
+wasm-bindgen-futures = "0.4.53"
 ewebsock = { version = "0.8.0", features = ["tls"], optional = true }
 tokio_with_wasm = "0.8.7"
 
