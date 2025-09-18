@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_client"] }
 shared = { path = "../shared" }
-clap = { version = "4.5.45", features = ["derive"] }
+clap = { version = "4.5.46", features = ["derive"] }
 env_logger = "0.11.8"
 ractor = { version = "0.15.8", features = [] }
 tokio = { version = "1.47.1", features = ["full"] }
