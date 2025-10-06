@@ -6,11 +6,11 @@ edition = "2024"
 [dependencies]
 ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_client"] }
 shared = { path = "../shared" }
-clap = { version = "4.5.47", features = ["derive"] }
+clap = { version = "4.5.48", features = ["derive"] }
 env_logger = "0.11.8"
 ractor = { version = "0.15.8", features = [] }
 tokio = { version = "1.47.1", features = ["full"] }
-anyhow = { version = "1.0.99", features = ["backtrace"] }
+anyhow = { version = "1.0.100", features = ["backtrace"] }
 ratatui = "0.29.0"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 color-eyre = "0.6.5"

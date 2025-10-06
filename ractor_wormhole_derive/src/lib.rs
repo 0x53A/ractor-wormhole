@@ -1,4 +1,5 @@
 mod derive_wormhole_serializable;
+mod derive_generate_deps;
 mod util;
 
 use proc_macro::TokenStream;
@@ -13,4 +14,9 @@ pub fn derive_wormhole_transmaterializable(input: TokenStream) -> TokenStream {
         Ok(ts) => TokenStream::from(ts),
         Err(e) => TokenStream::from(e.to_compile_error()),
     }
+}
+
+#[proc_macro]
+pub fn generate_deps(input: TokenStream) -> TokenStream {
+    derive_generate_deps::generate_deps(input)
 }

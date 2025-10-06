@@ -18,3 +18,6 @@ pub use ractor_wormhole_derive::WormholeTransmaterializable;
 
 // re-export ractor itself
 pub use ractor;
+
+// re-export all direct dependencies
+ractor_wormhole_derive::generate_deps!();
