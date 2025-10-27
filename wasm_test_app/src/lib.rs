@@ -93,13 +93,14 @@ async fn test_multiple_actors() -> Result<(), String> {
     let counter2 = Arc::new(Mutex::new(0));
 
     let c1 = counter1.clone();
-    let (actor1, _handle1) = ThreadLocalFnActor::<u32>::start_fn(spawner.clone(), |mut ctx| async move {
-        while let Some(msg) = ctx.rx.next().await {
-            *c1.lock().unwrap() += msg;
-        }
-    })
-    .await
-    .map_err(|e| format!("Failed to start actor1: {:?}", e))?;
+    let (actor1, _handle1) =
+        ThreadLocalFnActor::<u32>::start_fn(spawner.clone(), |mut ctx| async move {
+            while let Some(msg) = ctx.rx.next().await {
+                *c1.lock().unwrap() += msg;
+            }
+        })
+        .await
+        .map_err(|e| format!("Failed to start actor1: {:?}", e))?;
 
     let c2 = counter2.clone();
     let (actor2, _handle2) = ThreadLocalFnActor::<u32>::start_fn(spawner, |mut ctx| async move {
@@ -150,15 +151,9 @@ async fn test_string_messages() -> Result<(), String> {
         .map_err(|e| format!("Failed to start actor: {:?}", e))?;
 
     // Send string messages
-    actor_ref
-        .send_message("Hello".to_string())
-        .unwrap();
-    actor_ref
-        .send_message("WASM".to_string())
-        .unwrap();
-    actor_ref
-        .send_message("World".to_string())
-        .unwrap();
+    actor_ref.send_message("Hello".to_string()).unwrap();
+    actor_ref.send_message("WASM".to_string()).unwrap();
+    actor_ref.send_message("World".to_string()).unwrap();
 
     wait_ms(100).await;
 
@@ -310,10 +305,9 @@ pub fn render_main_page() {
     let closure = Closure::wrap(Box::new(move || {
         let win = web_sys::window().expect("no global window");
         let doc = win.document().expect("no document");
-        let log_div = doc
-            .get_element_by_id("log")
-            .expect("log div not found");
-        log_div.set_inner_html("<div class='log-entry info'>Logs cleared. Ready for tests...</div>");
+        let log_div = doc.get_element_by_id("log").expect("log div not found");
+        log_div
+            .set_inner_html("<div class='log-entry info'>Logs cleared. Ready for tests...</div>");
         set_status("Ready to run tests", "");
     }) as Box<dyn FnMut()>);
     clear_button

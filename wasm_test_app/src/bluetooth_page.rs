@@ -1,15 +1,15 @@
-use std::cell::RefCell;
 use futures::StreamExt;
 use js_sys::Uint8Array;
+use ractor::rpc::CallResult;
 use ractor::thread_local::ThreadLocalActorSpawner;
 use ractor::{ActorRef, RpcReplyPort};
-use ractor::rpc::CallResult;
 use ractor_wormhole::util::ThreadLocalFnActor;
+use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
-    BluetoothDevice, BluetoothRemoteGattCharacteristic,
-    BluetoothRemoteGattServer, BluetoothRemoteGattService, window,
+    window, BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer,
+    BluetoothRemoteGattService,
 };
 
 // Global state for the Bluetooth connection
@@ -145,7 +145,7 @@ async fn connect_to_bluetooth_device() -> Result<(), String> {
     // Create request options - accept all devices for demo
     let options = web_sys::RequestDeviceOptions::new();
     options.set_accept_all_devices(true);
-    
+
     // Request optional services (generic GATT services)
     let optional_services = js_sys::Array::new();
     optional_services.push(&JsValue::from_str("battery_service"));
@@ -161,7 +161,9 @@ async fn connect_to_bluetooth_device() -> Result<(), String> {
         .map_err(|e| format!("Failed to request device: {:?}", e))?
         .unchecked_into();
 
-    let device_name = device.name().unwrap_or_else(|| "Unknown Device".to_string());
+    let device_name = device
+        .name()
+        .unwrap_or_else(|| "Unknown Device".to_string());
     let device_id = device.id();
 
     log_to_device_info(&format!("✅ Selected device: {}", device_name), "success");
@@ -184,7 +186,7 @@ async fn connect_to_bluetooth_device() -> Result<(), String> {
 
     // Start the actor to handle device interactions
     let actor_ref = spawn_bluetooth_actor(device.clone(), server.clone()).await?;
-    
+
     // Store the actor reference globally
     BLUETOOTH_ACTOR.with(|actor| {
         *actor.borrow_mut() = Some(actor_ref.clone());
@@ -192,9 +194,15 @@ async fn connect_to_bluetooth_device() -> Result<(), String> {
 
     // Discover characteristics via the actor
     log_to_device_info("🔍 Requesting characteristics from actor...", "info");
-    match actor_ref.call(|reply| BluetoothMsg::GetCharacteristics(reply), None).await {
+    match actor_ref
+        .call(|reply| BluetoothMsg::GetCharacteristics(reply), None)
+        .await
+    {
         Ok(CallResult::Success(Ok(characteristics))) => {
-            log_to_device_info(&format!("📡 Found {} characteristic(s)", characteristics.len()), "success");
+            log_to_device_info(
+                &format!("📡 Found {} characteristic(s)", characteristics.len()),
+                "success",
+            );
             display_characteristics(characteristics);
         }
         Ok(CallResult::Success(Err(e))) => {
@@ -221,56 +229,70 @@ async fn spawn_bluetooth_actor(
     log_to_device_info("🎬 Starting Bluetooth actor...", "info");
 
     let spawner = ThreadLocalActorSpawner::new();
-    
-    let (actor_ref, _handle) = ThreadLocalFnActor::<BluetoothMsg>::start_fn(
-        spawner,
-        |mut ctx| async move {
+
+    let (actor_ref, _handle) =
+        ThreadLocalFnActor::<BluetoothMsg>::start_fn(spawner, |mut ctx| async move {
             log_to_device_info("✅ Bluetooth actor started!", "success");
             log_to_device_info(
-                &format!("💡 Actor managing device: {} (BluetoothDevice is !Send!)", 
-                    device.name().unwrap_or_default()), 
-                "info"
+                &format!(
+                    "💡 Actor managing device: {} (BluetoothDevice is !Send!)",
+                    device.name().unwrap_or_default()
+                ),
+                "info",
             );
             log_to_device_info(
-                "💡 This works because everything stays on the main thread!", 
-                "success"
+                "💡 This works because everything stays on the main thread!",
+                "success",
             );
-            
+
             // Store discovered characteristics in the actor's context
             let mut characteristics: Vec<(String, BluetoothRemoteGattCharacteristic)> = Vec::new();
-            
+
             while let Some(msg) = ctx.rx.next().await {
                 match msg {
                     BluetoothMsg::GetCharacteristics(reply) => {
                         log_to_device_info("� Actor discovering services...", "info");
-                        
+
                         match discover_characteristics_internal(&server).await {
                             Ok(discovered) => {
                                 // Store characteristics for later use
                                 characteristics = discovered.clone();
-                                
+
                                 // Convert to CharacteristicInfo for UI
                                 let info_list: Vec<CharacteristicInfo> = discovered
                                     .iter()
                                     .map(|(uuid, ch)| {
                                         let props = ch.properties();
                                         let mut prop_list = Vec::new();
-                                        if props.read() { prop_list.push("Read".to_string()); }
-                                        if props.write() { prop_list.push("Write".to_string()); }
-                                        if props.write_without_response() { prop_list.push("WriteNoResp".to_string()); }
-                                        if props.notify() { prop_list.push("Notify".to_string()); }
-                                        if props.indicate() { prop_list.push("Indicate".to_string()); }
-                                        
+                                        if props.read() {
+                                            prop_list.push("Read".to_string());
+                                        }
+                                        if props.write() {
+                                            prop_list.push("Write".to_string());
+                                        }
+                                        if props.write_without_response() {
+                                            prop_list.push("WriteNoResp".to_string());
+                                        }
+                                        if props.notify() {
+                                            prop_list.push("Notify".to_string());
+                                        }
+                                        if props.indicate() {
+                                            prop_list.push("Indicate".to_string());
+                                        }
+
                                         CharacteristicInfo {
                                             uuid: uuid.clone(),
                                             properties: prop_list,
                                         }
                                     })
                                     .collect();
-                                
+
                                 log_to_device_info(
-                                    &format!("✅ Actor discovered {} characteristics", info_list.len()),
-                                    "success"
+                                    &format!(
+                                        "✅ Actor discovered {} characteristics",
+                                        info_list.len()
+                                    ),
+                                    "success",
                                 );
                                 let _ = reply.send(Ok(info_list));
                             }
@@ -318,19 +340,20 @@ async fn spawn_bluetooth_actor(
                     }
                 }
             }
-            
+
             log_to_device_info("Bluetooth actor stopped", "info");
-        },
-    )
-    .await
-    .map_err(|e| format!("Failed to start actor: {:?}", e))?;
+        })
+        .await
+        .map_err(|e| format!("Failed to start actor: {:?}", e))?;
 
     log_to_device_info("🎉 Actor is managing the Bluetooth device!", "success");
 
     Ok(actor_ref)
 }
 
-async fn discover_characteristics_internal(server: &BluetoothRemoteGattServer) -> Result<Vec<(String, BluetoothRemoteGattCharacteristic)>, String> {
+async fn discover_characteristics_internal(
+    server: &BluetoothRemoteGattServer,
+) -> Result<Vec<(String, BluetoothRemoteGattCharacteristic)>, String> {
     log_to_device_info("🔍 Discovering services...", "info");
 
     let services_promise = server.get_primary_services();
@@ -339,14 +362,15 @@ async fn discover_characteristics_internal(server: &BluetoothRemoteGattServer) -
         .map_err(|e| format!("Failed to get services: {:?}", e))?;
 
     let services = js_sys::Array::from(&services_js);
-    log_to_device_info(&format!("📡 Found {} service(s)", services.length()), "success");
+    log_to_device_info(
+        &format!("📡 Found {} service(s)", services.length()),
+        "success",
+    );
 
     let mut result = Vec::new();
 
     for i in 0..services.length() {
-        let service: BluetoothRemoteGattService = services
-            .get(i)
-            .unchecked_into();
+        let service: BluetoothRemoteGattService = services.get(i).unchecked_into();
         let service_uuid = service.uuid();
 
         log_to_characteristics(&format!("📦 Service: {}", service_uuid), "info");
@@ -354,14 +378,12 @@ async fn discover_characteristics_internal(server: &BluetoothRemoteGattServer) -
         // Get characteristics for this service
         let chars_promise = service.get_characteristics();
         let chars_result = wasm_bindgen_futures::JsFuture::from(chars_promise).await;
-        
+
         if let Ok(chars_js) = chars_result {
             let chars = js_sys::Array::from(&chars_js);
 
             for j in 0..chars.length() {
-                let ch: BluetoothRemoteGattCharacteristic = chars
-                    .get(j)
-                    .unchecked_into();
+                let ch: BluetoothRemoteGattCharacteristic = chars.get(j).unchecked_into();
                 let char_uuid = ch.uuid();
                 let props = ch.properties();
 
@@ -383,40 +405,41 @@ async fn discover_characteristics_internal(server: &BluetoothRemoteGattServer) -
                 }
 
                 let props_str = prop_list.join(", ");
-                log_to_characteristics(
-                    &format!("  ⚡ {}: [{}]", char_uuid, props_str),
-                    "success",
-                );
+                log_to_characteristics(&format!("  ⚡ {}: [{}]", char_uuid, props_str), "success");
 
                 // Store for return
                 result.push((char_uuid.clone(), ch.clone()));
-                
+
                 // Try to enable notifications if supported
                 if props.notify() {
                     let ch_clone = ch.clone();
                     wasm_bindgen_futures::spawn_local(async move {
                         let promise = ch_clone.start_notifications();
                         if let Ok(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
-                                log_to_characteristics(
-                                    &format!("    � Notifications enabled for {}", ch_clone.uuid()),
-                                    "success"
-                                );
-                                
-                                // Set up notification handler
-                                let closure = Closure::wrap(Box::new(move |ev: JsValue| {
-                                    if let Some(hex) = extract_value_from_event(&ev) {
-                                        log_to_device_info(
-                                            &format!("📬 Notification: {} bytes", hex.split(' ').count()),
-                                            "success"
-                                        );
-                                    }
-                                }) as Box<dyn FnMut(_)>);
-                                
-                                let _ = ch_clone.add_event_listener_with_callback(
-                                    "characteristicvaluechanged",
-                                    closure.as_ref().unchecked_ref()
-                                );
-                                closure.forget();
+                            log_to_characteristics(
+                                &format!("    � Notifications enabled for {}", ch_clone.uuid()),
+                                "success",
+                            );
+
+                            // Set up notification handler
+                            let closure = Closure::wrap(Box::new(move |ev: JsValue| {
+                                if let Some(hex) = extract_value_from_event(&ev) {
+                                    log_to_device_info(
+                                        &format!(
+                                            "📬 Notification: {} bytes",
+                                            hex.split(' ').count()
+                                        ),
+                                        "success",
+                                    );
+                                }
+                            })
+                                as Box<dyn FnMut(_)>);
+
+                            let _ = ch_clone.add_event_listener_with_callback(
+                                "characteristicvaluechanged",
+                                closure.as_ref().unchecked_ref(),
+                            );
+                            closure.forget();
                         }
                     });
                 }
@@ -427,11 +450,10 @@ async fn discover_characteristics_internal(server: &BluetoothRemoteGattServer) -
     Ok(result)
 }
 
-
 // UI function to display characteristics
 fn display_characteristics(characteristics: Vec<CharacteristicInfo>) {
     clear_characteristics_list();
-    
+
     for char_info in characteristics {
         let props_str = char_info.properties.join(", ");
         log_to_characteristics(
@@ -443,10 +465,11 @@ fn display_characteristics(characteristics: Vec<CharacteristicInfo>) {
         if char_info.properties.contains(&"Read".to_string()) {
             add_read_button(&char_info.uuid);
         }
-        
+
         // Add write button if writable
-        if char_info.properties.contains(&"Write".to_string()) || 
-           char_info.properties.contains(&"WriteNoResp".to_string()) {
+        if char_info.properties.contains(&"Write".to_string())
+            || char_info.properties.contains(&"WriteNoResp".to_string())
+        {
             add_write_button(&char_info.uuid);
         }
     }
@@ -458,7 +481,7 @@ async fn try_read_characteristic(ch: &BluetoothRemoteGattCharacteristic) -> Resu
     let value_js = wasm_bindgen_futures::JsFuture::from(value_promise)
         .await
         .map_err(|e| format!("Read failed: {:?}", e))?;
-    
+
     // The returned value is a DataView, we need to extract the buffer
     // Try to get the buffer and create a Uint8Array from it
     if let Ok(buffer) = js_sys::Reflect::get(&value_js, &JsValue::from_str("buffer")) {
@@ -470,16 +493,16 @@ async fn try_read_characteristic(ch: &BluetoothRemoteGattCharacteristic) -> Resu
             .ok()
             .and_then(|v| v.as_f64())
             .unwrap_or(0.0) as u32;
-        
+
         if byte_length == 0 {
             return Ok("(empty)".to_string());
         }
-        
+
         let arr = Uint8Array::new(&buffer);
         let view = arr.subarray(byte_offset, byte_offset + byte_length);
         return Ok(bytes_to_hex(&view));
     }
-    
+
     // Fallback: try as direct Uint8Array
     let u8array = Uint8Array::new(&value_js);
     if u8array.length() == 0 {
@@ -490,15 +513,19 @@ async fn try_read_characteristic(ch: &BluetoothRemoteGattCharacteristic) -> Resu
 }
 
 // Try to write to a characteristic
-async fn try_write_characteristic(ch: &BluetoothRemoteGattCharacteristic, data: &[u8]) -> Result<(), String> {
+async fn try_write_characteristic(
+    ch: &BluetoothRemoteGattCharacteristic,
+    data: &[u8],
+) -> Result<(), String> {
     let u8array = Uint8Array::from(data);
-    let write_promise = ch.write_value_with_u8_array(&u8array)
+    let write_promise = ch
+        .write_value_with_u8_array(&u8array)
         .map_err(|e| format!("Write setup failed: {:?}", e))?;
-    
+
     wasm_bindgen_futures::JsFuture::from(write_promise)
         .await
         .map_err(|e| format!("Write failed: {:?}", e))?;
-    
+
     Ok(())
 }
 
@@ -601,7 +628,7 @@ fn add_read_button(char_uuid: &str) {
     let button = document.create_element("button").expect("create button");
     button.set_class_name("bt-read-button");
     button.set_inner_html(&format!("📖 Read {}", char_uuid));
-    
+
     let uuid = char_uuid.to_string();
     let closure = Closure::wrap(Box::new(move || {
         let uuid_clone = uuid.clone();
@@ -611,10 +638,13 @@ fn add_read_button(char_uuid: &str) {
                 let actor_clone = actor_ref.clone();
                 wasm_bindgen_futures::spawn_local(async move {
                     log_to_device_info(&format!("📖 Reading {}...", uuid_clone), "info");
-                    match actor_clone.call(
-                        |reply| BluetoothMsg::ReadCharacteristic(uuid_clone.clone(), reply),
-                        None
-                    ).await {
+                    match actor_clone
+                        .call(
+                            |reply| BluetoothMsg::ReadCharacteristic(uuid_clone.clone(), reply),
+                            None,
+                        )
+                        .await
+                    {
                         Ok(CallResult::Success(Ok(hex))) => {
                             log_to_device_info(&format!("✅ Read value: {}", hex), "success");
                         }
@@ -637,7 +667,7 @@ fn add_read_button(char_uuid: &str) {
             }
         });
     }) as Box<dyn FnMut()>);
-    
+
     button
         .add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())
         .expect("add event listener");
@@ -656,7 +686,7 @@ fn add_write_button(char_uuid: &str) {
     let button = document.create_element("button").expect("create button");
     button.set_class_name("bt-read-button");
     button.set_inner_html(&format!("✍️ Write Test to {}", char_uuid));
-    
+
     let uuid = char_uuid.to_string();
     let closure = Closure::wrap(Box::new(move || {
         let uuid_clone = uuid.clone();
@@ -668,12 +698,21 @@ fn add_write_button(char_uuid: &str) {
                 wasm_bindgen_futures::spawn_local(async move {
                     log_to_device_info(
                         &format!("✍️ Writing {} bytes to {}...", test_data.len(), uuid_clone),
-                        "info"
+                        "info",
                     );
-                    match actor_clone.call(
-                        |reply| BluetoothMsg::WriteCharacteristic(uuid_clone.clone(), test_data, reply),
-                        None
-                    ).await {
+                    match actor_clone
+                        .call(
+                            |reply| {
+                                BluetoothMsg::WriteCharacteristic(
+                                    uuid_clone.clone(),
+                                    test_data,
+                                    reply,
+                                )
+                            },
+                            None,
+                        )
+                        .await
+                    {
                         Ok(CallResult::Success(Ok(()))) => {
                             log_to_device_info("✅ Write successful", "success");
                         }
@@ -696,7 +735,7 @@ fn add_write_button(char_uuid: &str) {
             }
         });
     }) as Box<dyn FnMut()>);
-    
+
     button
         .add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())
         .expect("add event listener");
@@ -719,12 +758,12 @@ fn set_bluetooth_status(message: &str, class: &str) {
 fn update_ui_connection_state(connected: bool) {
     let window = window().expect("no global window");
     let document = window.document().expect("no document");
-    
+
     if let Some(connect_btn) = document.get_element_by_id("connectButton") {
         let button: web_sys::HtmlButtonElement = connect_btn.dyn_into().unwrap();
         button.set_disabled(connected);
     }
-    
+
     if let Some(disconnect_btn) = document.get_element_by_id("disconnectButton") {
         let button: web_sys::HtmlButtonElement = disconnect_btn.dyn_into().unwrap();
         button.set_disabled(!connected);

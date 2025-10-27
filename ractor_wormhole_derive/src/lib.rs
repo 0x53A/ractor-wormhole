@@ -1,5 +1,5 @@
-mod derive_wormhole_serializable;
 mod derive_generate_deps;
+mod derive_wormhole_serializable;
 mod util;
 
 use proc_macro::TokenStream;

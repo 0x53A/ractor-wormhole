@@ -38,7 +38,6 @@ wasm-bindgen-futures = "0.4.54"
 ewebsock = { version = "0.8.0", features = ["tls"], optional = true }
 tokio_with_wasm = "0.8.7"
 
-
 [features]
 default = ["derive"]
 ractor_cluster = ["ractor_cluster_derive", "ractor/cluster"]
