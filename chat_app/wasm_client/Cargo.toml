@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 shared = { path = "../shared" }
-eframe = { version = "0.32.3", features = ["default_fonts", "glow", "persistence"] }
-egui = "0.32.3"
+eframe = { version = "0.33.0", features = ["default_fonts", "glow", "persistence"] }
+egui = "0.33.0"
 env_logger = "0.11.8"
 log = "0.4.28"
 ractor = "0.15.8"
