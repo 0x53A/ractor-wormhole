@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use futures::StreamExt;
 use ractor::thread_local::ThreadLocalActorSpawner;
 use ractor_wormhole::util::ThreadLocalFnActor;

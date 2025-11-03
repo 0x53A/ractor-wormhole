@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use futures::StreamExt;
 use js_sys::Uint8Array;
 use ractor::rpc::CallResult;
