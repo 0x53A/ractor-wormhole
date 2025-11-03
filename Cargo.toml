@@ -19,7 +19,7 @@ members = [
 
 [patch.crates-io]
 #tokio = { git = "https://github.com/0x53A/tokio", branch = "reentrant-current-thread-executor" }
-ractor = { git = "https://github.com/0x53A/ractor", branch = "dev-thread_local_actor_spawn_instant" }
+#ractor = { git = "https://github.com/0x53A/ractor", branch = "dev-thread_local_actor_spawn_instant" }
 
 
 [profile.release]
