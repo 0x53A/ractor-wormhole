@@ -10,9 +10,6 @@ use ractor::{
 #[cfg(feature = "async-trait")]
 use async_trait::async_trait;
 
-#[cfg(feature = "async-trait")]
-use async_trait::async_trait;
-
 // -------------------------------------------------------------------------------------------------------
 
 /// this context is passed to the function that runs the thread-local actor.

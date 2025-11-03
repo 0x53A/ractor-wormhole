@@ -37,9 +37,7 @@ tokio_with_wasm = "0.8.7"
 async-trait = "0.1"
 uuid = { version = "1.18.1", features = ["js"] }
 
-[profile.release]
-opt-level = "z"
-lto = true
+
 
 [features]
 async-trait = ["ractor_wormhole/async-trait"]

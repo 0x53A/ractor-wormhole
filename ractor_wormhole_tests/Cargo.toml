@@ -10,7 +10,7 @@ ractor_cluster_derive = { version = "0.15.8", optional = true }
 anyhow = { version = "1.0.100", features = ["backtrace"] }
 tokio = { version = "1.47.1", features = [] }
 futures = "0.3.31"
-async-trait = "0.1.89"
+async-trait = "0.1"
 
 [features]
 default = []
