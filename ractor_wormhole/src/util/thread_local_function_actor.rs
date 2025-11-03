@@ -2,11 +2,10 @@ use std::marker::PhantomData;
 
 use futures::channel::mpsc as futures_mpsc;
 use ractor::{
-    concurrency::JoinHandle, thread_local::{ThreadLocalActor, ThreadLocalActorSpawner}, ActorCell, ActorProcessingErr, ActorRef, Message, SpawnErr, SupervisionEvent
+    ActorCell, ActorProcessingErr, ActorRef, Message, SpawnErr, SupervisionEvent,
+    concurrency::JoinHandle,
+    thread_local::{ThreadLocalActor, ThreadLocalActorSpawner},
 };
-
-#[cfg(feature = "async-trait")]
-use async_trait::async_trait;
 
 #[cfg(feature = "async-trait")]
 use async_trait::async_trait;
@@ -40,7 +39,6 @@ struct ThreadLocalFnActorArgs<T> {
     pub tx: futures_mpsc::Sender<T>,
 }
 
-#[cfg_attr(feature = "async-trait", async_trait)]
 impl<T: Message> ThreadLocalActor for ThreadLocalFnActorImpl<T> {
     type Msg = T;
     type State = ThreadLocalFnActorState<T>;
@@ -65,7 +63,10 @@ impl<T: Message> ThreadLocalActor for ThreadLocalFnActorImpl<T> {
             Err(err) => {
                 tracing::error!("ThreadLocalFnActor: Failed to forward message: {}", err);
                 myself.stop(None);
-                Err(ActorProcessingErr::from(format!("Failed to send message: {}", err)))
+                Err(ActorProcessingErr::from(format!(
+                    "Failed to send message: {}",
+                    err
+                )))
             }
         }
     }
@@ -120,7 +121,7 @@ impl<T: Message> ThreadLocalActor for ThreadLocalFnActorImpl<T> {
 /// # local.run_until(async {
 /// // Create a spawner for thread-local actors
 /// let spawner = ThreadLocalActorSpawner::new();
-/// 
+///
 /// // spawn actor
 /// let (actor_ref, _handle) = ThreadLocalFnActor::<u32>::start_fn(spawner, |mut ctx| async move {
 ///     while let Some(msg) = ctx.rx.next().await {
@@ -145,7 +146,7 @@ const MAX_CHANNEL_SIZE: usize = 294967295 - 1000; // todo lmao
 impl<T: Message> ThreadLocalFnActor<T> {
     /// start a new thread-local actor, and returns a Receive handle to its message queue.
     /// It's the obligation of the caller to poll the receive handle.
-    /// 
+    ///
     /// * `spawner` - The [ThreadLocalActorSpawner] which controls which thread the actor runs on
     pub async fn start(
         spawner: ThreadLocalActorSpawner,
@@ -153,14 +154,13 @@ impl<T: Message> ThreadLocalFnActor<T> {
         let (tx, rx) = futures_mpsc::channel::<T>(MAX_CHANNEL_SIZE);
 
         let args = ThreadLocalFnActorArgs { tx };
-        let (actor_ref, handle) =
-            ThreadLocalFnActorImpl::<T>::spawn(None, args, spawner).await?;
+        let (actor_ref, handle) = ThreadLocalFnActorImpl::<T>::spawn(None, args, spawner).await?;
         Ok((ThreadLocalFnActorCtx { rx, actor_ref }, handle))
     }
 
     /// start a new thread-local actor, and returns a Receive handle to its message queue.
     /// It's the obligation of the caller to poll the receive handle.
-    /// 
+    ///
     /// * `spawner` - The [ThreadLocalActorSpawner] which controls which thread the actor runs on
     /// * `supervisor` - The supervisor actor that will monitor this actor
     pub async fn start_linked(
@@ -177,7 +177,7 @@ impl<T: Message> ThreadLocalFnActor<T> {
 
     /// starts a new thread-local actor based on a function that takes the Receive handle.
     /// The function will be executed as a task, it should loop and poll the receive handle.
-    /// 
+    ///
     /// * `spawner` - The [ThreadLocalActorSpawner] which controls which thread the actor runs on
     /// * `f` - The async function that will process messages
     pub async fn start_fn<F, Fut>(
@@ -203,7 +203,7 @@ impl<T: Message> ThreadLocalFnActor<T> {
 
     /// starts a new thread-local actor based on a function that takes the Receive handle.
     /// The function will be executed as a task, it should loop and poll the receive handle.
-    /// 
+    ///
     /// * `spawner` - The [ThreadLocalActorSpawner] which controls which thread the actor runs on
     /// * `supervisor` - The supervisor actor that will monitor this actor
     /// * `f` - The async function that will process messages
@@ -222,6 +222,49 @@ impl<T: Message> ThreadLocalFnActor<T> {
 
         // For thread-local actors, we spawn using ractor's concurrency primitives
         // which handles the platform-specific spawning
+        ractor::concurrency::spawn_local(async move {
+            f(ctx).await;
+        });
+
+        Ok((actor_ref, handle))
+    }
+
+    /// start a new thread-local actor, and returns a Receive handle to its message queue.
+    /// It's the obligation of the caller to poll the receive handle.
+    pub fn start_instant(
+        spawner: ThreadLocalActorSpawner,
+    ) -> Result<
+        (
+            ThreadLocalFnActorCtx<T>,
+            JoinHandle<Result<JoinHandle<()>, SpawnErr>>,
+        ),
+        SpawnErr,
+    > {
+        let (tx, rx) = futures_mpsc::channel::<T>(MAX_CHANNEL_SIZE);
+
+        let args = ThreadLocalFnActorArgs { tx };
+        let spawn_result = ThreadLocalFnActorImpl::<T>::spawn_instant(None, args, spawner);
+
+        match spawn_result {
+            Ok((actor_ref, handle)) => Ok((ThreadLocalFnActorCtx { rx, actor_ref }, handle)),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// starts a new thread-local actor based on a function that takes the Receive handle.
+    /// The function will be executed as a task, it should loop and poll the receive handle.
+    pub fn start_fn_instant<F, Fut>(
+        spawner: ThreadLocalActorSpawner,
+        f: F,
+    ) -> Result<(ActorRef<T>, JoinHandle<Result<JoinHandle<()>, SpawnErr>>), SpawnErr>
+    where
+        F: FnOnce(ThreadLocalFnActorCtx<T>) -> Fut + 'static,
+        Fut: std::future::Future<Output = ()>,
+        T: Message,
+    {
+        let (ctx, handle) = Self::start_instant(spawner)?;
+        let actor_ref = ctx.actor_ref.clone();
+
         ractor::concurrency::spawn_local(async move {
             f(ctx).await;
         });
@@ -268,14 +311,15 @@ pub mod thread_local_fn_actor_tests {
 
                 let i_clone = i.clone();
                 let spawner = ractor::thread_local::ThreadLocalActorSpawner::new();
-                let (actor_ref, _handle) = ThreadLocalFnActor::<u32>::start_fn(spawner, |mut ctx| async move {
-                    use futures::StreamExt;
-                    while let Some(msg) = ctx.rx.next().await {
-                        *i_clone.lock().unwrap() = msg;
-                    }
-                })
-                .await
-                .unwrap();
+                let (actor_ref, _handle) =
+                    ThreadLocalFnActor::<u32>::start_fn(spawner, |mut ctx| async move {
+                        use futures::StreamExt;
+                        while let Some(msg) = ctx.rx.next().await {
+                            *i_clone.lock().unwrap() = msg;
+                        }
+                    })
+                    .await
+                    .unwrap();
 
                 // Send a message to the actor
                 actor_ref.send_message(42)?;
@@ -297,14 +341,15 @@ pub mod thread_local_fn_actor_tests {
         local
             .run_until(async {
                 let spawner = ractor::thread_local::ThreadLocalActorSpawner::new();
-                let (actor_ref, _handle) = ThreadLocalFnActor::<u32>::start_fn(spawner, |mut ctx| async move {
-                    use futures::StreamExt;
-                    while let Some(msg) = ctx.rx.next().await {
-                        println!("Received message: {msg}");
-                    }
-                })
-                .await
-                .unwrap();
+                let (actor_ref, _handle) =
+                    ThreadLocalFnActor::<u32>::start_fn(spawner, |mut ctx| async move {
+                        use futures::StreamExt;
+                        while let Some(msg) = ctx.rx.next().await {
+                            println!("Received message: {msg}");
+                        }
+                    })
+                    .await
+                    .unwrap();
 
                 // Send a message to the actor
                 actor_ref.send_message(42).unwrap();

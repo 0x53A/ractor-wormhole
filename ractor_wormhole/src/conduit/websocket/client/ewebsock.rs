@@ -2,8 +2,7 @@
 
 use std::{
     ops::ControlFlow,
-    sync::{Arc, Mutex, mpsc::Receiver},
-    time::Duration,
+    sync::{Arc, Mutex},
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -19,8 +18,8 @@ use log::{error, info};
 use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
     conduit::{self, ConduitError, ConduitMessage, ConduitSink, ConduitSource},
-    nexus::{NexusActorMessage, start_nexus},
-    portal::{Portal, PortalActorMessage},
+    nexus::NexusActorMessage,
+    portal::PortalActorMessage,
     util::{ActorRef_Ask, FnActor},
 };
 

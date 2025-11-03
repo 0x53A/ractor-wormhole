@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use futures::SinkExt;
 use log::{error, info};
 use ractor::{
-    Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent, actor,
+    Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
     concurrency::Duration,
 };
 use std::{collections::HashMap, fmt::Display, pin::Pin};
@@ -134,20 +134,12 @@ impl Clone for BoxedRematerializer {
 }
 
 type TransmitMessageF = Box<
-    (
-        dyn FnOnce(
-                TransmaterializationContext,
-            ) -> Pin<
-                Box<
-                    (
-                        dyn futures::Future<Output = NexusResult<Vec<u8>>>
-                            + std::marker::Send
-                            + 'static
-                    ),
-                >,
-            > + std::marker::Send
-            + 'static
-    ),
+    dyn FnOnce(
+            TransmaterializationContext,
+        ) -> Pin<
+            Box<dyn futures::Future<Output = NexusResult<Vec<u8>>> + std::marker::Send + 'static>,
+        > + std::marker::Send
+        + 'static,
 >;
 
 // Messages for the portal actor
