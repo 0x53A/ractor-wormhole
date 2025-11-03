@@ -39,7 +39,6 @@ struct ThreadLocalFnActorArgs<T> {
     pub tx: futures_mpsc::Sender<T>,
 }
 
-#[cfg_attr(feature = "async-trait", async_trait)]
 impl<T: Message> ThreadLocalActor for ThreadLocalFnActorImpl<T> {
     type Msg = T;
     type State = ThreadLocalFnActorState<T>;
