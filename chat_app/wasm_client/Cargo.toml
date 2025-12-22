@@ -12,7 +12,7 @@ log = "0.4.28"
 ractor = "0.15.8"
 ractor_wormhole = { path = "../../ractor_wormhole", features = [] }
 serde = { version = "1.0.228", features = ["derive"] }
-wasm-bindgen-futures = "0.4.54"
+wasm-bindgen-futures = "0.4.56"
 web-sys = "0.3.81"
 tokio = { version = "1.47.1", features = [ ] }
 tokio_with_wasm = "0.8.7"
