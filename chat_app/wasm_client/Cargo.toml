@@ -8,11 +8,11 @@ shared = { path = "../shared" }
 eframe = { version = "0.33.2", features = ["default_fonts", "glow", "persistence"] }
 egui = "0.33.0"
 env_logger = "0.11.8"
-log = "0.4.28"
+log = "0.4.29"
 ractor = "0.15.8"
 ractor_wormhole = { path = "../../ractor_wormhole", features = [] }
 serde = { version = "1.0.228", features = ["derive"] }
-wasm-bindgen-futures = "0.4.54"
+wasm-bindgen-futures = "0.4.56"
 web-sys = "0.3.81"
 tokio = { version = "1.47.1", features = [ ] }
 tokio_with_wasm = "0.8.7"
@@ -20,7 +20,7 @@ anyhow = "1.0.100"
 futures-util = "0.3.31"
 futures = "0.3.31"
 getrandom = { version = "0.3.3", features = ["wasm_js"] }
-uuid = { version = "1.18.1", features = ["js"] }
+uuid = { version = "1.19.0", features = ["js"] }
 async-trait = "0.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
