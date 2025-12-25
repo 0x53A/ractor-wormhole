@@ -16,7 +16,7 @@ static_assertions = "1.1.0"
 futures = "0.3.31"
 futures-util = "0.3.31"
 hyper = { version = "1.8.1", features = ["full"] }
-hyper-util = { version = "0.1.18", features = ["full"] }
+hyper-util = { version = "0.1.19", features = ["full"] }
 hyper-tungstenite = "0.19.0"
 http-body-util = "0.1.3"
 
