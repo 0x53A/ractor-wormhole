@@ -10,7 +10,7 @@ server = { path = "../server" }
 clap = { version = "4.5", features = ["derive"] }
 env_logger = "0.11"
 ractor = { version = "0.15", features = [] }
-tokio = { version = "1.47", features = ["full"] }
+tokio = { version = "1.49", features = ["full"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 rand = "0.9"
 static_assertions = "1.1"
@@ -20,7 +20,7 @@ hyper = { version = "1.8", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 hyper-tungstenite = "0.19"
 http-body-util = "0.1"
-rust-embed = "8.7"
+rust-embed = "8.9"
 log = "0.4"
 tracing = "0.1"
 
