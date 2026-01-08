@@ -20,12 +20,22 @@ struct Cli {
 enum Commands {
     /// Start in client mode
     Client {
+        #[cfg(feature = "unix_socket")]
+        #[arg(long)]
+        socket: String,
+
+        #[cfg(feature = "websocket")]
         /// Server URL to connect to
         #[arg(long)]
         url: String,
     },
     /// Start in server mode
     Server {
+        #[cfg(feature = "unix_socket")]
+        #[arg(long)]
+        socket: String,
+
+        #[cfg(feature = "websocket")]
         /// Address to bind to (e.g. 127.0.0.1:8080)
         #[arg(long)]
         bind: SocketAddr,
@@ -48,6 +58,19 @@ async fn run() -> Result<(), anyhow::Error> {
 
     let cli = Cli::parse();
 
+    #[cfg(feature = "unix_socket")]
+    match cli.command {
+        Commands::Client { socket } => {
+            println!("Starting client, connecting to: {socket}");
+            client::run(socket).await?;
+        }
+        Commands::Server { socket } => {
+            println!("Starting server, binding to: {socket}");
+            server::run(socket).await?;
+        }
+    }
+
+    #[cfg(feature = "websocket")]
     match cli.command {
         Commands::Client { url } => {
             println!("Starting client, connecting to: {url}");

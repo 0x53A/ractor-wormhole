@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 use anyhow::anyhow;
 use ractor::concurrency::Duration;
 use ractor_wormhole::{
-    conduit::websocket,
     nexus::start_nexus,
     portal::{Portal, PortalActorMessage},
     util::{ActorRef_Ask, FnActor},
@@ -11,7 +10,10 @@ use ractor_wormhole::{
 
 use crate::common::start_pingpong_actor;
 
-pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
+pub async fn run(
+    #[cfg(feature = "unix_socket")] socket_path: String,
+    #[cfg(feature = "websocket")] bind: SocketAddr,
+) -> Result<(), anyhow::Error> {
     // create a callback for when a client connects
     let (mut ctx_on_client_connected, _) = FnActor::start().await?;
 
@@ -21,7 +23,11 @@ pub async fn run(bind: SocketAddr) -> Result<(), anyhow::Error> {
         .await
         .map_err(|err| anyhow!(err))?;
 
-    websocket::server::tokio_tungstenite::start_server(nexus, bind).await?;
+    #[cfg(feature = "unix_socket")]
+    ractor_wormhole::conduit::unix_socket::server::start_server(nexus, socket_path).await?;
+    #[cfg(feature = "websocket")]
+    ractor_wormhole::conduit::websocket::server::tokio_tungstenite::start_server(nexus, bind)
+        .await?;
 
     let pinpong = start_pingpong_actor().await?;
 

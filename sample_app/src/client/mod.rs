@@ -1,6 +1,5 @@
 use ractor::ActorRef;
 use ractor_wormhole::{
-    conduit::websocket,
     nexus::start_nexus,
     portal::{Portal, PortalActorMessage},
     util::ActorRef_Ask,
@@ -10,12 +9,23 @@ use tokio::time;
 
 use crate::common::{PingPongMsg, start_pingpong_actor};
 
-pub async fn run(server_url: String) -> Result<(), anyhow::Error> {
+pub async fn run(
+    #[cfg(feature = "unix_socket")] socket_path: String,
+    #[cfg(feature = "websocket")] server_url: String,
+) -> Result<(), anyhow::Error> {
     // Start the nexus actor
     let nexus = start_nexus(None, None).await.unwrap();
 
     // connect to the server
-    let portal = websocket::client::tokio_tungstenite::connect_to_server(nexus, server_url).await?;
+    #[cfg(feature = "unix_socket")]
+    let portal =
+        ractor_wormhole::conduit::unix_socket::client::connect_to_server(nexus, socket_path)
+            .await?;
+    #[cfg(feature = "websocket")]
+    let portal = ractor_wormhole::conduit::websocket::client::tokio_tungstenite::connect_to_server(
+        nexus, server_url,
+    )
+    .await?;
 
     // wait for the portal to be ready (handshake)
     portal

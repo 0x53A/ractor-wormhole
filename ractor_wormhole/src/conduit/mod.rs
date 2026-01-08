@@ -5,6 +5,10 @@
 ))]
 pub mod websocket;
 
+#[cfg(target_os = "linux")]
+#[cfg(any(feature = "unix_socket_client", feature = "unix_socket_server"))]
+pub mod unix_socket;
+
 use futures::{Sink, Stream, StreamExt};
 use ractor::ActorRef;
 use std::pin::Pin;
