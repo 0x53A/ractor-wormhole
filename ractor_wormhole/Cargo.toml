@@ -21,6 +21,8 @@ tokio = { version = "1.49", features = [
 ]}
 tokio-tungstenite = { version = "0.28", optional = true }
 tungstenite = { version = "0.28", optional = true }
+russh = { version = "0.45", optional = true }
+russh-keys = { version = "0.45", optional = true }
 
 anyhow = { version = "1.0", features = ["backtrace"] }
 bincode = { version = "2.0", features = [] }
@@ -39,7 +41,7 @@ ewebsock = { version = "0.8", features = ["tls"], optional = true }
 tokio_with_wasm = "0.8"
 
 [features]
-default = ["derive"]
+default = ["derive", "ssh_client"]
 ractor_cluster = ["ractor_cluster_derive", "ractor/cluster"]
 derive = []
 serde = []
@@ -49,4 +51,5 @@ websocket_client_wasm = ["ewebsock" ]
 websocket_server = ["tungstenite", "tokio-tungstenite"]
 unix_socket_client = ["tokio/net", "tokio/io-util"]
 unix_socket_server = ["tokio/net", "tokio/io-util"]
+ssh_client = ["russh", "russh-keys", "tokio/io-util"]
 async-trait = ["ractor/async-trait"]
