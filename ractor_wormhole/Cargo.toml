@@ -39,7 +39,6 @@ tokio_with_wasm = "0.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 russh = { version = "0.57", optional = true }
-russh-keys = { version = "0.49", optional = true }
 
 
 [features]
@@ -53,5 +52,5 @@ websocket_client_wasm = ["ewebsock" ]
 websocket_server = ["tungstenite", "tokio-tungstenite"]
 unix_socket_client = ["tokio/net", "tokio/io-util"]
 unix_socket_server = ["tokio/net", "tokio/io-util"]
-ssh_client = ["russh", "russh-keys", "tokio/io-util"]
+ssh_client = ["russh", "tokio/io-util"]
 async-trait = ["ractor/async-trait"]

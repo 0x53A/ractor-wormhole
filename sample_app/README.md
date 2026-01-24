@@ -9,8 +9,8 @@ cargo run --features websocket -- client --url ws://localhost:8085
 
 
 # or unix sockets
-cargo run --features unix_socket -- server --socket /tmp/ractor_wormhole_sample_app
-cargo run --features unix_socket -- client --socket /tmp/ractor_wormhole_sample_app
+cargo run --no-default-features --features unix_socket -- server --socket /tmp/ractor_wormhole_sample_app
+cargo run --no-default-features --features unix_socket -- client --socket /tmp/ractor_wormhole_sample_app
 ```
 
 
@@ -21,7 +21,7 @@ Note: to test SSH:
 ```sh
 
 # build the server with unix sockets
-cargo build --features unix_socket
+cargo build --no-default-features --features unix_socket
 
 # (copy it to the remote pc)
 scp /home/lukas/src/ractor-wormhole/target/release/ractor_wormhole_sample_app lukas@nixos-server:/home/lukas/

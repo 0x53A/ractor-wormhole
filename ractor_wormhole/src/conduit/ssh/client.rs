@@ -1,8 +1,8 @@
 use log::{error, info, warn};
 use ractor::ActorRef;
 use russh::client::{self, Handle, Msg};
+use russh::keys::PrivateKeyWithHashAlg;
 use russh::ChannelStream;
-use russh_keys::key::PublicKey;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -51,17 +51,16 @@ pub enum SshAuthMethod {
 
 pub struct Client;
 
-#[async_trait::async_trait]
 impl client::Handler for Client {
     type Error = russh::Error;
 
-    async fn check_server_key(
+    fn check_server_key(
         &mut self,
-        _server_public_key: &PublicKey,
-    ) -> Result<bool, Self::Error> {
+        _server_public_key: &russh::keys::ssh_key::PublicKey,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         // TODO: Implement proper host key verification
         // For now, accept all keys
-        Ok(true)
+        async { Ok(true) }
     }
 }
 
@@ -100,11 +99,18 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
             private_key_path,
             passphrase,
         } => {
-            let key_pair = russh_keys::load_secret_key(&private_key_path, passphrase.as_deref())
+            let key_pair = russh::keys::load_secret_key(&private_key_path, passphrase.as_deref())
                 .map_err(|e| anyhow::anyhow!("Failed to load private key: {}", e))?;
 
+            let key_with_hash = PrivateKeyWithHashAlg::new(
+                Arc::new(key_pair),
+                handle.best_supported_rsa_hash().await
+                    .map_err(|e| anyhow::anyhow!("Failed to get RSA hash algorithm: {}", e))?
+                    .flatten(),
+            );
+
             handle
-                .authenticate_publickey(config.username.clone(), Arc::new(key_pair))
+                .authenticate_publickey(config.username.clone(), key_with_hash)
                 .await
                 .map_err(|e| anyhow::anyhow!("Public key authentication failed: {}", e))?
         }
@@ -112,7 +118,7 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
             todo!("Agent-based authentication hasn't been fully tested yet.");
 
             // Connect to SSH agent
-            let mut agent = russh_keys::agent::client::AgentClient::connect_env()
+            let mut agent = russh::keys::agent::client::AgentClient::connect_env()
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to connect to SSH agent: {}. Make sure SSH_AUTH_SOCK is set and ssh-agent is running.", e))?;
 
@@ -130,25 +136,27 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
 
             info!("SSH agent provided {} identities", identities.len());
 
+            // Get the best supported RSA hash algorithm
+            let hash_alg = handle.best_supported_rsa_hash().await
+                .map_err(|e| anyhow::anyhow!("Failed to get RSA hash algorithm: {}", e))?
+                .flatten();
+
             // Try each identity until one succeeds
-            let mut authenticated = false;
             let mut last_error = None;
+            let mut auth_result = None;
             for (i, pubkey) in identities.iter().enumerate() {
                 info!("Trying identity {} of {}", i + 1, identities.len());
-                
-                let (new_agent, auth_result) = handle
-                    .authenticate_future(config.username.clone(), pubkey.clone(), agent)
-                    .await;
-                
-                agent = new_agent;
-                
-                match auth_result {
-                    Ok(true) => {
+
+                match handle
+                    .authenticate_publickey_with(config.username.clone(), pubkey.clone(), hash_alg, &mut agent)
+                    .await
+                {
+                    Ok(result) if result.success() => {
                         info!("Successfully authenticated with identity {}", i + 1);
-                        authenticated = true;
+                        auth_result = Some(result);
                         break;
                     }
-                    Ok(false) => {
+                    Ok(_) => {
                         warn!("Identity {} rejected by server", i + 1);
                         last_error = Some(anyhow::anyhow!("Identity {} rejected", i + 1));
                     }
@@ -159,17 +167,16 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
                 }
             }
 
-            if !authenticated {
-                return Err(last_error.unwrap_or_else(|| {
+            match auth_result {
+                Some(result) => result,
+                None => return Err(last_error.unwrap_or_else(|| {
                     anyhow::anyhow!("All {} identities were rejected by the server", identities.len())
-                }));
+                })),
             }
-
-            authenticated
         }
     };
 
-    if !authenticated {
+    if !authenticated.success() {
         return Err(anyhow::anyhow!("SSH authentication failed"));
     }
 
