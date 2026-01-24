@@ -9,6 +9,7 @@ pub mod websocket;
 #[cfg(any(feature = "unix_socket_client", feature = "unix_socket_server"))]
 pub mod unix_socket;
 
+#[cfg(target_os = "linux")]
 #[cfg(feature = "ssh_client")]
 pub mod ssh;
 
