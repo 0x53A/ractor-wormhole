@@ -1,0 +1,45 @@
+[package]
+name = "uniffi_test"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "lib"]
+name = "uniffi_test"
+
+[dependencies]
+# UniFFI for FFI bindings
+uniffi = { version = "0.31", features = ["cli"] }
+
+# Core ractor-wormhole
+ractor_wormhole = { path = "../../ractor_wormhole", default-features = false, features = ["derive"] }
+ractor = "0.15"
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
+
+# Serialization for custom message types
+bincode = { version = "=2.0", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+log = "0.4"
+android_logger = "0.15"
+
+# Futures for channel adapters
+futures = "0.3"
+tokio-stream = "0.1"
+
+# For generating IDs
+uuid = { version = "1", features = ["v4"] }
+
+[build-dependencies]
+uniffi = { version = "0.31", features = ["build"] }
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"

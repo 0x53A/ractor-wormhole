@@ -1,0 +1,3 @@
+kotlin_client/src/main/kotlin/uniffi/
+rust_project/generated/
+rust_project/uniffi_test/

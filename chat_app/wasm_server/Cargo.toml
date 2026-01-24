@@ -20,7 +20,7 @@ hyper = { version = "1.8", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 hyper-tungstenite = "0.19"
 http-body-util = "0.1"
-rust-embed = "8.9"
+rust-embed = "8.11"
 log = "0.4"
 tracing = "0.1"
 

@@ -13,7 +13,8 @@ members = [
     "chat_app/wasm_client",
     "chat_app/wasm_server",
     
-    "wasm_test_app"
+    "wasm_test_app",
+    "uniffi_test/rust_project"
 ]
 
 
