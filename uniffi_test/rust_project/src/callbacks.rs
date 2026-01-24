@@ -4,7 +4,7 @@
 //! This makes the interface mechanical and easy to generate with proc macros.
 //!
 //! Pattern:
-//! ```
+//! ```ignore
 //! trait {ActorType}Handler {
 //!     fn receive(&self, msg: Ffi{ActorType}Message);
 //! }
