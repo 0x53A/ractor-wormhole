@@ -21,7 +21,7 @@ tokio = { version = "1.49", features = [
 ]}
 tokio-tungstenite = { version = "0.28", optional = true }
 tungstenite = { version = "0.28", optional = true }
-russh = { version = "0.45", optional = true }
+russh = { version = "0.54", optional = true }
 russh-keys = { version = "0.45", optional = true }
 
 anyhow = { version = "1.0", features = ["backtrace"] }
