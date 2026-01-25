@@ -19,4 +19,4 @@ async-trait = ["ractor_wormhole/async-trait"]
 
 websocket = [ "ractor_wormhole/websocket_client", "ractor_wormhole/websocket_server" ]
 unix_socket = [ "ractor_wormhole/unix_socket_client", "ractor_wormhole/unix_socket_server" ]
-ssh = [ "ractor_wormhole/ssh_client" ]
+ssh = [ "ractor_wormhole/ssh_client", "ractor_wormhole/russh_ring" ]
