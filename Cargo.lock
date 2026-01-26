@@ -4752,6 +4752,7 @@ dependencies = [
  "ractor",
  "ractor_cluster_derive",
  "ractor_wormhole",
+ "serde_json",
  "tokio",
 ]
 
