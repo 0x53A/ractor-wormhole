@@ -264,11 +264,42 @@ impl ::ractor_wormhole::transmaterialization::ContextTransmaterializable for Dum
 // <end of example>
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+/// Extracted generic parameter handling used by both derive_struct and derive_enum.
+/// Returns (impl_generics, type_generics).
+fn extract_generics(
+    generic_params: &Option<venial::GenericParamList>,
+) -> (TokenStream, TokenStream) {
+    let impl_generics = if let Some(generic_params) = generic_params {
+        quote! { #generic_params }
+    } else {
+        quote! {}
+    };
+
+    let type_generics = if let Some(generic_params) = generic_params {
+        let params = generic_params.params.iter().map(|(param, _)| {
+            let ident = &param.name;
+            quote! { #ident }
+        });
+        quote! { <#(#params),*> }
+    } else {
+        quote! {}
+    };
+
+    (impl_generics, type_generics)
+}
+
 /// Generate serialization/deserialization code for a named field.
 ///
 /// `use_self_prefix`: if true, generates `self.field_name` (for structs);
 ///                    if false, generates just `field_name` (for enum variants)
-fn for_field(field: &NamedField, use_self_prefix: bool) -> Result<(TokenStream, TokenStream), venial::Error> {
+/// `data_ident`: the identifier for the data slice (e.g., `data` or `payload_data`)
+/// `offset_ident`: the identifier for the offset variable (e.g., `offset` or `payload_offset`)
+fn for_field(
+    field: &NamedField,
+    use_self_prefix: bool,
+    data_ident: &proc_macro2::Ident,
+    offset_ident: &proc_macro2::Ident,
+) -> Result<(TokenStream, TokenStream), venial::Error> {
     let field_name = field.name.clone();
     let field_type = field.ty.clone();
 
@@ -319,23 +350,23 @@ fn for_field(field: &NamedField, use_self_prefix: bool) -> Result<(TokenStream, 
     };
 
     let deserialize = quote! {
-        if data.len() < offset + 8 {
+        if #data_ident.len() < #offset_ident + 8 {
             return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
                 "unexpected end of data: need {} bytes for field length, have {}",
-                offset + 8, data.len()
+                #offset_ident + 8, #data_ident.len()
             ));
         }
-        let #ident_field_len: usize = u64::from_le_bytes(data[offset..offset + 8].try_into()?).try_into()
+        let #ident_field_len: usize = u64::from_le_bytes(#data_ident[#offset_ident..#offset_ident + 8].try_into()?).try_into()
             .map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
-        offset += 8;
-        if data.len() < offset + #ident_field_len {
+        #offset_ident += 8;
+        if #data_ident.len() < #offset_ident + #ident_field_len {
             return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
                 "unexpected end of data: need {} bytes for field data, have {}",
-                offset + #ident_field_len, data.len()
+                #offset_ident + #ident_field_len, #data_ident.len()
             ));
         }
-        let #ident_field_bytes = &data[offset..offset + #ident_field_len];
-        offset += #ident_field_len;
+        let #ident_field_bytes = &#data_ident[#offset_ident..#offset_ident + #ident_field_len];
+        #offset_ident += #ident_field_len;
         let #ident_field = <#field_type as ::ractor_wormhole::transmaterialization::ContextTransmaterializable>::rematerialize(ctx, #ident_field_bytes).await?;
     };
 
@@ -346,37 +377,21 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
     let struct_name = input.name.clone();
 
     // Extract generic parameters
-    let generic_params = input.generic_params.clone();
-
-    // Generate impl generics and type generics
-    let impl_generics = if let Some(generic_params) = &generic_params {
-        quote! { #generic_params }
-    } else {
-        quote! {}
-    };
-
-    // Generate the type with its generics for the impl block
-    let type_generics = if let Some(generic_params) = &generic_params {
-        let params = generic_params.params.iter().map(|(param, _)| {
-            let ident = &param.name;
-            quote! { #ident }
-        });
-        quote! { <#(#params),*> }
-    } else {
-        quote! {}
-    };
-
-    // Generate trait bounds for generic parameters
     let extended_where_clause = input.create_derive_where_clause(
         quote! {::ractor_wormhole::transmaterialization::ContextTransmaterializable},
     );
+    let (impl_generics, type_generics) = extract_generics(&input.generic_params);
+
+    // Identifiers for deserialization
+    let data_ident = format_ident!("data");
+    let offset_ident = format_ident!("offset");
 
     match &input.fields {
         venial::Fields::Named(named_fields) => {
             let fields = named_fields
                 .fields
                 .iter()
-                .map(|(field, _)| for_field(field, true)) // true = use self.field for structs
+                .map(|(field, _)| for_field(field, true, &data_ident, &offset_ident)) // true = use self.field for structs
                 .collect::<Result<Vec<_>, _>>()?;
 
             let (serialize, deserialize): (Vec<_>, Vec<_>) = fields.into_iter().unzip();
@@ -533,30 +548,14 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
     let enum_name = input.name.clone();
 
     // Extract generic parameters
-    let generic_params = input.generic_params.clone();
-
-    // Generate impl generics and type generics
-    let impl_generics = if let Some(generic_params) = &generic_params {
-        quote! { #generic_params }
-    } else {
-        quote! {}
-    };
-
-    // Generate the type with its generics for the impl block
-    let type_generics = if let Some(generic_params) = &generic_params {
-        let params = generic_params.params.iter().map(|(param, _)| {
-            let ident = &param.name;
-            quote! { #ident }
-        });
-        quote! { <#(#params),*> }
-    } else {
-        quote! {}
-    };
-
-    // Generate trait bounds for generic parameters
     let extended_where_clause = input.create_derive_where_clause(
         quote! {::ractor_wormhole::transmaterialization::ContextTransmaterializable},
     );
+    let (impl_generics, type_generics) = extract_generics(&input.generic_params);
+
+    // Identifiers for deserialization (enum variants use payload_data/payload_offset)
+    let payload_data_ident = format_ident!("payload_data");
+    let payload_offset_ident = format_ident!("payload_offset");
 
     // Generate match arms for serialization
     let mut serialize_arms = Vec::new();
@@ -577,10 +576,10 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
 
                 deserialize_arms.push(quote! {
                     #variant_name_str => {
-                        if !payload_data.is_empty() {
+                        if !#payload_data_ident.is_empty() {
                             return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
                                 "Unit variant should have empty payload, but got {} bytes",
-                                payload_data.len()
+                                #payload_data_ident.len()
                             ));
                         }
                         Self::#variant_name
@@ -594,7 +593,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let field_idents: Vec<_> = (0..field_count)
                     .map(|i| format_ident!("field{}", i))
                     .collect();
-                let field_types: Vec<_> = fields.fields.iter().map(|(f, _)| f.clone()).collect();
+                let field_types: Vec<_> = fields.fields.iter().map(|(f, _)| f.ty.clone()).collect();
 
                 // Serialization for tuple variant fields
                 let mut serialize_fields = Vec::new();
@@ -632,24 +631,24 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                     field_value_idents.push(field_value_ident.clone());
 
                     deserialize_fields.push(quote! {
-                        if payload_data.len() < payload_offset + 8 {
+                        if #payload_data_ident.len() < #payload_offset_ident + 8 {
                             return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
                                 "unexpected end of data: need {} bytes for field length, have {}",
-                                payload_offset + 8, payload_data.len()
+                                #payload_offset_ident + 8, #payload_data_ident.len()
                             ));
                         }
                         let #field_len_ident: usize = u64::from_le_bytes(
-                            payload_data[payload_offset..payload_offset + 8].try_into()?
+                            #payload_data_ident[#payload_offset_ident..#payload_offset_ident + 8].try_into()?
                         ).try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
-                        payload_offset += 8;
-                        if payload_data.len() < payload_offset + #field_len_ident {
+                        #payload_offset_ident += 8;
+                        if #payload_data_ident.len() < #payload_offset_ident + #field_len_ident {
                             return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
                                 "unexpected end of data: need {} bytes for field data, have {}",
-                                payload_offset + #field_len_ident, payload_data.len()
+                                #payload_offset_ident + #field_len_ident, #payload_data_ident.len()
                             ));
                         }
-                        let #field_bytes_ident = &payload_data[payload_offset..payload_offset + #field_len_ident];
-                        payload_offset += #field_len_ident;
+                        let #field_bytes_ident = &#payload_data_ident[#payload_offset_ident..#payload_offset_ident + #field_len_ident];
+                        #payload_offset_ident += #field_len_ident;
                         let #field_value_ident =
                             <#field_type as ::ractor_wormhole::transmaterialization::ContextTransmaterializable>::rematerialize(
                                 ctx, #field_bytes_ident
@@ -659,13 +658,13 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
 
                 deserialize_arms.push(quote! {
                     #variant_name_str => {
-                        let mut payload_offset = 0usize;
+                        let mut #payload_offset_ident = 0usize;
                         #(#deserialize_fields)*
-                        if payload_offset != payload_data.len() {
+                        if #payload_offset_ident != #payload_data_ident.len() {
                             return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
                                 "Enum variant payload not fully consumed: expected {}, consumed {}",
-                                payload_data.len(),
-                                payload_offset
+                                #payload_data_ident.len(),
+                                #payload_offset_ident
                             ));
                         }
                         Self::#variant_name(#(#field_value_idents),*)
@@ -678,7 +677,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let field_defs = named_fields
                     .fields
                     .iter()
-                    .map(|(field, _)| for_field(field, false)) // false = use field directly for enum variants
+                    .map(|(field, _)| for_field(field, false, &payload_data_ident, &payload_offset_ident))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let field_names: Vec<_> = named_fields
@@ -687,8 +686,9 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                     .map(|(field, _)| field.name.clone())
                     .collect();
 
-                // Generate field serialization
-                let (serialize_field_codes, _): (Vec<_>, Vec<_>) = field_defs.into_iter().unzip();
+                // Unzip into serialize and deserialize code
+                let (serialize_field_codes, deserialize_field_codes): (Vec<_>, Vec<_>) =
+                    field_defs.into_iter().unzip();
 
                 serialize_arms.push(quote! {
                     #enum_name::#variant_name { #(#field_names),* } => {
@@ -698,56 +698,26 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                     },
                 });
 
-                // Generate field deserialization
-                let mut deserialize_fields = Vec::new();
-                let mut field_value_pairs = Vec::new();
-
-                for field in named_fields.fields.iter() {
-                    let field_name = field.0.name.clone();
-                    let field_type = field.0.ty.clone();
-                    let field_len_ident = format_ident!("field_len_{}", field_name);
-                    let field_bytes_ident = format_ident!("field_bytes_{}", field_name);
-                    let field_value_ident = format_ident!("field_{}", field_name);
-
-                    deserialize_fields.push(quote! {
-                        if payload_data.len() < payload_offset + 8 {
-                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
-                                "unexpected end of data: need {} bytes for field length, have {}",
-                                payload_offset + 8, payload_data.len()
-                            ));
-                        }
-                        let #field_len_ident: usize = u64::from_le_bytes(
-                            payload_data[payload_offset..payload_offset + 8].try_into()?
-                        ).try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
-                        payload_offset += 8;
-                        if payload_data.len() < payload_offset + #field_len_ident {
-                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
-                                "unexpected end of data: need {} bytes for field data, have {}",
-                                payload_offset + #field_len_ident, payload_data.len()
-                            ));
-                        }
-                        let #field_bytes_ident = &payload_data[payload_offset..payload_offset + #field_len_ident];
-                        payload_offset += #field_len_ident;
-                        let #field_value_ident =
-                            <#field_type as ::ractor_wormhole::transmaterialization::ContextTransmaterializable>::rematerialize(
-                                ctx, #field_bytes_ident
-                            ).await?;
-                    });
-
-                    field_value_pairs.push(quote! {
-                        #field_name: #field_value_ident
-                    });
-                }
+                // Generate field value pairs for struct reconstruction
+                let field_value_pairs: Vec<_> = named_fields
+                    .fields
+                    .iter()
+                    .map(|(field, _)| {
+                        let field_name = field.name.clone();
+                        let field_value_ident = format_ident!("field_{}", field_name);
+                        quote! { #field_name: #field_value_ident }
+                    })
+                    .collect();
 
                 deserialize_arms.push(quote! {
                     #variant_name_str => {
-                        let mut payload_offset = 0usize;
-                        #(#deserialize_fields)*
-                        if payload_offset != payload_data.len() {
+                        let mut #payload_offset_ident = 0usize;
+                        #(#deserialize_field_codes)*
+                        if #payload_offset_ident != #payload_data_ident.len() {
                             return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
                                 "Enum variant payload not fully consumed: expected {}, consumed {}",
-                                payload_data.len(),
-                                payload_offset
+                                #payload_data_ident.len(),
+                                #payload_offset_ident
                             ));
                         }
                         Self::#variant_name { #(#field_value_pairs),* }
