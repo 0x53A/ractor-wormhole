@@ -507,6 +507,32 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
 fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::Error> {
     let enum_name = input.name.clone();
 
+    // Extract generic parameters
+    let generic_params = input.generic_params.clone();
+
+    // Generate impl generics and type generics
+    let impl_generics = if let Some(generic_params) = &generic_params {
+        quote! { #generic_params }
+    } else {
+        quote! {}
+    };
+
+    // Generate the type with its generics for the impl block
+    let type_generics = if let Some(generic_params) = &generic_params {
+        let params = generic_params.params.iter().map(|(param, _)| {
+            let ident = &param.name;
+            quote! { #ident }
+        });
+        quote! { <#(#params),*> }
+    } else {
+        quote! {}
+    };
+
+    // Generate trait bounds for generic parameters
+    let extended_where_clause = input.create_derive_where_clause(
+        quote! {::ractor_wormhole::transmaterialization::ContextTransmaterializable},
+    );
+
     // Generate match arms for serialization
     let mut serialize_arms = Vec::new();
 
@@ -663,7 +689,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
     // Complete implementation
     let q = quote! {
         #[::ractor_wormhole::transmaterialization::transmaterialization_proxies::async_trait]
-        impl ::ractor_wormhole::transmaterialization::ContextTransmaterializable for #enum_name {
+        impl #impl_generics ::ractor_wormhole::transmaterialization::ContextTransmaterializable for #enum_name #type_generics #extended_where_clause {
             async fn immaterialize(
                 self,
                 ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,

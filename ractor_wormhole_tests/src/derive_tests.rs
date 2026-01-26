@@ -14,6 +14,11 @@ pub struct UnitStruct;
 pub struct EmptyNamedStruct {}
 
 #[derive(Debug, Clone, WormholeTransmaterializable)]
+pub struct SingleFieldNamedStruct {
+    pub a: u32,
+}
+
+#[derive(Debug, Clone, WormholeTransmaterializable)]
 pub struct NamedStruct {
     pub a: u32,
     pub b: f32,
@@ -86,8 +91,25 @@ pub enum SingleCaseIntEnum {
 }
 
 #[derive(Debug, Clone, PartialEq, WormholeTransmaterializable)]
+pub enum SingleTupleVariantEnum {
+    A(u32),
+}
+
+#[derive(Debug, Clone, PartialEq, WormholeTransmaterializable)]
+pub enum EmptyVariantsEnum {
+    EmptyTuple(),
+    EmptyStruct {},
+}
+
+#[derive(Debug, Clone, PartialEq, WormholeTransmaterializable)]
 pub enum StructEnum {
     X { a: u32 },
+}
+
+#[derive(Debug, Clone, PartialEq, WormholeTransmaterializable)]
+pub enum MultiStructVariantEnum {
+    First { x: u32 },
+    Second { y: String, z: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, WormholeTransmaterializable)]
@@ -95,4 +117,10 @@ pub enum MixedEnum {
     Unit,
     Tuple(u32, String),
     Struct { a: u32, b: String },
+}
+
+#[derive(Debug, Clone, PartialEq, WormholeTransmaterializable)]
+pub enum GenericEnum<T: ContextTransmaterializable + Send> {
+    Value(T),
+    None,
 }
