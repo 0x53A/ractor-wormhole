@@ -319,7 +319,8 @@ fn for_field(field: &NamedField, use_self_prefix: bool) -> Result<(TokenStream, 
     };
 
     let deserialize = quote! {
-        let #ident_field_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let #ident_field_len: usize = u64::from_le_bytes(data[offset..offset + 8].try_into()?).try_into()
+            .map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
         offset += 8;
         let #ident_field_bytes = &data[offset..offset + #ident_field_len];
         offset += #ident_field_len;
@@ -439,9 +440,9 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
                 field_value_idents.push(field_value_ident.clone());
 
                 deserialize_fields.push(quote! {
-                    let #field_len_ident = u64::from_le_bytes(
+                    let #field_len_ident: usize = u64::from_le_bytes(
                         data[offset..offset + 8].try_into()?
-                    ) as usize;
+                    ).try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
                     offset += 8;
                     let #field_bytes_ident = &data[offset..offset + #field_len_ident];
                     offset += #field_len_ident;
@@ -551,7 +552,15 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 });
 
                 deserialize_arms.push(quote! {
-                    #variant_name_str => Self::#variant_name,
+                    #variant_name_str => {
+                        if !payload_data.is_empty() {
+                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                                "Unit variant should have empty payload, but got {} bytes",
+                                payload_data.len()
+                            ));
+                        }
+                        Self::#variant_name
+                    },
                 });
             }
 
@@ -599,9 +608,9 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                     field_value_idents.push(field_value_ident.clone());
 
                     deserialize_fields.push(quote! {
-                        let #field_len_ident = u64::from_le_bytes(
+                        let #field_len_ident: usize = u64::from_le_bytes(
                             payload_data[payload_offset..payload_offset + 8].try_into()?
-                        ) as usize;
+                        ).try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
                         payload_offset += 8;
                         let #field_bytes_ident = &payload_data[payload_offset..payload_offset + #field_len_ident];
                         payload_offset += #field_len_ident;
@@ -614,8 +623,15 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
 
                 deserialize_arms.push(quote! {
                     #variant_name_str => {
-                        let mut payload_offset = 0;
+                        let mut payload_offset = 0usize;
                         #(#deserialize_fields)*
+                        if payload_offset != payload_data.len() {
+                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                                "Enum variant payload not fully consumed: expected {}, consumed {}",
+                                payload_data.len(),
+                                payload_offset
+                            ));
+                        }
                         Self::#variant_name(#(#field_value_idents),*)
                     },
                 });
@@ -658,9 +674,9 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                     let field_value_ident = format_ident!("field_{}", field_name);
 
                     deserialize_fields.push(quote! {
-                        let #field_len_ident = u64::from_le_bytes(
+                        let #field_len_ident: usize = u64::from_le_bytes(
                             payload_data[payload_offset..payload_offset + 8].try_into()?
-                        ) as usize;
+                        ).try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
                         payload_offset += 8;
                         let #field_bytes_ident = &payload_data[payload_offset..payload_offset + #field_len_ident];
                         payload_offset += #field_len_ident;
@@ -677,8 +693,15 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
 
                 deserialize_arms.push(quote! {
                     #variant_name_str => {
-                        let mut payload_offset = 0;
+                        let mut payload_offset = 0usize;
                         #(#deserialize_fields)*
+                        if payload_offset != payload_data.len() {
+                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                                "Enum variant payload not fully consumed: expected {}, consumed {}",
+                                payload_data.len(),
+                                payload_offset
+                            ));
+                        }
                         Self::#variant_name { #(#field_value_pairs),* }
                     },
                 });
@@ -714,14 +737,16 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let mut offset = 0;
 
                 // Read the variant name
-                let variant_name_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+                let variant_name_len: usize = u64::from_le_bytes(data[offset..offset + 8].try_into()?)
+                    .try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("variant name length exceeds platform usize"))?;
                 offset += 8;
                 let variant_name_bytes = &data[offset..offset + variant_name_len];
                 offset += variant_name_len;
                 let variant_name = std::str::from_utf8(variant_name_bytes)?.to_string();
 
                 // Read the payload data length
-                let payload_data_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+                let payload_data_len: usize = u64::from_le_bytes(data[offset..offset + 8].try_into()?)
+                    .try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("payload length exceeds platform usize"))?;
                 offset += 8;
                 let payload_data = &data[offset..offset + payload_data_len];
                 offset += payload_data_len;
