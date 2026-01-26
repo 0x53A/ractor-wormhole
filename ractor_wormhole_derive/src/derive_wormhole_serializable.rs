@@ -264,7 +264,11 @@ impl ::ractor_wormhole::transmaterialization::ContextTransmaterializable for Dum
 // <end of example>
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-fn for_field(field: &NamedField) -> Result<(TokenStream, TokenStream), venial::Error> {
+/// Generate serialization/deserialization code for a named field.
+///
+/// `use_self_prefix`: if true, generates `self.field_name` (for structs);
+///                    if false, generates just `field_name` (for enum variants)
+fn for_field(field: &NamedField, use_self_prefix: bool) -> Result<(TokenStream, TokenStream), venial::Error> {
     let field_name = field.name.clone();
     let field_type = field.ty.clone();
 
@@ -302,8 +306,14 @@ fn for_field(field: &NamedField) -> Result<(TokenStream, TokenStream), venial::E
         return bail!(field, "#[bincode] attribute is not yet implemented");
     }
 
+    let field_access = if use_self_prefix {
+        quote! { self.#field_name }
+    } else {
+        quote! { #field_name }
+    };
+
     let serialize = quote! {
-        let #ident_field_bytes = <#field_type as ::ractor_wormhole::transmaterialization::ContextTransmaterializable>::immaterialize(self.#field_name, ctx).await?;
+        let #ident_field_bytes = <#field_type as ::ractor_wormhole::transmaterialization::ContextTransmaterializable>::immaterialize(#field_access, ctx).await?;
         buffer.extend_from_slice(&(#ident_field_bytes.len() as u64).to_le_bytes());
         buffer.extend_from_slice(&#ident_field_bytes);
     };
@@ -353,7 +363,7 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
             let fields = named_fields
                 .fields
                 .iter()
-                .map(|(field, _)| for_field(field))
+                .map(|(field, _)| for_field(field, true)) // true = use self.field for structs
                 .collect::<Result<Vec<_>, _>>()?;
 
             let (serialize, deserialize): (Vec<_>, Vec<_>) = fields.into_iter().unzip();
@@ -590,7 +600,7 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let field_defs = named_fields
                     .fields
                     .iter()
-                    .map(|(field, _)| for_field(field))
+                    .map(|(field, _)| for_field(field, false)) // false = use field directly for enum variants
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let field_names: Vec<_> = named_fields

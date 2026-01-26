@@ -85,8 +85,14 @@ pub enum SingleCaseIntEnum {
     B = 1,
 }
 
-// todo: unnamed structs in enum cases aren't supported yet
-// #[derive(Debug, Clone, WormholeTransmaterializable)]
+#[derive(Debug, Clone, PartialEq, WormholeTransmaterializable)]
 pub enum StructEnum {
     X { a: u32 },
+}
+
+#[derive(Debug, Clone, PartialEq, WormholeTransmaterializable)]
+pub enum MixedEnum {
+    Unit,
+    Tuple(u32, String),
+    Struct { a: u32, b: String },
 }
