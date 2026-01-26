@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, concurrency::Duration};
 use ractor_wormhole::portal::PortalActorMessage;
 use ractor_wormhole::transmaterialization::{ContextTransmaterializable, TransmaterializationContext};
@@ -12,6 +13,7 @@ static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 /// Used for testing serialization of simple types that don't actually use the context.
 struct DummyPortalActor;
 
+#[cfg_attr(feature = "async-trait", async_trait)]
 impl Actor for DummyPortalActor {
     type Msg = PortalActorMessage;
     type State = ();
