@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use ractor::{ActorRef, RpcReplyPort};
 
 use super::{
-    util::{require_buffer_size, require_min_buffer_size},
+    util::{i64_to_isize, require_buffer_size, require_min_buffer_size, u64_to_usize, usize_from_u64_le_bytes},
     *,
 };
 
@@ -86,14 +86,14 @@ impl<T: ContextTransmaterializable + Send + Sync + 'static> ContextTransmaterial
     ) -> TransmaterializationResult<Self> {
         let mut offset = 0;
         require_min_buffer_size(data, 8)?;
-        let count = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let count = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
 
         let mut buffer = Vec::with_capacity(count);
 
         while offset < data.len() {
             require_min_buffer_size(data, offset + 8)?;
-            let length = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+            let length = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
             offset += 8;
             require_min_buffer_size(data, offset + length)?;
             let element_data = &data[offset..offset + length];
@@ -125,7 +125,8 @@ impl ContextTransmaterializable for Vec<u8> {
         _ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> TransmaterializationResult<Self> {
-        let length = u64::from_le_bytes(data[0..8].try_into()?) as usize;
+        require_min_buffer_size(data, 8)?;
+        let length = usize_from_u64_le_bytes(&data[0..8])?;
         require_buffer_size(data, 8 + length)?;
         Ok(data[8..8 + length].to_vec())
     }
@@ -150,7 +151,8 @@ impl ContextTransmaterializable for String {
         _ctx: &TransmaterializationContext,
         data: &[u8],
     ) -> TransmaterializationResult<Self> {
-        let length = u64::from_le_bytes(data[0..8].try_into()?) as usize;
+        require_min_buffer_size(data, 8)?;
+        let length = usize_from_u64_le_bytes(&data[0..8])?;
         require_buffer_size(data, 8 + length)?;
         let string_data = &data[8..8 + length];
         Ok(String::from_utf8(string_data.to_vec())?)
@@ -242,7 +244,7 @@ impl ContextTransmaterializable for usize {
         data: &[u8],
     ) -> TransmaterializationResult<Self> {
         require_buffer_size(data, 8)?;
-        Ok(u64::from_le_bytes(data[0..8].try_into()?) as usize)
+        u64_to_usize(u64::from_le_bytes(data[0..8].try_into()?))
     }
 }
 
@@ -267,7 +269,7 @@ impl ContextTransmaterializable for isize {
         data: &[u8],
     ) -> TransmaterializationResult<Self> {
         require_buffer_size(data, 8)?;
-        Ok(i64::from_le_bytes(data[0..8].try_into()?) as isize)
+        i64_to_isize(i64::from_le_bytes(data[0..8].try_into()?))
     }
 }
 

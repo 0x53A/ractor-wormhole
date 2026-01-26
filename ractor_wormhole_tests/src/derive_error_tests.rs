@@ -194,6 +194,32 @@ async fn test_struct_enum_variant_rejects_extra_payload() {
 }
 
 #[tokio::test]
+async fn test_truncated_data_returns_error() {
+    let ctx = create_test_context().await;
+
+    // Serialize a struct variant
+    let variant = MixedEnum::Struct {
+        a: 123,
+        b: "hello".to_string(),
+    };
+    let serialized = variant.immaterialize(&ctx).await.unwrap();
+
+    // Truncate the data at various points
+    for truncate_at in [0, 4, 8, 12, 16, serialized.len() / 2, serialized.len() - 1] {
+        if truncate_at >= serialized.len() {
+            continue;
+        }
+        let truncated = &serialized[..truncate_at];
+        let result = MixedEnum::rematerialize(&ctx, truncated).await;
+        assert!(
+            result.is_err(),
+            "Expected error for data truncated at {} bytes, but got Ok",
+            truncate_at
+        );
+    }
+}
+
+#[tokio::test]
 async fn test_roundtrip_still_works() {
     let ctx = create_test_context().await;
 

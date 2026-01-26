@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use super::{
     ContextTransmaterializable, TransmaterializationContext, TransmaterializationResult,
-    util::{require_buffer_size, require_min_buffer_size},
+    util::{require_buffer_size, require_min_buffer_size, usize_from_u64_le_bytes},
 };
 
 // 1-tuple
@@ -34,7 +34,7 @@ where
         let mut offset = 0;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem_len]).await?;
@@ -78,14 +78,14 @@ where
         let mut offset = 0;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
@@ -135,21 +135,21 @@ where
         let mut offset = 0;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
@@ -205,28 +205,28 @@ where
         let mut offset = 0;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
@@ -288,35 +288,35 @@ where
         let mut offset = 0;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem4_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
         let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
@@ -384,42 +384,42 @@ where
         let mut offset = 0;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem4_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
         let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem5_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
         let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
@@ -494,7 +494,7 @@ where
 
         // Deserialize element 0
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
@@ -502,42 +502,42 @@ where
 
         // Elements 1-6 follow the same pattern
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem4_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
         let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem5_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
         let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem6_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
         let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
@@ -617,56 +617,56 @@ where
         let mut offset = 0;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem4_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
         let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem5_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
         let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem6_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
         let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem7_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
         let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
@@ -754,63 +754,63 @@ where
 
         // Elements 0-8
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem4_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
         let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem5_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
         let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem6_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
         let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem7_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
         let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem8_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem8_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem8_len)?;
         let elem8 = T8::rematerialize(ctx, &data[offset..offset + elem8_len]).await?;
@@ -907,70 +907,70 @@ where
 
         // Deserialize elements 0-9
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem4_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
         let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem5_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
         let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem6_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
         let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem7_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
         let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem8_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem8_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem8_len)?;
         let elem8 = T8::rematerialize(ctx, &data[offset..offset + elem8_len]).await?;
         offset += elem8_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem9_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem9_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem9_len)?;
         let elem9 = T9::rematerialize(ctx, &data[offset..offset + elem9_len]).await?;
@@ -1073,77 +1073,77 @@ where
 
         // Deserialize elements 0-10
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem4_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
         let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem5_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
         let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem6_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
         let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem7_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
         let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem8_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem8_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem8_len)?;
         let elem8 = T8::rematerialize(ctx, &data[offset..offset + elem8_len]).await?;
         offset += elem8_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem9_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem9_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem9_len)?;
         let elem9 = T9::rematerialize(ctx, &data[offset..offset + elem9_len]).await?;
         offset += elem9_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem10_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem10_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem10_len)?;
         let elem10 = T10::rematerialize(ctx, &data[offset..offset + elem10_len]).await?;
@@ -1252,84 +1252,84 @@ where
 
         // Deserialize elements 0-11
         require_min_buffer_size(data, offset + 8)?;
-        let elem0_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem0_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem0_len)?;
         let elem0 = T0::rematerialize(ctx, &data[offset..offset + elem0_len]).await?;
         offset += elem0_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem1_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem1_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem1_len)?;
         let elem1 = T1::rematerialize(ctx, &data[offset..offset + elem1_len]).await?;
         offset += elem1_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem2_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem2_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem2_len)?;
         let elem2 = T2::rematerialize(ctx, &data[offset..offset + elem2_len]).await?;
         offset += elem2_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem3_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem3_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem3_len)?;
         let elem3 = T3::rematerialize(ctx, &data[offset..offset + elem3_len]).await?;
         offset += elem3_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem4_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem4_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem4_len)?;
         let elem4 = T4::rematerialize(ctx, &data[offset..offset + elem4_len]).await?;
         offset += elem4_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem5_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem5_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem5_len)?;
         let elem5 = T5::rematerialize(ctx, &data[offset..offset + elem5_len]).await?;
         offset += elem5_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem6_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem6_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem6_len)?;
         let elem6 = T6::rematerialize(ctx, &data[offset..offset + elem6_len]).await?;
         offset += elem6_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem7_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem7_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem7_len)?;
         let elem7 = T7::rematerialize(ctx, &data[offset..offset + elem7_len]).await?;
         offset += elem7_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem8_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem8_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem8_len)?;
         let elem8 = T8::rematerialize(ctx, &data[offset..offset + elem8_len]).await?;
         offset += elem8_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem9_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem9_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem9_len)?;
         let elem9 = T9::rematerialize(ctx, &data[offset..offset + elem9_len]).await?;
         offset += elem9_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem10_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem10_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem10_len)?;
         let elem10 = T10::rematerialize(ctx, &data[offset..offset + elem10_len]).await?;
         offset += elem10_len;
 
         require_min_buffer_size(data, offset + 8)?;
-        let elem11_len = u64::from_le_bytes(data[offset..offset + 8].try_into()?) as usize;
+        let elem11_len = usize_from_u64_le_bytes(&data[offset..offset + 8])?;
         offset += 8;
         require_min_buffer_size(data, offset + elem11_len)?;
         let elem11 = T11::rematerialize(ctx, &data[offset..offset + elem11_len]).await?;

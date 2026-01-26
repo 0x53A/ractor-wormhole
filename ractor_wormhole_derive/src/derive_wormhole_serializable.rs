@@ -319,9 +319,21 @@ fn for_field(field: &NamedField, use_self_prefix: bool) -> Result<(TokenStream, 
     };
 
     let deserialize = quote! {
+        if data.len() < offset + 8 {
+            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                "unexpected end of data: need {} bytes for field length, have {}",
+                offset + 8, data.len()
+            ));
+        }
         let #ident_field_len: usize = u64::from_le_bytes(data[offset..offset + 8].try_into()?).try_into()
             .map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
         offset += 8;
+        if data.len() < offset + #ident_field_len {
+            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                "unexpected end of data: need {} bytes for field data, have {}",
+                offset + #ident_field_len, data.len()
+            ));
+        }
         let #ident_field_bytes = &data[offset..offset + #ident_field_len];
         offset += #ident_field_len;
         let #ident_field = <#field_type as ::ractor_wormhole::transmaterialization::ContextTransmaterializable>::rematerialize(ctx, #ident_field_bytes).await?;
@@ -440,10 +452,22 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
                 field_value_idents.push(field_value_ident.clone());
 
                 deserialize_fields.push(quote! {
+                    if data.len() < offset + 8 {
+                        return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                            "unexpected end of data: need {} bytes for field length, have {}",
+                            offset + 8, data.len()
+                        ));
+                    }
                     let #field_len_ident: usize = u64::from_le_bytes(
                         data[offset..offset + 8].try_into()?
                     ).try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
                     offset += 8;
+                    if data.len() < offset + #field_len_ident {
+                        return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                            "unexpected end of data: need {} bytes for field data, have {}",
+                            offset + #field_len_ident, data.len()
+                        ));
+                    }
                     let #field_bytes_ident = &data[offset..offset + #field_len_ident];
                     offset += #field_len_ident;
                     let #field_value_ident =
@@ -608,10 +632,22 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                     field_value_idents.push(field_value_ident.clone());
 
                     deserialize_fields.push(quote! {
+                        if payload_data.len() < payload_offset + 8 {
+                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                                "unexpected end of data: need {} bytes for field length, have {}",
+                                payload_offset + 8, payload_data.len()
+                            ));
+                        }
                         let #field_len_ident: usize = u64::from_le_bytes(
                             payload_data[payload_offset..payload_offset + 8].try_into()?
                         ).try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
                         payload_offset += 8;
+                        if payload_data.len() < payload_offset + #field_len_ident {
+                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                                "unexpected end of data: need {} bytes for field data, have {}",
+                                payload_offset + #field_len_ident, payload_data.len()
+                            ));
+                        }
                         let #field_bytes_ident = &payload_data[payload_offset..payload_offset + #field_len_ident];
                         payload_offset += #field_len_ident;
                         let #field_value_ident =
@@ -674,10 +710,22 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                     let field_value_ident = format_ident!("field_{}", field_name);
 
                     deserialize_fields.push(quote! {
+                        if payload_data.len() < payload_offset + 8 {
+                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                                "unexpected end of data: need {} bytes for field length, have {}",
+                                payload_offset + 8, payload_data.len()
+                            ));
+                        }
                         let #field_len_ident: usize = u64::from_le_bytes(
                             payload_data[payload_offset..payload_offset + 8].try_into()?
                         ).try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("field length exceeds platform usize"))?;
                         payload_offset += 8;
+                        if payload_data.len() < payload_offset + #field_len_ident {
+                            return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                                "unexpected end of data: need {} bytes for field data, have {}",
+                                payload_offset + #field_len_ident, payload_data.len()
+                            ));
+                        }
                         let #field_bytes_ident = &payload_data[payload_offset..payload_offset + #field_len_ident];
                         payload_offset += #field_len_ident;
                         let #field_value_ident =
@@ -737,17 +785,41 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let mut offset = 0;
 
                 // Read the variant name
+                if data.len() < offset + 8 {
+                    return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                        "unexpected end of data: need {} bytes for variant name length, have {}",
+                        offset + 8, data.len()
+                    ));
+                }
                 let variant_name_len: usize = u64::from_le_bytes(data[offset..offset + 8].try_into()?)
                     .try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("variant name length exceeds platform usize"))?;
                 offset += 8;
+                if data.len() < offset + variant_name_len {
+                    return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                        "unexpected end of data: need {} bytes for variant name, have {}",
+                        offset + variant_name_len, data.len()
+                    ));
+                }
                 let variant_name_bytes = &data[offset..offset + variant_name_len];
                 offset += variant_name_len;
                 let variant_name = std::str::from_utf8(variant_name_bytes)?.to_string();
 
                 // Read the payload data length
+                if data.len() < offset + 8 {
+                    return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                        "unexpected end of data: need {} bytes for payload length, have {}",
+                        offset + 8, data.len()
+                    ));
+                }
                 let payload_data_len: usize = u64::from_le_bytes(data[offset..offset + 8].try_into()?)
                     .try_into().map_err(|_| ::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!("payload length exceeds platform usize"))?;
                 offset += 8;
+                if data.len() < offset + payload_data_len {
+                    return Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                        "unexpected end of data: need {} bytes for payload data, have {}",
+                        offset + payload_data_len, data.len()
+                    ));
+                }
                 let payload_data = &data[offset..offset + payload_data_len];
                 offset += payload_data_len;
 
