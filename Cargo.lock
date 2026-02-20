@@ -1070,9 +1070,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.55"
+version = "4.5.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e34525d5bbbd55da2bb745d34b36121baac88d07619a9a09cfcf4a6c0832785"
+checksum = "a75ca66430e33a14957acc24c5077b503e7d374151b2b4b3a10c83b4ceb4be0e"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1080,9 +1080,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.55"
+version = "4.5.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59a20016a20a3da95bef50ec7238dbd09baeef4311dcdd38ec15aba69812fb61"
+checksum = "793207c7fa6300a0608d1080b858e5fdbe713cdc1c8db9fb17777d8a13e63df0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -4677,7 +4677,7 @@ dependencies = [
  "once_cell",
  "strum 0.26.3",
  "tokio",
- "tokio_with_wasm",
+ "tokio_with_wasm 0.8.8",
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -4714,7 +4714,7 @@ dependencies = [
  "static_assertions",
  "tokio",
  "tokio-tungstenite",
- "tokio_with_wasm",
+ "tokio_with_wasm 0.9.0",
  "tracing",
  "tungstenite 0.28.0",
  "uuid",
@@ -6219,7 +6219,21 @@ checksum = "34e40fbbbd95441133fe9483f522db15dbfd26dc636164ebd8f2dd28759a6aa6"
 dependencies = [
  "js-sys",
  "tokio",
- "tokio_with_wasm_proc",
+ "tokio_with_wasm_proc 0.8.8",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "tokio_with_wasm"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef3ce6a8f5b5190dfe4851db6c969e8360a262759e16a0b75dfc43af19d97a86"
+dependencies = [
+ "js-sys",
+ "tokio",
+ "tokio_with_wasm_proc 0.9.0",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -6230,6 +6244,16 @@ name = "tokio_with_wasm_proc"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d01145a2c788d6aae4cd653afec1e8332534d7d783d01897cefcafe4428de992"
+dependencies = [
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
+name = "tokio_with_wasm_proc"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d8aa1d26c1550eef93cfb2dafadc145b3220432dae8d156b5ba485880594ffe"
 dependencies = [
  "quote",
  "syn 2.0.114",
@@ -6844,7 +6868,7 @@ dependencies = [
  "shared",
  "tokio",
  "tokio-tungstenite",
- "tokio_with_wasm",
+ "tokio_with_wasm 0.9.0",
  "uuid",
  "wasm-bindgen-futures",
  "web-sys",
@@ -6887,7 +6911,7 @@ dependencies = [
  "ractor",
  "ractor_wormhole",
  "tokio",
- "tokio_with_wasm",
+ "tokio_with_wasm 0.9.0",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
