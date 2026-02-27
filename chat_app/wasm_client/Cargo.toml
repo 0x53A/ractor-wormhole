@@ -34,6 +34,7 @@ ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_clien
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_client_wasm"] }
+getrandom_v03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 
 [features]
 async-trait = ["ractor_wormhole/async-trait"]
