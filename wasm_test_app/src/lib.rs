@@ -29,7 +29,7 @@ fn log_to_page(message: &str, class: &str) {
     log_div.append_child(&entry).expect("append child");
 
     // Auto-scroll to bottom
-    log_div.set_scroll_top(log_div.scroll_height());
+    log_div.set_scroll_top(log_div.scroll_height().into());
 }
 
 fn set_status(message: &str, class: &str) {

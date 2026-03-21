@@ -149,11 +149,12 @@ async fn connect_to_bluetooth_device() -> Result<(), String> {
     options.set_accept_all_devices(true);
 
     // Request optional services (generic GATT services)
-    let optional_services = js_sys::Array::new();
-    optional_services.push(&JsValue::from_str("battery_service"));
-    optional_services.push(&JsValue::from_str("device_information"));
-    optional_services.push(&JsValue::from_str("generic_access"));
-    optional_services.push(&JsValue::from_str("heart_rate"));
+    let optional_services: Vec<js_sys::JsString> = vec![
+        "battery_service".into(),
+        "device_information".into(),
+        "generic_access".into(),
+        "heart_rate".into(),
+    ];
     options.set_optional_services(&optional_services);
 
     // Request device
@@ -593,7 +594,7 @@ fn log_to_device_info(message: &str, class: &str) {
     entry.set_inner_html(message);
 
     log_div.append_child(&entry).expect("append child");
-    log_div.set_scroll_top(log_div.scroll_height());
+    log_div.set_scroll_top(log_div.scroll_height().into());
 }
 
 fn log_to_characteristics(message: &str, class: &str) {
@@ -608,7 +609,7 @@ fn log_to_characteristics(message: &str, class: &str) {
     entry.set_inner_html(message);
 
     log_div.append_child(&entry).expect("append child");
-    log_div.set_scroll_top(log_div.scroll_height());
+    log_div.set_scroll_top(log_div.scroll_height().into());
 }
 
 fn clear_characteristics_list() {

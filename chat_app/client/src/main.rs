@@ -1,6 +1,5 @@
 #![feature(fn_traits)]
 #![feature(try_find)]
-#![feature(let_chains)]
 
 mod ui;
 
