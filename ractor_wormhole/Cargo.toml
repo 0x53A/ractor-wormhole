@@ -12,22 +12,22 @@ ractor_cluster_derive = { version = "0.15", optional = true }
 # note: the introduction is json serialized
 serde = { version = "1.0", features = ["serde_derive"] }
 serde_json = "1.0"
-tokio = { version = "1.50", features = [
+tokio = { version = "1.52", features = [
     #"rt-multi-thread",
     #"net",
     #"time",
     #"macros",
     #"sync"
 ]}
-tokio-tungstenite = { version = "0.28", optional = true }
-tungstenite = { version = "0.28", optional = true }
+tokio-tungstenite = { version = "0.29", optional = true }
+tungstenite = { version = "0.29", optional = true }
 anyhow = { version = "1.0", features = ["backtrace"] }
 bincode = { version = "=2.0", features = [] }
 futures = "0.3"
 log = "0.4"
 tracing = "0.1"
-rand = "0.9"
-uuid = { version = "1.22", features = ["rng", "v4"] }
+rand = "0.10"
+uuid = { version = "1.23", features = ["rng", "v4"] }
 static_assertions = "1.1"
 async-trait = "0.1"
 
