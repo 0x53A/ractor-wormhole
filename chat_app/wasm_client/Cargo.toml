@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 shared = { path = "../shared" }
-eframe = { version = "0.33", features = ["default_fonts", "glow", "persistence"] }
-egui = "0.33"
+eframe = { version = "0.34", features = ["default_fonts", "glow", "persistence"] }
+egui = "0.34"
 env_logger = "0.11"
 log = "0.4"
 ractor = "0.15"
@@ -14,20 +14,20 @@ ractor_wormhole = { path = "../../ractor_wormhole", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
-tokio = { version = "1.50", features = [ ] }
+tokio = { version = "1.52", features = [ ] }
 tokio_with_wasm = "0.9"
 anyhow = "1.0"
 futures-util = "0.3"
 futures = "0.3"
-getrandom = { version = "0.3", features = ["wasm_js"] }
-uuid = { version = "1.22", features = ["js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
+uuid = { version = "1.23", features = ["js"] }
 async-trait = "0.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.50", features = [ "rt", "rt-multi-thread" ] }
 clap = { version = "4.6", features = ["derive"] }
 color-eyre = "0.6"
-tokio-tungstenite = { version = "0.28", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.29", features = ["native-tls"] }
 #tungstenite = { version = "0.26.2", features = [] }
 ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_client"] }
 
