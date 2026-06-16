@@ -12,13 +12,13 @@ env_logger = "0.11"
 ractor = { version = "0.15", features = [] }
 tokio = { version = "1.50", features = ["full"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
-rand = "0.9"
+rand = "0.10"
 static_assertions = "1.1"
 futures = "0.3"
 futures-util = "0.3"
 hyper = { version = "1.8", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
-hyper-tungstenite = "0.19"
+hyper-tungstenite = "0.20"
 http-body-util = "0.1"
 rust-embed = "8.11"
 log = "0.4"

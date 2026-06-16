@@ -30,7 +30,7 @@ web-sys = { version = "0.3", features = [
     "RequestDeviceOptions",
 ] }
 console_error_panic_hook = "0.1"
-getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
 js-sys = "0.3"
 tokio = { version = "1.50", features = [] }
 tokio_with_wasm = "0.9"
