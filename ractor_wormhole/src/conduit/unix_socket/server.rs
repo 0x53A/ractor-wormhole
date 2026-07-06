@@ -1,5 +1,5 @@
 use futures::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use ractor::ActorRef;
 use std::path::{Path, PathBuf};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -35,7 +35,7 @@ pub async fn start_server<P: AsRef<Path>>(
         let mut connection_counter = 0u64;
         while let Ok((stream, _addr)) = listener.accept().await {
             connection_counter += 1;
-            info!("New Unix socket connection #{connection_counter}");
+            debug!("New Unix socket connection #{connection_counter}");
             let _ = handle_connection(
                 stream,
                 connection_counter,
@@ -55,7 +55,7 @@ async fn handle_connection(
     nexus: ActorRef<NexusActorMessage>,
     socket_path: &Path,
 ) {
-    info!("Unix socket connection #{connection_id} established");
+    debug!("Unix socket connection #{connection_id} established");
 
     let (reader, writer) = stream.into_split();
 

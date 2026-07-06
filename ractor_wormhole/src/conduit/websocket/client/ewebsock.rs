@@ -14,7 +14,7 @@ use tokio_with_wasm::alias as tokio;
 use anyhow::anyhow;
 use ewebsock::{WsEvent, WsMessage, WsSender};
 use futures::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
     conduit::{self, ConduitError, ConduitMessage, ConduitSink, ConduitSource},
@@ -82,7 +82,7 @@ pub async fn adapt_WsSender_to_Conduit(sender: WsSender) -> Result<ConduitSink, 
                 ConduitMessage::Text(text) => tx.send(WsMessage::Text(text.to_string())).unwrap(),
                 ConduitMessage::Binary(data) => tx.send(WsMessage::Binary(data.to_vec())).unwrap(),
                 ConduitMessage::Close(close_frame) => {
-                    info!("Closing the WebSocket connection: {close_frame:?}");
+                    debug!("Closing the WebSocket connection: {close_frame:?}");
                     ctx.actor_ref.stop(None);
                 }
             }
@@ -139,7 +139,7 @@ pub async fn connect_to_server(
                 error!("WebSocket error");
             }
             WsEvent::Closed => {
-                info!("WebSocket connection closed");
+                debug!("WebSocket connection closed");
             }
         }
         ControlFlow::Continue(())

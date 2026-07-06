@@ -1,6 +1,6 @@
 #[cfg(feature = "async-trait")]
 use async_trait::async_trait;
-use log::info;
+use log::{debug, info, warn};
 use ractor::{
     Actor, ActorCell, ActorId, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
     concurrency::{Duration, JoinHandle},
@@ -92,7 +92,7 @@ impl Actor for NexusActor {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             NexusActorMessage::Connected(identifier, ws_stream, reply) => {
-                info!("New WebSocket connection from: {identifier}");
+                debug!("New WebSocket connection from: {identifier}");
 
                 // Create a new portal actor
                 let (actor_ref, handle) = Actor::spawn_linked(
@@ -138,7 +138,7 @@ impl Actor for NexusActor {
 
                 if let Some((_, (existing_actor, _))) = existing {
                     if existing_actor.get_id() != actor_ref.get_id() {
-                        info!(
+                        warn!(
                             "Actor with id {} already published under name '{}', overwriting with {}''",
                             existing_actor.get_id(),
                             name,
@@ -153,8 +153,8 @@ impl Actor for NexusActor {
                     .named_actors
                     .insert(name.clone(), (actor_ref, receiver))
                 {
-                    Some(_) => info!("Actor with name {name} already existed and was overwritten"),
-                    None => info!("Actor with name {name} published"),
+                    Some(_) => warn!("Actor with name {name} already existed and was overwritten"),
+                    None => debug!("Actor with name {name} published"),
                 }
             }
             NexusActorMessage::QueryNamedActor(name, reply) => {
@@ -175,14 +175,14 @@ impl Actor for NexusActor {
         match &event {
             SupervisionEvent::ActorTerminated(actor, last_state, reason) => {
                 if let Some((addr, _, _)) = state.portals.remove(&actor.get_id()) {
-                    info!("Portal to {addr} terminated: {reason:?}, last_state={last_state:#?}");
+                    debug!("Portal to {addr} terminated: {reason:?}, last_state={last_state:#?}");
                 }
             }
             SupervisionEvent::ActorFailed(actor, err) => {
-                info!("Actor failed: {:?} - {:?}", actor.get_id(), err);
+                warn!("Actor failed: {:?} - {:?}", actor.get_id(), err);
 
                 if let Some((addr, _, _)) = state.portals.remove(&actor.get_id()) {
-                    info!("Portal to {addr} terminated because actor failed: {err:?}");
+                    warn!("Portal to {addr} terminated because actor failed: {err:?}");
                 }
             }
             _ => (),

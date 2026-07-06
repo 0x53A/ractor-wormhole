@@ -1,4 +1,4 @@
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use ractor::ActorRef;
 use russh::client::{self, Handle, Msg};
 use russh::keys::PrivateKeyWithHashAlg;
@@ -134,7 +134,7 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
                 ));
             }
 
-            info!("SSH agent provided {} identities", identities.len());
+            debug!("SSH agent provided {} identities", identities.len());
 
             // Get the best supported RSA hash algorithm
             let hash_alg = handle.best_supported_rsa_hash().await
@@ -145,14 +145,14 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
             let mut last_error = None;
             let mut auth_result = None;
             for (i, pubkey) in identities.iter().enumerate() {
-                info!("Trying identity {} of {}", i + 1, identities.len());
+                debug!("Trying identity {} of {}", i + 1, identities.len());
 
                 match handle
                     .authenticate_publickey_with(config.username.clone(), pubkey.clone(), hash_alg, &mut agent)
                     .await
                 {
                     Ok(result) if result.success() => {
-                        info!("Successfully authenticated with identity {}", i + 1);
+                        debug!("Successfully authenticated with identity {}", i + 1);
                         auth_result = Some(result);
                         break;
                     }
@@ -441,7 +441,7 @@ where
                 writer.flush().await.map_err(ConduitError::from)
             }
             ConduitMessage::Close(reason) => {
-                info!("Closing SSH connection: {:?}", reason);
+                debug!("Closing SSH connection: {:?}", reason);
                 // Optionally write a close frame
                 writer.write_u8(2).await.ok();
                 writer.flush().await.ok();
@@ -465,7 +465,7 @@ where
             Ok(t) => t,
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                    info!("SSH connection closed");
+                    debug!("SSH connection closed");
                     return None;
                 }
                 error!("Failed to read message type: {}", e);
@@ -507,7 +507,7 @@ where
             2 => {
                 // Close message
                 let reason = String::from_utf8(buffer).ok();
-                info!("Received close message: {:?}", reason);
+                debug!("Received close message: {:?}", reason);
                 return Some((Ok(ConduitMessage::Close(reason)), reader));
             }
             _ => {

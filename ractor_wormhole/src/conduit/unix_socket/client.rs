@@ -1,5 +1,5 @@
 use futures::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use ractor::ActorRef;
 use std::path::Path;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -27,7 +27,7 @@ pub async fn connect_to_server<P: AsRef<Path>>(
     // Connect to the Unix socket server
     let stream = match UnixStream::connect(socket_path).await {
         Ok(stream) => {
-            info!(
+            debug!(
                 "Unix socket connection established to: {}",
                 socket_path.display()
             );

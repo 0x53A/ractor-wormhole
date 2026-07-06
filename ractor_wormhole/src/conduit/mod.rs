@@ -17,7 +17,7 @@ use futures::{Sink, Stream, StreamExt};
 use ractor::ActorRef;
 use std::pin::Pin;
 
-use log::{error, info};
+use log::{debug, error};
 
 use crate::{
     nexus::{self, NexusActorMessage},
@@ -66,7 +66,7 @@ pub async fn receive_loop(
                     }
                 }
                 ConduitMessage::Close(close_frame) => {
-                    info!("Portal with {identifier} closed because of reason: {close_frame:?}");
+                    debug!("Portal with {identifier} closed because of reason: {close_frame:?}");
                     break;
                 }
             },
@@ -77,7 +77,7 @@ pub async fn receive_loop(
         }
     }
 
-    info!("Portal with {identifier} closed");
+    debug!("Portal with {identifier} closed");
     let _ = actor_ref.cast(PortalActorMessage::Close);
 }
 
@@ -96,7 +96,7 @@ pub async fn from_sink_source(
 
     match portal {
         Ok(portal_actor) => {
-            info!("Portal actor started for: {portal_identifier}");
+            debug!("Portal actor started for: {portal_identifier}");
             let portal_actor_copy = portal_actor.clone();
             ractor::concurrency::spawn(async move {
                 receive_loop(source, portal_identifier, portal_actor_copy).await;

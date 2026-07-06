@@ -1,7 +1,7 @@
 //mod server_http;
 
 use futures::{SinkExt, StreamExt, future};
-use log::{error, info};
+use log::{debug, error, info};
 use ractor::ActorRef;
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
@@ -27,7 +27,7 @@ pub async fn start_server(
     let nexus_copy = nexus.clone();
     tokio::spawn(async move {
         while let Ok((stream, addr)) = listener.accept().await {
-            info!("New connection from: {addr}");
+            debug!("New connection from: {addr}");
             let _ = handle_connection(stream, addr, nexus_copy.clone()).await;
         }
     });

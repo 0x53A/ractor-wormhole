@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use futures::SinkExt;
-use log::{error, info};
+use log::{debug, error, info, trace, warn};
 use ractor::{
     Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
     concurrency::Duration,
@@ -218,14 +218,14 @@ impl Portal for ActorRef<PortalActorMessage> {
             FnActor::<T>::start_fn_linked(self.get_cell(), async move |mut ctx| {
                 let type_str = std::any::type_name::<T>();
 
-                info!("Proxy actor started {type_str}");
+                debug!("Proxy actor started {type_str}");
 
                 while let Some(msg) = ctx.rx.recv().await {
-                    info!("Proxy actor received msg: {msg:#?} [{type_str}]");
+                    trace!("Proxy actor received msg: {msg:#?} [{type_str}]");
                     let remote_id = remote_actor_id;
 
                     let f: TransmitMessageF = Box::new(move |ctx| {
-                        info!("f inside Proxy Actor was called: {msg:#?} [{type_str}]");
+                        trace!("f inside Proxy Actor was called: {msg:#?} [{type_str}]");
                         // Create a regular closure that returns a boxed and pinned future
                         Box::pin(async move {
                             let bytes: Vec<u8> =
@@ -243,7 +243,7 @@ impl Portal for ActorRef<PortalActorMessage> {
                         error!("Failed to send message to portal: {err}");
                     }
 
-                    info!(
+                    trace!(
                         "Proxy actor sent WSPortalMessage::TransmitMessage to portal: {remote_id:#?} [{type_str}]"
                     );
                 }
@@ -349,7 +349,7 @@ impl PortalActor {
 
         match existing {
             Some((k, _v)) => {
-                info!(
+                debug!(
                     "Actor with id {} was already published under {}",
                     actor_cell.get_id(),
                     k.clone()
@@ -358,7 +358,7 @@ impl PortalActor {
             }
             None => {
                 let new_id = OpaqueActorId(uuid::Uuid::new_v4().to_u128_le());
-                info!(
+                debug!(
                     "Actor with id {} published as {}",
                     actor_cell.get_id(),
                     new_id.0
@@ -434,7 +434,7 @@ impl Actor for PortalActor {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             PortalActorMessage::Text(text) => {
-                info!(
+                debug!(
                     "Received text message from {}: {}",
                     state.args.identifier, text
                 );
@@ -442,7 +442,7 @@ impl Actor for PortalActor {
                 match &state.channel_state {
                     PortalConduitState::Opening { self_introduction } => {
                         let remote_introduction: Introduction = serde_json::from_str(&text)?;
-                        info!(
+                        debug!(
                             "Received introduction from {}: {:?}",
                             state.args.identifier, remote_introduction
                         );
@@ -469,7 +469,7 @@ impl Actor for PortalActor {
                 }
             }
             PortalActorMessage::Binary(data) => {
-                info!(
+                debug!(
                     "Received binary message from {}: {} bytes",
                     state.args.identifier,
                     data.len()
@@ -484,7 +484,7 @@ impl Actor for PortalActor {
                     }
                     PortalConduitState::Open { channel_id, .. } => {
                         let msg = CrossPortalMessage::rematerialize(&data)?;
-                        info!("Received message from {}: {:?}", state.args.identifier, msg);
+                        trace!("Received message from {}: {:?}", state.args.identifier, msg);
 
                         match msg {
                             CrossPortalMessage::RequestActorByName(id, name) => {
@@ -640,7 +640,7 @@ impl Actor for PortalActor {
                 }
             }
             PortalActorMessage::Close => {
-                info!("Closing portal to {}", state.args.identifier);
+                debug!("Closing portal to {}", state.args.identifier);
                 myself.stop(Some("Portal closed".into()));
             }
 
@@ -669,8 +669,8 @@ impl Actor for PortalActor {
 
                 // note: this overrides an already published actor of the same name.
                 match state.named_actors.insert(name.clone(), opaque_actor_id) {
-                    Some(_) => info!("Actor with name {name} already existed and was overwritten"),
-                    None => info!("Actor with name {name} published"),
+                    Some(_) => warn!("Actor with name {name} already existed and was overwritten"),
+                    None => debug!("Actor with name {name} published"),
                 }
 
                 if let Some(rpc) = reply {
@@ -832,7 +832,7 @@ impl Actor for PortalActor {
     ) -> Result<(), ActorProcessingErr> {
         match event {
             SupervisionEvent::ActorTerminated(actor, last_state, reason) => {
-                info!(
+                debug!(
                     "Actor {} terminated: {:?}, last_state={:#?}",
                     actor.get_id(),
                     reason,
@@ -840,7 +840,7 @@ impl Actor for PortalActor {
                 );
             }
             SupervisionEvent::ActorFailed(actor, err) => {
-                info!("Actor {} failed: {:?}", actor.get_id(), err);
+                warn!("Actor {} failed: {:?}", actor.get_id(), err);
             }
             _ => {}
         }

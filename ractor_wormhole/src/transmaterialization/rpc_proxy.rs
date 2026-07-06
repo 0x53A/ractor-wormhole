@@ -53,7 +53,7 @@ impl<T: Send + Sync + 'static> Actor for RpcProxyActor<T> {
         _myself: ActorRef<Self::Msg>,
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
-        tracing::info!("Starting the RpcProxyActor actor");
+        tracing::debug!("Starting the RpcProxyActor actor");
         Ok(RpcProxyActorState {
             rpc_reply_port: Some(args.rpc_reply_port),
         })
@@ -65,12 +65,12 @@ impl<T: Send + Sync + 'static> Actor for RpcProxyActor<T> {
         message: Self::Msg,
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
-        tracing::info!("RpcProxyActor handle message...");
+        tracing::trace!("RpcProxyActor handle message...");
         if let Some(rrp) = state.rpc_reply_port.take() {
             if let Err(err) = rrp.send(message.data) {
                 tracing::error!("Failed to send message to RpcReplyPort: {}", err);
             } else {
-                tracing::info!("Message sent to RpcReplyPort successfully");
+                tracing::trace!("Message sent to RpcReplyPort successfully");
             }
         }
         if let Some(supe) = myself.get_cell().try_get_supervisor() {
