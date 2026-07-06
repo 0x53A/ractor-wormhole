@@ -67,13 +67,17 @@ pub async fn run_ssh(
     ssh_key: Option<String>,
     ssh_key_passphrase: Option<String>,
 ) -> Result<(), anyhow::Error> {
-    use ractor_wormhole::conduit::ssh::client::{SshAuthMethod, SshConfig, connect_via_ssh_to_unix_socket};
+    use ractor_wormhole::conduit::ssh::client::{
+        SshAuthMethod, SshConfig, connect_via_ssh_to_unix_socket,
+    };
 
     // Parse SSH connection string: user@host:port/path/to/socket
     // Example: "user@example.com:22/tmp/ractor_wormhole_sample_app"
-    let (connection, socket_path) = ssh_connection_string
-        .split_once('/')
-        .ok_or_else(|| anyhow::anyhow!("Invalid SSH connection string format. Expected: user@host:port/path/to/socket"))?;
+    let (connection, socket_path) = ssh_connection_string.split_once('/').ok_or_else(|| {
+        anyhow::anyhow!(
+            "Invalid SSH connection string format. Expected: user@host:port/path/to/socket"
+        )
+    })?;
 
     let (user_host, port_str) = if let Some((uh, p)) = connection.rsplit_once(':') {
         (uh, p)
@@ -81,11 +85,12 @@ pub async fn run_ssh(
         (connection, "22")
     };
 
-    let (username, host) = user_host
-        .split_once('@')
-        .ok_or_else(|| anyhow::anyhow!("Invalid SSH connection string format. Expected: user@host"))?;
+    let (username, host) = user_host.split_once('@').ok_or_else(|| {
+        anyhow::anyhow!("Invalid SSH connection string format. Expected: user@host")
+    })?;
 
-    let port: u16 = port_str.parse()
+    let port: u16 = port_str
+        .parse()
         .map_err(|_| anyhow::anyhow!("Invalid port number: {}", port_str))?;
 
     // Determine authentication method
@@ -107,13 +112,13 @@ pub async fn run_ssh(
             format!("{}/.ssh/id_ecdsa", home),
             format!("{}/.ssh/id_dsa", home),
         ];
-        
+
         let found_key = default_keys.iter()
             .find(|path| std::path::Path::new(path).exists())
             .ok_or_else(|| anyhow::anyhow!(
                 "No SSH key found in default locations. Use --ssh-key to specify a key, --ssh-password for password auth, or load keys into ssh-agent and use --ssh-agent"
             ))?;
-        
+
         SshAuthMethod::PublicKey {
             private_key_path: found_key.clone(),
             passphrase: None,

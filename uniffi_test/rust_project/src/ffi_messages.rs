@@ -72,10 +72,7 @@ impl From<FfiChatClientMessage> for ChatClientMessage {
                 ChatClientMessage::UserDisconnected(UserAlias(alias))
             }
             FfiChatClientMessage::MessageReceived { sender, content } => {
-                ChatClientMessage::MessageReceived(
-                    UserAlias(sender),
-                    ChatMessageContent(content),
-                )
+                ChatClientMessage::MessageReceived(UserAlias(sender), ChatMessageContent(content))
             }
             FfiChatClientMessage::ServerShutdown => ChatClientMessage::ServerShutdown,
         }

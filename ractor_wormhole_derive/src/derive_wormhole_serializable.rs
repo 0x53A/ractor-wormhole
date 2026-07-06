@@ -677,7 +677,9 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
                 let field_defs = named_fields
                     .fields
                     .iter()
-                    .map(|(field, _)| for_field(field, false, &payload_data_ident, &payload_offset_ident))
+                    .map(|(field, _)| {
+                        for_field(field, false, &payload_data_ident, &payload_offset_ident)
+                    })
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let field_names: Vec<_> = named_fields

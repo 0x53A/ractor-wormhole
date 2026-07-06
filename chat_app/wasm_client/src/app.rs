@@ -132,13 +132,13 @@ impl TemplateApp {
         };
 
         // Load previous app state (if any) - Note: Chat state is skipped
-        if let Some(storage) = cc.storage {
-            if let Some(loaded_app) = eframe::get_value::<Self>(storage, eframe::APP_KEY) {
-                // Keep loaded persistent fields, but overwrite transient state
-                app.label = loaded_app.label;
-                app.value = loaded_app.value;
-                // Keep the ui_update_rx and portal_ref we just received
-            }
+        if let Some(storage) = cc.storage
+            && let Some(loaded_app) = eframe::get_value::<Self>(storage, eframe::APP_KEY)
+        {
+            // Keep loaded persistent fields, but overwrite transient state
+            app.label = loaded_app.label;
+            app.value = loaded_app.value;
+            // Keep the ui_update_rx and portal_ref we just received
         }
 
         app // Return the initialized app

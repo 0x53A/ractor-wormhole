@@ -102,7 +102,7 @@ struct Cli {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn inner_main(rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
+async fn inner_main(_rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
@@ -125,7 +125,7 @@ async fn inner_main(rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
 
     let (request_repaint_tx, mut request_repaint_rx) = tokio::sync::mpsc::channel(1000);
 
-    let (nexus, portal, ui_rcv) = init(cli.url, request_repaint_tx).await.unwrap();
+    let (_nexus, portal, ui_rcv) = init(cli.url, request_repaint_tx).await.unwrap();
 
     eframe::run_native(
         "eframe template",

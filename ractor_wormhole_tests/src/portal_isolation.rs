@@ -66,14 +66,22 @@ pub async fn test_portal_isolation_on_garbage_data() -> anyhow::Result<()> {
     // Read and parse them
     let _intro1 = match rx1_from_portal.next().await {
         Some(ConduitMessage::Text(text)) => text,
-        Some(ConduitMessage::Binary(_)) => panic!("Expected text introduction from portal 1, got binary"),
-        Some(ConduitMessage::Close(_)) => panic!("Expected text introduction from portal 1, got close"),
+        Some(ConduitMessage::Binary(_)) => {
+            panic!("Expected text introduction from portal 1, got binary")
+        }
+        Some(ConduitMessage::Close(_)) => {
+            panic!("Expected text introduction from portal 1, got close")
+        }
         None => panic!("Expected text introduction from portal 1, got None"),
     };
     let _intro2 = match rx2_from_portal.next().await {
         Some(ConduitMessage::Text(text)) => text,
-        Some(ConduitMessage::Binary(_)) => panic!("Expected text introduction from portal 2, got binary"),
-        Some(ConduitMessage::Close(_)) => panic!("Expected text introduction from portal 2, got close"),
+        Some(ConduitMessage::Binary(_)) => {
+            panic!("Expected text introduction from portal 2, got binary")
+        }
+        Some(ConduitMessage::Close(_)) => {
+            panic!("Expected text introduction from portal 2, got close")
+        }
         None => panic!("Expected text introduction from portal 2, got None"),
     };
 
@@ -179,12 +187,10 @@ pub async fn test_portal_isolation_on_garbage_data() -> anyhow::Result<()> {
 /// Test that sending garbage during the handshake phase also isolates correctly
 #[tokio::test]
 pub async fn test_portal_isolation_garbage_during_handshake() -> anyhow::Result<()> {
-    let nexus = ractor_wormhole::nexus::start_nexus(
-        Some("isolation-handshake-test: nexus".into()),
-        None,
-    )
-    .await
-    .map_err(|err| anyhow::anyhow!(err))?;
+    let nexus =
+        ractor_wormhole::nexus::start_nexus(Some("isolation-handshake-test: nexus".into()), None)
+            .await
+            .map_err(|err| anyhow::anyhow!(err))?;
 
     // Connection 1: will receive garbage during handshake
     let (tx1_to_portal, rx1_to_portal) = mpsc::channel::<ConduitMessage>(100);
@@ -226,7 +232,9 @@ pub async fn test_portal_isolation_garbage_during_handshake() -> anyhow::Result<
     // Send garbage TEXT to portal 1 (invalid JSON during handshake)
     tx1_to_portal
         .clone()
-        .send(ConduitMessage::Text("this is not valid json {{{".to_string()))
+        .send(ConduitMessage::Text(
+            "this is not valid json {{{".to_string(),
+        ))
         .await?;
 
     // Complete handshake normally for portal 2

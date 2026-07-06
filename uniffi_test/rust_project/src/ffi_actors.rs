@@ -160,7 +160,7 @@ impl FfiChatServerActorRef {
         self.runtime.block_on(async {
             let users = self
                 .actor_ref
-                .ask(|rpc| ChatServerMessage::ListUsers(rpc), None)
+                .ask(ChatServerMessage::ListUsers, None)
                 .await
                 .map_err(|e| WormholeError::SendFailed {
                     reason: e.to_string(),

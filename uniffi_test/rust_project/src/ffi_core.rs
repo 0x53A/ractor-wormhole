@@ -18,7 +18,9 @@ use ractor_wormhole::{
     util::FnActor,
 };
 
-use crate::callbacks::{ChatClientHandler, ChatServerHandler, FfiConduitMessage, HubHandler, TransportCallback};
+use crate::callbacks::{
+    ChatClientHandler, ChatServerHandler, FfiConduitMessage, HubHandler, TransportCallback,
+};
 use crate::error::WormholeError;
 use crate::ffi_actors::{
     FfiChatClientActorLocal, FfiChatClientActorRef, FfiChatServerActorLocal, FfiChatServerActorRef,
@@ -310,14 +312,14 @@ pub struct WormholeConnection {
 impl WormholeConnection {
     /// Feed a message received from the network into Rust.
     pub fn on_message_received(&self, message: FfiConduitMessage) -> Result<(), WormholeError> {
-        let tx = self
-            .tx_to_rust
-            .lock()
-            .unwrap()
-            .clone()
-            .ok_or(WormholeError::ConnectionFailed {
-                reason: "Connection closed".into(),
-            })?;
+        let tx =
+            self.tx_to_rust
+                .lock()
+                .unwrap()
+                .clone()
+                .ok_or(WormholeError::ConnectionFailed {
+                    reason: "Connection closed".into(),
+                })?;
 
         tx.send(message.into())
             .map_err(|e| WormholeError::SendFailed {
@@ -540,8 +542,7 @@ fn create_sink_from_sender(sender: mpsc::UnboundedSender<ConduitMessage>) -> Con
 }
 
 fn create_source_from_receiver(receiver: mpsc::UnboundedReceiver<ConduitMessage>) -> ConduitSource {
-    let stream =
-        tokio_stream::wrappers::UnboundedReceiverStream::new(receiver).map(|msg| Ok(msg));
+    let stream = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver).map(Ok);
 
     Box::pin(stream)
 }

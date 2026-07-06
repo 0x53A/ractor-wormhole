@@ -3,7 +3,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, concurrency::Duration};
 use ractor_wormhole::portal::PortalActorMessage;
-use ractor_wormhole::transmaterialization::{ContextTransmaterializable, TransmaterializationContext};
+use ractor_wormhole::transmaterialization::{
+    ContextTransmaterializable, TransmaterializationContext,
+};
 
 use crate::derive_tests::{MixedEnum, StructEnum};
 
@@ -41,13 +43,10 @@ impl Actor for DummyPortalActor {
 async fn create_test_context() -> TransmaterializationContext {
     let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
 
-    let (actor_ref, _handle) = Actor::spawn(
-        Some(format!("dummy-portal-{}", id)),
-        DummyPortalActor,
-        (),
-    )
-    .await
-    .expect("failed to spawn dummy actor");
+    let (actor_ref, _handle) =
+        Actor::spawn(Some(format!("dummy-portal-{}", id)), DummyPortalActor, ())
+            .await
+            .expect("failed to spawn dummy actor");
 
     TransmaterializationContext {
         connection: actor_ref,
@@ -113,7 +112,8 @@ async fn test_tuple_variant_rejects_extra_payload() {
 
     // Increase payload length by 4 and add garbage
     let new_payload_len = (payload_len + 4) as u64;
-    tampered[payload_len_offset..payload_len_offset + 8].copy_from_slice(&new_payload_len.to_le_bytes());
+    tampered[payload_len_offset..payload_len_offset + 8]
+        .copy_from_slice(&new_payload_len.to_le_bytes());
     tampered.extend_from_slice(&[0xDE, 0xAD, 0xBE, 0xEF]);
 
     let result = MixedEnum::rematerialize(&ctx, &tampered).await;
@@ -150,7 +150,8 @@ async fn test_struct_variant_rejects_extra_payload() {
     ) as usize;
 
     let new_payload_len = (payload_len + 4) as u64;
-    tampered[payload_len_offset..payload_len_offset + 8].copy_from_slice(&new_payload_len.to_le_bytes());
+    tampered[payload_len_offset..payload_len_offset + 8]
+        .copy_from_slice(&new_payload_len.to_le_bytes());
     tampered.extend_from_slice(&[0xDE, 0xAD, 0xBE, 0xEF]);
 
     let result = MixedEnum::rematerialize(&ctx, &tampered).await;
@@ -182,7 +183,8 @@ async fn test_struct_enum_variant_rejects_extra_payload() {
     ) as usize;
 
     let new_payload_len = (payload_len + 4) as u64;
-    tampered[payload_len_offset..payload_len_offset + 8].copy_from_slice(&new_payload_len.to_le_bytes());
+    tampered[payload_len_offset..payload_len_offset + 8]
+        .copy_from_slice(&new_payload_len.to_le_bytes());
     tampered.extend_from_slice(&[0xDE, 0xAD, 0xBE, 0xEF]);
 
     let result = StructEnum::rematerialize(&ctx, &tampered).await;

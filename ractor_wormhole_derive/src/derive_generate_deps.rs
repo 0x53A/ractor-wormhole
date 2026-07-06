@@ -59,7 +59,7 @@ pub fn generate_deps(_input: TokenStream) -> TokenStream {
 // New helper: parse Cargo.toml content and return ordered list of (crate_ident, cfg_expression)
 fn from_cargo_toml(content: String) -> Vec<(String, String)> {
     // Helpers to find sections
-    fn section_by_header<'a>(content: &'a str, header_exact: &str) -> Option<String> {
+    fn section_by_header(content: &str, header_exact: &str) -> Option<String> {
         for (i, line) in content.lines().enumerate() {
             if line.trim() == header_exact {
                 let mut collected = String::new();
@@ -128,8 +128,8 @@ fn from_cargo_toml(content: String) -> Vec<(String, String)> {
     }
 
     // which features mention a dep
-    fn features_referencing<'a>(
-        features_map: &'a HashMap<String, Vec<String>>,
+    fn features_referencing(
+        features_map: &HashMap<String, Vec<String>>,
         dep_name: &str,
     ) -> Vec<String> {
         let mut found = Vec::new();
@@ -162,11 +162,12 @@ fn from_cargo_toml(content: String) -> Vec<(String, String)> {
     } else {
         // heuristic: find a header line containing target_arch = "wasm32"
         for line in content.lines() {
-            if line.contains("target_arch = \"wasm32\"") && line.trim().starts_with('[') {
-                if let Some(s) = section_by_header(&content, line.trim()) {
-                    wasm_deps_section = s;
-                    break;
-                }
+            if line.contains("target_arch = \"wasm32\"")
+                && line.trim().starts_with('[')
+                && let Some(s) = section_by_header(&content, line.trim())
+            {
+                wasm_deps_section = s;
+                break;
             }
         }
     }

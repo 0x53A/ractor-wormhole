@@ -1,8 +1,8 @@
 use log::{debug, error, info, warn};
 use ractor::ActorRef;
+use russh::ChannelStream;
 use russh::client::{self, Handle, Msg};
 use russh::keys::PrivateKeyWithHashAlg;
-use russh::ChannelStream;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -79,22 +79,17 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
     let ssh_config = Arc::new(russh::client::Config::default());
     let client = Client;
 
-    let mut handle = russh::client::connect(
-        ssh_config,
-        (config.host.as_str(), config.port),
-        client,
-    )
-    .await
-    .map_err(|e| anyhow::anyhow!("Failed to connect to SSH server: {}", e))?;
+    let mut handle =
+        russh::client::connect(ssh_config, (config.host.as_str(), config.port), client)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to connect to SSH server: {}", e))?;
 
     // Authenticate
     let authenticated = match config.auth_method {
-        SshAuthMethod::Password(password) => {
-            handle
-                .authenticate_password(config.username.clone(), password)
-                .await
-                .map_err(|e| anyhow::anyhow!("Password authentication failed: {}", e))?
-        }
+        SshAuthMethod::Password(password) => handle
+            .authenticate_password(config.username.clone(), password)
+            .await
+            .map_err(|e| anyhow::anyhow!("Password authentication failed: {}", e))?,
         SshAuthMethod::PublicKey {
             private_key_path,
             passphrase,
@@ -104,7 +99,9 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
 
             let key_with_hash = PrivateKeyWithHashAlg::new(
                 Arc::new(key_pair),
-                handle.best_supported_rsa_hash().await
+                handle
+                    .best_supported_rsa_hash()
+                    .await
                     .map_err(|e| anyhow::anyhow!("Failed to get RSA hash algorithm: {}", e))?
                     .flatten(),
             );
@@ -123,10 +120,9 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
                 .map_err(|e| anyhow::anyhow!("Failed to connect to SSH agent: {}. Make sure SSH_AUTH_SOCK is set and ssh-agent is running.", e))?;
 
             // Request identities from the agent
-            let identities = agent
-                .request_identities()
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to request identities from SSH agent: {}", e))?;
+            let identities = agent.request_identities().await.map_err(|e| {
+                anyhow::anyhow!("Failed to request identities from SSH agent: {}", e)
+            })?;
 
             if identities.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -137,7 +133,9 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
             debug!("SSH agent provided {} identities", identities.len());
 
             // Get the best supported RSA hash algorithm
-            let hash_alg = handle.best_supported_rsa_hash().await
+            let hash_alg = handle
+                .best_supported_rsa_hash()
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to get RSA hash algorithm: {}", e))?
                 .flatten();
 
@@ -148,7 +146,12 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
                 debug!("Trying identity {} of {}", i + 1, identities.len());
 
                 match handle
-                    .authenticate_publickey_with(config.username.clone(), pubkey.clone(), hash_alg, &mut agent)
+                    .authenticate_publickey_with(
+                        config.username.clone(),
+                        pubkey.clone(),
+                        hash_alg,
+                        &mut agent,
+                    )
                     .await
                 {
                     Ok(result) if result.success() => {
@@ -169,9 +172,14 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
 
             match auth_result {
                 Some(result) => result,
-                None => return Err(last_error.unwrap_or_else(|| {
-                    anyhow::anyhow!("All {} identities were rejected by the server", identities.len())
-                })),
+                None => {
+                    return Err(last_error.unwrap_or_else(|| {
+                        anyhow::anyhow!(
+                            "All {} identities were rejected by the server",
+                            identities.len()
+                        )
+                    }));
+                }
             }
         }
     };
@@ -198,7 +206,10 @@ pub async fn ssh_unix_socket_channel<P: AsRef<Path>>(
     socket_path: P,
 ) -> Result<ChannelStream<Msg>, anyhow::Error> {
     let socket_path = socket_path.as_ref();
-    info!("Opening SSH channel to Unix socket: {}", socket_path.display());
+    info!(
+        "Opening SSH channel to Unix socket: {}",
+        socket_path.display()
+    );
 
     // OpenSSH extension for Unix socket forwarding
     let channel = handle
@@ -254,10 +265,7 @@ pub async fn ssh_tcp_channel(
     remote_host: &str,
     remote_port: u16,
 ) -> Result<ChannelStream<Msg>, anyhow::Error> {
-    info!(
-        "Opening SSH channel to TCP {}:{}",
-        remote_host, remote_port
-    );
+    info!("Opening SSH channel to TCP {}:{}", remote_host, remote_port);
 
     let channel = handle
         .channel_open_direct_tcpip(remote_host, remote_port as u32, "127.0.0.1", 0)
@@ -302,10 +310,10 @@ pub async fn connect_via_ssh_to_unix_socket<P: AsRef<Path>>(
     remote_socket_path: P,
 ) -> Result<ActorRef<PortalActorMessage>, anyhow::Error> {
     let remote_socket_path = remote_socket_path.as_ref();
-    
+
     // Establish SSH connection
     let mut handle = connect_ssh(ssh_config.clone()).await?;
-    
+
     // Try direct-streamlocal first, fall back to socat if it fails
     let channel = match ssh_unix_socket_channel(&mut handle, remote_socket_path).await {
         Ok(channel) => channel,
@@ -317,10 +325,10 @@ pub async fn connect_via_ssh_to_unix_socket<P: AsRef<Path>>(
             ssh_exec_socat_unix_socket(&mut handle, remote_socket_path).await?
         }
     };
-    
+
     // Convert channel to conduit primitives
     let (source, sink) = channel_to_conduit(channel);
-    
+
     // Register with nexus
     let portal_identifier = format!(
         "ssh://{}@{}:{}/unix:{}",
@@ -329,7 +337,7 @@ pub async fn connect_via_ssh_to_unix_socket<P: AsRef<Path>>(
         ssh_config.port,
         remote_socket_path.display()
     );
-    
+
     let portal = nexus
         .ask(
             |rpc| NexusActorMessage::Connected(portal_identifier.clone(), sink, rpc),
@@ -358,23 +366,19 @@ pub async fn connect_via_ssh_to_tcp(
 ) -> Result<ActorRef<PortalActorMessage>, anyhow::Error> {
     // Establish SSH connection
     let mut handle = connect_ssh(ssh_config.clone()).await?;
-    
+
     // Open TCP channel
     let channel = ssh_tcp_channel(&mut handle, &remote_host, remote_port).await?;
-    
+
     // Convert channel to conduit primitives
     let (source, sink) = channel_to_conduit(channel);
-    
+
     // Register with nexus
     let portal_identifier = format!(
         "ssh://{}@{}:{}/tcp/{}:{}",
-        ssh_config.username,
-        ssh_config.host,
-        ssh_config.port,
-        remote_host,
-        remote_port
+        ssh_config.username, ssh_config.host, ssh_config.port, remote_host, remote_port
     );
-    
+
     let portal = nexus
         .ask(
             |rpc| NexusActorMessage::Connected(portal_identifier.clone(), sink, rpc),
@@ -513,7 +517,10 @@ where
             _ => {
                 error!("Unknown message type: {}", msg_type);
                 return Some((
-                    Err(ConduitError::msg(format!("Unknown message type: {}", msg_type))),
+                    Err(ConduitError::msg(format!(
+                        "Unknown message type: {}",
+                        msg_type
+                    ))),
                     reader,
                 ));
             }
