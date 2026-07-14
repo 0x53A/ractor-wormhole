@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 shared = { path = "../shared" }
-eframe = { version = "0.33", features = ["default_fonts", "glow", "persistence"] }
-egui = "0.33"
+eframe = { version = "0.34", features = ["default_fonts", "glow", "persistence"] }
+egui = "0.34"
 env_logger = "0.11"
 log = "0.4"
 ractor = "0.15"
@@ -19,7 +19,7 @@ tokio_with_wasm = "0.9"
 anyhow = "1.0"
 futures-util = "0.3"
 futures = "0.3"
-getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
 uuid = { version = "1.22", features = ["js"] }
 async-trait = "0.1"
 
@@ -27,7 +27,7 @@ async-trait = "0.1"
 tokio = { version = "1.50", features = [ "rt", "rt-multi-thread" ] }
 clap = { version = "4.6", features = ["derive"] }
 color-eyre = "0.6"
-tokio-tungstenite = { version = "0.28", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.29", features = ["native-tls"] }
 #tungstenite = { version = "0.26.2", features = [] }
 ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_client"] }
 
