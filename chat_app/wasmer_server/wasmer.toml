@@ -1,6 +1,6 @@
 [package]
 name = "0x53a/ractor-wormhole-chat-server"
-version = "0.1.0-146"
+version = "0.1.0-150"
 description = "Ractor Wormhole chat server for Wasmer Edge"
 license = "MIT OR Apache-2.0"
 

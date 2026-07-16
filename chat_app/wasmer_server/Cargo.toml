@@ -30,3 +30,10 @@ async-trait = ["server/async-trait"]
 
 [replace]
 "tokio:1.52.3" = { path = ".wasix-deps/tokio/tokio" }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+panic = "abort"
+strip = true

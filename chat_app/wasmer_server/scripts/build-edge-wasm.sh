@@ -39,9 +39,11 @@ fi
 
 wasix_sysroot="$(rustc +wasix --print sysroot)"
 target_dir="${CARGO_TARGET_DIR:-target-edge-compatible}"
+host_linker="$(command -v clang || command -v cc)"
 
 RUSTC="$wasix_sysroot/bin/rustc" \
-RUSTFLAGS='--cfg getrandom_backend="custom"' \
+RUSTFLAGS='--cfg getrandom_backend="custom" -Aunexpected_cfgs' \
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$host_linker" \
 CARGO_TARGET_DIR="$target_dir" \
 cargo +1.85.0 build --target wasm32-wasmer-wasi --release
 
