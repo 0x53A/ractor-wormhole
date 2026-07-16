@@ -6,6 +6,9 @@ use ractor_wormhole::transmaterialization::{
     ContextTransmaterializable, TransmaterializationContext,
 };
 
+#[cfg(feature = "async-trait")]
+use async_trait::async_trait;
+
 use crate::derive_tests::{MixedEnum, StructEnum};
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
