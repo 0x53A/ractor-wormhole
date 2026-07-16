@@ -7,10 +7,26 @@ use shared::{ChatMessage, ChatServerMessage, UserAlias};
 use ratatui::{
     Frame, Terminal,
     backend::Backend,
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    widgets::{Block, Borders, Paragraph},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
+
+mod theme {
+    use ratatui::style::Color;
+
+    pub const ACCENT: Color = Color::Rgb(255, 94, 0);
+    pub const ACCENT_BRIGHT: Color = Color::Rgb(255, 140, 50);
+    pub const BG_PANEL: Color = Color::Rgb(19, 19, 22);
+    pub const BG_WINDOW: Color = Color::Rgb(14, 14, 16);
+    pub const BG_WIDGET: Color = Color::Rgb(28, 28, 32);
+    pub const BG_DEEP: Color = Color::Rgb(9, 9, 10);
+
+    pub const STROKE_DIM: Color = Color::Rgb(52, 52, 58);
+    pub const TEXT: Color = Color::Rgb(222, 222, 216);
+    pub const TEXT_DIM: Color = Color::Rgb(140, 140, 134);
+}
 
 pub enum ChatEntry {
     Message(UserAlias, ChatMessage),
@@ -180,132 +196,230 @@ pub async fn spawn_ui_actor<T: Backend + Send + 'static>(
 
 impl UIState {
     fn ui(&self, frame: &mut Frame) {
-        // Create the main layout
+        let canvas = Block::default().style(Style::default().bg(theme::BG_PANEL));
+        frame.render_widget(canvas, frame.area());
+
         let main_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Title area
-                Constraint::Min(5),    // Chat history area
-                Constraint::Length(3), // Composer area
+                Constraint::Length(4),
+                Constraint::Min(5),
+                Constraint::Length(4),
+                Constraint::Length(1),
             ])
             .margin(1)
             .split(frame.area());
 
-        // Create outer border
-        let outer_block = Block::default().borders(Borders::ALL);
-        frame.render_widget(outer_block, frame.area());
-
-        // Title area with username
-        let title = format!(
-            "You are: {}",
-            self.user_alias
-                .clone()
-                .map(|u| u.to_string())
-                .unwrap_or("connecting".to_string())
-        );
-        let title_block = Block::default()
-            .borders(Borders::ALL)
-            .title_alignment(ratatui::layout::Alignment::Center)
-            .title(title);
-        frame.render_widget(title_block, main_layout[0]);
-
-        // Chat history area
+        self.render_header(frame, main_layout[0]);
         self.render_chat_history(frame, main_layout[1]);
-
-        // Composer area (split into input and button)
-        let composer_layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Min(20),   // Input takes most space
-                Constraint::Length(8), // Send button is fixed width
-            ])
-            .split(main_layout[2]);
-
-        // Input area
-        let input_text = if self.is_message_in_flight {
-            "Sending..."
-        } else {
-            &self.composer
-        };
-        let input_block = Block::default().borders(Borders::ALL);
-        let input = Paragraph::new(input_text).block(input_block);
-        frame.render_widget(input, composer_layout[0]);
-
-        // Send button
-        let button_block = Block::default().borders(Borders::ALL).title("Send >");
-        frame.render_widget(button_block, composer_layout[1]);
+        self.render_composer(frame, main_layout[2]);
+        self.render_status(frame, main_layout[3]);
     }
 
-    fn render_chat_history(&self, frame: &mut Frame, area: ratatui::layout::Rect) {
-        if self.chat_history.is_empty() {
-            return;
+    fn render_header(&self, frame: &mut Frame, area: Rect) {
+        let connected = self.server.is_some();
+        let alias = self
+            .user_alias
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_else(|| "NO ALIAS".to_string());
+        let state = if connected { "ONLINE" } else { "LINKING" };
+
+        let header = Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled("  ", Style::default().bg(theme::ACCENT)),
+                Span::raw(" "),
+                Span::styled(
+                    "RACTOR CHAT",
+                    Style::default()
+                        .fg(theme::TEXT)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "  // wormhole console",
+                    Style::default().fg(theme::TEXT_DIM),
+                ),
+            ]),
+            Line::from(vec![
+                Span::styled("  ALIAS ", Style::default().fg(theme::TEXT_DIM)),
+                Span::styled(alias, Style::default().fg(theme::ACCENT_BRIGHT)),
+                Span::styled("  LINK ", Style::default().fg(theme::TEXT_DIM)),
+                Span::styled(
+                    state,
+                    Style::default().fg(if connected {
+                        theme::ACCENT
+                    } else {
+                        theme::TEXT_DIM
+                    }),
+                ),
+            ]),
+        ])
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(theme::STROKE_DIM))
+                .style(Style::default().bg(theme::BG_DEEP)),
+        )
+        .style(Style::default().bg(theme::BG_DEEP));
+
+        frame.render_widget(header, area);
+
+        if area.height > 0 {
+            let rule = Rect {
+                x: area.x + 1,
+                y: area.y + area.height.saturating_sub(1),
+                width: area.width.saturating_sub(2),
+                height: 1,
+            };
+            frame.render_widget(
+                Paragraph::new("─".repeat(rule.width as usize))
+                    .style(Style::default().fg(theme::ACCENT).bg(theme::BG_DEEP)),
+                rule,
+            );
         }
+    }
 
-        // Calculate how many messages we can display
-        // Each message takes approximately 2 lines (name + spacing)
-        let max_messages = (area.height / 2) as usize;
-        let start_idx = if self.chat_history.len() > max_messages {
-            self.chat_history.len() - max_messages
+    fn render_chat_history(&self, frame: &mut Frame, area: Rect) {
+        let inner_height = area.height.saturating_sub(2).max(1) as usize;
+        let start_idx = self.chat_history.len().saturating_sub(inner_height);
+        let mut lines = Vec::new();
+
+        if self.chat_history.is_empty() {
+            lines.push(Line::from(Span::styled(
+                "-- awaiting link --",
+                Style::default().fg(theme::TEXT_DIM),
+            )));
         } else {
-            0
-        };
-
-        for (i, idx) in (start_idx..self.chat_history.len()).enumerate() {
-            let y_position = area.y + (i as u16 * 2);
-
-            match &self.chat_history[idx] {
-                ChatEntry::Message(user_alias, message) => {
-                    // Create username box
-                    let name_len = user_alias.to_string().len() as u16;
-                    let name_box_width = name_len + 2; // Add border space
-                    let name_area = ratatui::layout::Rect {
-                        x: area.x,
-                        y: y_position,
-                        width: name_box_width,
-                        height: 1,
-                    };
-
-                    // Render username box
-                    let name_block = Block::default().borders(Borders::ALL);
-                    frame.render_widget(name_block, name_area);
-
-                    // Render username inside box
-                    let name_text = Paragraph::new(user_alias.to_string().clone());
-                    frame.render_widget(
-                        name_text,
-                        ratatui::layout::Rect {
-                            x: name_area.x + 1,
-                            y: name_area.y,
-                            width: name_len,
-                            height: 1,
-                        },
-                    );
-
-                    // Render message content
-                    let message_area = ratatui::layout::Rect {
-                        x: name_area.x + name_box_width + 2, // Space after name
-                        y: y_position,
-                        width: area.width - name_box_width - 2,
-                        height: 1,
-                    };
-                    let message_text = Paragraph::new(message.0.clone());
-                    frame.render_widget(message_text, message_area);
-                }
-                ChatEntry::UserConnected(user_alias) => {
-                    // Simple connected message
-                    let text = format!("{} connected", user_alias);
-                    let connected_text =
-                        Paragraph::new(text).style(Style::default().fg(Color::Green));
-
-                    let message_area = ratatui::layout::Rect {
-                        x: area.x,
-                        y: y_position,
-                        width: area.width,
-                        height: 1,
-                    };
-                    frame.render_widget(connected_text, message_area);
+            for entry in &self.chat_history[start_idx..] {
+                match entry {
+                    ChatEntry::Message(user_alias, message) => {
+                        let alias = user_alias.to_string();
+                        let is_self = self.user_alias.as_ref().map(ToString::to_string).as_deref()
+                            == Some(alias.as_str());
+                        lines.push(Line::from(vec![
+                            Span::styled(
+                                format!("{:>12}", alias.to_uppercase()),
+                                Style::default().fg(if is_self {
+                                    theme::ACCENT_BRIGHT
+                                } else {
+                                    theme::TEXT_DIM
+                                }),
+                            ),
+                            Span::styled(" │ ", Style::default().fg(theme::STROKE_DIM)),
+                            Span::styled(message.0.clone(), Style::default().fg(theme::TEXT)),
+                        ]));
+                    }
+                    ChatEntry::UserConnected(user_alias) => {
+                        lines.push(Line::from(vec![
+                            Span::styled(
+                                "        JOIN",
+                                Style::default()
+                                    .fg(theme::ACCENT)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                            Span::styled(" │ ", Style::default().fg(theme::STROKE_DIM)),
+                            Span::styled(
+                                format!("{user_alias} connected"),
+                                Style::default().fg(theme::TEXT_DIM),
+                            ),
+                        ]));
+                    }
                 }
             }
         }
+
+        let traffic = Paragraph::new(lines)
+            .block(Self::section_block("TRAFFIC").style(Style::default().bg(theme::BG_WINDOW)))
+            .style(Style::default().bg(theme::BG_WINDOW))
+            .wrap(Wrap { trim: false });
+
+        frame.render_widget(traffic, area);
+    }
+
+    fn render_composer(&self, frame: &mut Frame, area: Rect) {
+        let composer_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(20), Constraint::Length(12)])
+            .split(area);
+
+        let input_text = if self.is_message_in_flight {
+            "SENDING..."
+        } else if self.composer.is_empty() {
+            "MESSAGE"
+        } else {
+            &self.composer
+        };
+        let input_style = if self.composer.is_empty() || self.is_message_in_flight {
+            Style::default().fg(theme::TEXT_DIM).bg(theme::BG_WIDGET)
+        } else {
+            Style::default().fg(theme::TEXT).bg(theme::BG_WIDGET)
+        };
+
+        let input = Paragraph::new(input_text)
+            .block(Self::section_block("TRANSMIT").style(Style::default().bg(theme::BG_WIDGET)))
+            .style(input_style);
+        frame.render_widget(input, composer_layout[0]);
+
+        let send_style = if self.server.is_some() && !self.is_message_in_flight {
+            Style::default()
+                .fg(theme::ACCENT_BRIGHT)
+                .bg(theme::BG_WIDGET)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(theme::TEXT_DIM).bg(theme::BG_WIDGET)
+        };
+
+        let button = Paragraph::new("SEND")
+            .alignment(Alignment::Center)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(if self.server.is_some() {
+                        theme::ACCENT
+                    } else {
+                        theme::STROKE_DIM
+                    }))
+                    .style(Style::default().bg(theme::BG_WIDGET)),
+            )
+            .style(send_style);
+        frame.render_widget(button, composer_layout[1]);
+    }
+
+    fn render_status(&self, frame: &mut Frame, area: Rect) {
+        let status = if self.server.is_some() {
+            "ONLINE"
+        } else {
+            "NO SERVER"
+        };
+        let text = Line::from(vec![
+            Span::styled(status, Style::default().fg(theme::ACCENT)),
+            Span::styled("  MSG ", Style::default().fg(theme::TEXT_DIM)),
+            Span::styled(
+                self.chat_history.len().to_string(),
+                Style::default().fg(theme::ACCENT_BRIGHT),
+            ),
+            Span::styled(
+                "  CTRL+C EXIT  ESC CLEAR",
+                Style::default().fg(theme::TEXT_DIM),
+            ),
+        ]);
+        let status_bar =
+            Paragraph::new(text).style(Style::default().fg(theme::TEXT_DIM).bg(theme::BG_DEEP));
+        frame.render_widget(status_bar, area);
+    }
+
+    fn section_block(title: &'static str) -> Block<'static> {
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(theme::STROKE_DIM))
+            .title(Line::from(vec![
+                Span::styled(" ", Style::default().bg(theme::ACCENT)),
+                Span::styled(
+                    format!(" {title} "),
+                    Style::default()
+                        .fg(theme::ACCENT_BRIGHT)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]))
     }
 }
