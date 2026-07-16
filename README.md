@@ -108,6 +108,7 @@ Actors published to the Nexus are immediately available to all Portals, current 
 
 There are two examples in this repository, a simple PingPong actor implementation in [./sample_app](./sample_app), and a chat app  in [./chat_app](./chat_app).
 
+The chat app is also hosted at wasmer (free tier, thanks): https://ractor-wormhole-chat-server-0x53a.wasmer.app/
 
 
 Common:
