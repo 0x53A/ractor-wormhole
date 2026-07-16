@@ -22,15 +22,15 @@ commit_count="$(git rev-list --count HEAD)"
 package_version="${crate_version}-${commit_count}"
 perl -0pi -e 's/(\[package\][\s\S]*?^version = )"[^"]+"/$1"'"$package_version"'"/m' wasmer.toml
 
-if ! rustc +wasix --version | grep -q '1\.85\.0-dev'; then
+if ! rustc +wasix --version | grep -q '1\.90\.0-dev'; then
   cat >&2 <<'EOF'
-The active rustup toolchain named "wasix" is not the Edge-compatible Rust 1.85 toolchain.
+The active rustup toolchain named "wasix" is not the Edge-compatible Rust 1.90 toolchain.
 
 Install it with:
 
-  cargo install cargo-wasix --version 0.1.24 --root .cargo-wasix-0.1.24
-  ./.cargo-wasix-0.1.24/bin/cargo-wasix wasix download-toolchain v2025-03-17.2
-  rustup toolchain install 1.85.0-x86_64-unknown-linux-gnu
+  cargo install cargo-wasix --version 0.1.31 --root .cargo-wasix-0.1.31
+  ./.cargo-wasix-0.1.31/bin/cargo-wasix wasix download-toolchain 'v2026-06-09.1+rust-1.90'
+  rustup toolchain install 1.90.0-x86_64-unknown-linux-gnu
 
 Then rerun this script.
 EOF
@@ -45,7 +45,7 @@ RUSTC="$wasix_sysroot/bin/rustc" \
 RUSTFLAGS='--cfg getrandom_backend="custom" -Aunexpected_cfgs' \
 CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$host_linker" \
 CARGO_TARGET_DIR="$target_dir" \
-cargo +1.85.0 build --target wasm32-wasmer-wasi --release
+cargo +1.90.0 build --target wasm32-wasmer-wasi --release
 
 mkdir -p target/wasm32-wasmer-wasi/release
 cp "$target_dir/wasm32-wasmer-wasi/release/wasmer_chat_server.wasm" \

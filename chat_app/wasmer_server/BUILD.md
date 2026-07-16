@@ -16,19 +16,19 @@
    nix-shell chat_app/wasmer_server/shell.nix
    ```
 
-3. Install the older `cargo-wasix` helper used to fetch the Edge-compatible
-   WASIX Rust 1.85 toolchain:
+3. Install `cargo-wasix` and fetch the Edge-compatible WASIX Rust 1.90
+   toolchain:
 
    ```sh
-   cargo install cargo-wasix --version 0.1.24 --root .cargo-wasix-0.1.24
-   ./.cargo-wasix-0.1.24/bin/cargo-wasix wasix download-toolchain v2025-03-17.2
-   rustup toolchain install 1.85.0-x86_64-unknown-linux-gnu
+   cargo install cargo-wasix --version 0.1.31 --root .cargo-wasix-0.1.31
+   ./.cargo-wasix-0.1.31/bin/cargo-wasix wasix download-toolchain 'v2026-06-09.1+rust-1.90'
+   rustup toolchain install 1.90.0-x86_64-unknown-linux-gnu
    ```
 
-   Current `cargo-wasix` builds run locally on Wasmer 7.2.0, but Wasmer Edge
-   rejects the generated WASIX imports (`proc_exec4` / `thread_spawn_v2`) with
-   a 500 workload failure. The 2025-03-17 Rust 1.85 WASIX toolchain emits the
-   older import set accepted by Edge.
+   Wasmer Edge previously rejected newer WASIX imports (`proc_exec4` /
+   `thread_spawn_v2`) with a 500 workload failure. The build script keeps an
+   import check for those symbols so CI fails before deployment if Edge support
+   regresses again.
 
 4. Prepare the gitignored Wasix Tokio checkout if the shell did not already do it:
 

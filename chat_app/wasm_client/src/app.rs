@@ -239,6 +239,7 @@ impl eframe::App for TemplateApp {
 
         self.header_bar(ui);
         self.status_bar(ui);
+        self.composer_bar(ui);
 
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::BG_PANEL))
@@ -246,10 +247,6 @@ impl eframe::App for TemplateApp {
                 ui.add_space(12.0);
                 Self::section(ui, "TRAFFIC", |ui| {
                     self.message_well(ui);
-                });
-                ui.add_space(12.0);
-                Self::section(ui, "TRANSMIT", |ui| {
-                    self.composer(ui);
                 });
             });
     }
@@ -327,6 +324,21 @@ impl TemplateApp {
             });
     }
 
+    fn composer_bar(&mut self, ui: &mut egui::Ui) {
+        egui::Panel::bottom("chat_composer")
+            .frame(
+                egui::Frame::new()
+                    .fill(theme::BG_PANEL)
+                    .inner_margin(egui::Margin::symmetric(12, 10)),
+            )
+            .show_separator_line(false)
+            .show(ui, |ui| {
+                Self::section(ui, "TRANSMIT", |ui| {
+                    self.composer(ui);
+                });
+            });
+    }
+
     fn section<R>(
         ui: &mut egui::Ui,
         title: &str,
@@ -352,7 +364,7 @@ impl TemplateApp {
     }
 
     fn message_well(&self, ui: &mut egui::Ui) {
-        let well_height = (ui.available_height() - 86.0).max(150.0);
+        let well_height = ui.available_height().max(120.0);
         egui::Frame::new()
             .fill(theme::BG_DEEP)
             .stroke(Stroke::new(1.0, theme::STROKE_DIM))
