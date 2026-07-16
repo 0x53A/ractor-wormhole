@@ -1,4 +1,4 @@
-use rand::{SeedableRng, seq::SliceRandom};
+use rand::seq::SliceRandom;
 
 /// Generates random user aliases in the format "adjective noun"
 pub struct AliasGenerator {
@@ -88,7 +88,7 @@ impl AliasGenerator {
 
     /// Creates a new AliasGenerator with predefined lists of adjectives and nouns
     pub fn new() -> Self {
-        let mut rng = rand::rngs::SmallRng::from_os_rng();
+        let mut rng: rand::rngs::SmallRng = rand::make_rng();
 
         let mut adjectives = Self::ADJECTIVES.to_vec();
         adjectives.shuffle(&mut rng);

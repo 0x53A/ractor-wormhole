@@ -9,9 +9,7 @@ use std::{sync::mpsc::Receiver, time::Duration};
 #[cfg(target_arch = "wasm32")]
 use tokio_with_wasm::alias as tokio;
 
-use anyhow::anyhow;
 use app::{UiUpdate, start_client_handler_actor};
-use futures::SinkExt;
 use log::info;
 use ractor::ActorRef;
 use ractor_wormhole::{
@@ -103,6 +101,8 @@ struct Cli {
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn inner_main(_rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
+    use anyhow::anyhow;
+
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
@@ -147,9 +147,32 @@ async fn inner_main(_rt: &tokio::runtime::Runtime) -> anyhow::Result<()> {
 }
 
 #[cfg(target_arch = "wasm32")]
+fn websocket_url_from_location() -> String {
+    let Some(window) = web_sys::window() else {
+        return ".".to_string();
+    };
+
+    let Ok(search) = window.location().search() else {
+        return ".".to_string();
+    };
+
+    search
+        .trim_start_matches('?')
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .find_map(|(key, value)| {
+            (key == "server").then(|| {
+                web_sys::js_sys::decode_uri_component(value)
+                    .map(|decoded| decoded.into())
+                    .unwrap_or_else(|_| value.to_string())
+            })
+        })
+        .unwrap_or_else(|| ".".to_string())
+}
+
+#[cfg(target_arch = "wasm32")]
 fn inner_main() -> eframe::Result {
     use eframe::wasm_bindgen::JsCast as _;
-    use ractor_wormhole::portal;
 
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
@@ -169,7 +192,9 @@ fn inner_main() -> eframe::Result {
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
         let (request_repaint_tx, mut request_repaint_rx) = tokio::sync::mpsc::channel(1000);
-        let (nexus, portal, ui_rcv) = init(".".to_string(), request_repaint_tx).await.unwrap();
+        let (_nexus, portal, ui_rcv) = init(websocket_url_from_location(), request_repaint_tx)
+            .await
+            .unwrap();
 
         let start_result = eframe::WebRunner::new()
             .start(

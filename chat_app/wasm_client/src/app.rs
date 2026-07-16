@@ -1,48 +1,17 @@
-use futures::SinkExt;
 use ractor::{ActorRef, concurrency::Duration};
 use ractor_wormhole::util::{ActorRef_Ask, FnActor};
 use shared::{ChatClientMessage, ChatMessage, ChatServerMessage, UserAlias};
 use std::sync::mpsc;
 
-pub enum ChatEntry {
-    Message(UserAlias, ChatMessage),
-    UserConnected(UserAlias),
-}
-
-pub struct ConnectedUIState {
-    pub alias: UserAlias,
-    pub server: ActorRef<ChatServerMessage>,
-    pub chat_history: Vec<ChatEntry>,
-    pub is_message_in_flight: bool,
-    pub composer: String,
-}
-
-pub enum UIState {
-    Connecting,
-    Connected,
-}
-
-// Add this enum
 #[derive(Debug)]
 pub enum UiUpdate {
-    // Received initial connection info from server
-    Connected(
-        UserAlias,
-        ActorRef<ChatServerMessage>, // Direct ref to server actor
-                                     // We might need the portal ref too if the server ref isn't directly usable via wormhole
-                                     // portal_ref: ActorRef<ractor_wormhole::portal::PortalActorMessage>,
-    ),
-    // Another user connected
+    Connected(UserAlias, ActorRef<ChatServerMessage>),
     UserConnected(UserAlias),
-    // A message was received
     MessageReceived(UserAlias, ChatMessage),
-    // We were disconnected
     Disconnected,
-    // An error occurred
     Error(String),
 }
 
-// Helper function to start the actor
 pub async fn start_client_handler_actor(
     ui_tx: std::sync::mpsc::Sender<UiUpdate>,
     request_repaint: tokio::sync::mpsc::Sender<()>,
@@ -73,9 +42,8 @@ pub async fn start_client_handler_actor(
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
-    // Chat state:
     #[serde(skip)] // Don't persist chat messages or connection state
-    messages: Vec<(String, String)>, // List of (alias, message)
+    messages: Vec<(String, String)>,
     #[serde(skip)]
     input_message: String,
     #[serde(skip)]
@@ -83,17 +51,12 @@ pub struct TemplateApp {
     #[serde(skip)]
     status: String,
 
-    // Actor / Communication handles:
     #[serde(skip)]
-    chat_server_ref: Option<ActorRef<ChatServerMessage>>, // Ref to send messages TO server
+    chat_server_ref: Option<ActorRef<ChatServerMessage>>,
     #[serde(skip)]
-    ui_update_rx: Option<mpsc::Receiver<UiUpdate>>, // Channel to receive updates FROM handler actor
+    ui_update_rx: Option<mpsc::Receiver<UiUpdate>>,
     #[serde(skip)]
-    portal_ref: Option<ActorRef<ractor_wormhole::portal::PortalActorMessage>>, // Ref to the wormhole portal
-
-    // Example stuff (can be removed or kept):
-    label: String,
-    value: f32,
+    portal_ref: Option<ActorRef<ractor_wormhole::portal::PortalActorMessage>>,
 }
 
 impl Default for TemplateApp {
@@ -105,10 +68,7 @@ impl Default for TemplateApp {
             status: "Connecting...".to_owned(),
             chat_server_ref: None,
             ui_update_rx: None,
-            portal_ref: None, // Initialize portal_ref
-            // Example stuff:
-            label: "Chat Input".to_owned(), // Change default label
-            value: 0.0,                     // Reset value
+            portal_ref: None,
         }
     }
 }
@@ -120,28 +80,20 @@ impl TemplateApp {
         portal_ref: ActorRef<ractor_wormhole::portal::PortalActorMessage>, // Receive portal ref
         ui_update_rx: mpsc::Receiver<UiUpdate>, // Receive channel receiver
     ) -> Self {
-        // Customize egui visuals/fonts if needed
-        // cc.egui_ctx.set_visuals(egui::Visuals::dark());
+        let mut visuals = egui::Visuals::dark();
+        visuals.panel_fill = egui::Color32::from_rgb(16, 18, 22);
+        visuals.window_fill = egui::Color32::from_rgb(20, 23, 28);
+        visuals.extreme_bg_color = egui::Color32::from_rgb(11, 13, 16);
+        visuals.hyperlink_color = egui::Color32::from_rgb(125, 190, 255);
+        visuals.selection.bg_fill = egui::Color32::from_rgb(42, 106, 140);
+        cc.egui_ctx.set_visuals(visuals);
 
-        // Basic state initialization
-        let mut app = Self {
+        Self {
             ui_update_rx: Some(ui_update_rx),
-            portal_ref: Some(portal_ref), // Store portal ref
-            status: "Initializing connection...".to_owned(),
+            portal_ref: Some(portal_ref),
+            status: "Joining chat...".to_owned(),
             ..Default::default()
-        };
-
-        // Load previous app state (if any) - Note: Chat state is skipped
-        if let Some(storage) = cc.storage
-            && let Some(loaded_app) = eframe::get_value::<Self>(storage, eframe::APP_KEY)
-        {
-            // Keep loaded persistent fields, but overwrite transient state
-            app.label = loaded_app.label;
-            app.value = loaded_app.value;
-            // Keep the ui_update_rx and portal_ref we just received
         }
-
-        app // Return the initialized app
     }
 }
 
@@ -165,7 +117,7 @@ impl TemplateApp {
                     UiUpdate::UserConnected(alias) => {
                         self.messages.push((
                             "System".to_string(),
-                            format!("User '{}' connected.", alias.to_string()),
+                            format!("{} joined.", alias.to_string()),
                         ));
                     }
                     UiUpdate::MessageReceived(alias, msg) => {
@@ -173,10 +125,9 @@ impl TemplateApp {
                     }
                     UiUpdate::Disconnected => {
                         self.status = "Disconnected.".to_owned();
-                        self.chat_server_ref = None; // Clear server ref on disconnect
+                        self.chat_server_ref = None;
                         self.messages
                             .push(("System".to_string(), "Disconnected.".to_string()));
-                        // Optionally clear other state or attempt reconnect
                     }
                     UiUpdate::Error(err_msg) => {
                         self.status = format!("Error: {err_msg}");
@@ -196,64 +147,109 @@ impl eframe::App for TemplateApp {
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.handle_events();
 
-        // Top Panel for menu (optional)
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            // TODO: Consider sending a disconnect message before closing
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
-                egui::widgets::global_theme_preference_buttons(ui);
-                ui.separator();
-                // Display connection status and alias
-                if let Some(alias) = &self.user_alias {
-                    ui.label(format!("Alias: {alias}"));
-                }
-                ui.label(&self.status);
-            });
-        });
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(10.0, 10.0);
+            ui.add_space(8.0);
 
-        // Central Panel for Chat
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Ractor Chat");
-
-            // Message display area
-            ui.separator();
-            egui::ScrollArea::vertical()
-                .stick_to_bottom(true) // Keep scrolled to the bottom
-                .show(ui, |ui| {
-                    for (alias, msg) in &self.messages {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(format!("{alias}:"));
-                            ui.label(msg);
-                        });
-                    }
-                });
-            ui.separator();
-
-            // Input area
             ui.horizontal(|ui| {
+                ui.heading(
+                    egui::RichText::new("Ractor Chat")
+                        .size(24.0)
+                        .color(egui::Color32::from_rgb(235, 240, 246)),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let connected = self.chat_server_ref.is_some();
+                    let dot = if connected {
+                        egui::Color32::from_rgb(65, 210, 125)
+                    } else {
+                        egui::Color32::from_rgb(225, 172, 72)
+                    };
+                    ui.colored_label(dot, "●");
+                    ui.label(egui::RichText::new(&self.status).color(egui::Color32::GRAY));
+                });
+            });
+
+            if let Some(alias) = &self.user_alias {
+                ui.label(
+                    egui::RichText::new(format!("Signed in as {alias}"))
+                        .color(egui::Color32::from_rgb(150, 170, 190)),
+                );
+            }
+
+            ui.separator();
+
+            let composer_height = 44.0;
+            let chat_height = (ui.available_height() - composer_height).max(120.0);
+
+            ui.allocate_ui(egui::vec2(ui.available_width(), chat_height), |ui| {
+                egui::Frame::default()
+                    .fill(egui::Color32::from_rgb(12, 14, 18))
+                    .inner_margin(egui::Margin::same(12))
+                    .show(ui, |ui| {
+                        egui::ScrollArea::vertical()
+                            .max_height((chat_height - 24.0).max(80.0))
+                            .stick_to_bottom(true)
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                                if self.messages.is_empty() {
+                                    ui.centered_and_justified(|ui| {
+                                        ui.label(
+                                            egui::RichText::new("Connecting to the chat room")
+                                                .color(egui::Color32::from_rgb(140, 150, 165)),
+                                        );
+                                    });
+                                }
+
+                                for (alias, msg) in &self.messages {
+                                    let is_system = alias == "System";
+                                    let is_self = self.user_alias.as_ref() == Some(alias);
+                                    let fill = if is_system {
+                                        egui::Color32::from_rgb(26, 30, 36)
+                                    } else if is_self {
+                                        egui::Color32::from_rgb(28, 86, 118)
+                                    } else {
+                                        egui::Color32::from_rgb(32, 36, 44)
+                                    };
+
+                                    ui.horizontal_wrapped(|ui| {
+                                        egui::Frame::default()
+                                            .fill(fill)
+                                            .inner_margin(egui::Margin::symmetric(10, 7))
+                                            .show(ui, |ui| {
+                                                ui.label(
+                                                    egui::RichText::new(alias).strong().color(
+                                                        egui::Color32::from_rgb(190, 210, 225),
+                                                    ),
+                                                );
+                                                ui.label(
+                                                    egui::RichText::new(msg).color(
+                                                        egui::Color32::from_rgb(235, 238, 242),
+                                                    ),
+                                                );
+                                            });
+                                    });
+                                }
+                            });
+                    });
+            });
+
+            ui.horizontal(|ui| {
+                let send_width = 72.0;
                 let input_response = ui.add_sized(
-                    [
-                        ui.available_width() - 50.0,
-                        ui.text_style_height(&egui::TextStyle::Body),
-                    ], // Adjust size as needed
+                    [(ui.available_width() - send_width - 8.0).max(120.0), 34.0],
                     egui::TextEdit::singleline(&mut self.input_message)
-                        .hint_text("Enter message..."),
+                        .hint_text("Message")
+                        .margin(egui::vec2(10.0, 7.0)),
                 );
 
-                let send_button = ui.button("Send");
+                let send_button = ui.add_sized(
+                    [send_width, 34.0],
+                    egui::Button::new(egui::RichText::new("Send").strong()),
+                );
 
-                // Send message on button click or Enter key press in text edit
                 if (send_button.clicked()
                     || (input_response.lost_focus()
                         && ui.input(|i| i.key_pressed(egui::Key::Enter))))
@@ -272,7 +268,7 @@ impl eframe::App for TemplateApp {
                         );
 
                         self.input_message.clear();
-                        input_response.request_focus(); // Keep focus on input after sending
+                        input_response.request_focus();
                     } else {
                         self.messages
                             .push(("System".to_string(), "Not connected.".to_string()));

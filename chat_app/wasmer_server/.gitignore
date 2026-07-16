@@ -1,7 +1,5 @@
 /target
-
-.DS_Store
-.direnv
-.env
+/target-edge-compatible
+.direnv/
 .cargo-wasix-*/
 .wasix-deps/

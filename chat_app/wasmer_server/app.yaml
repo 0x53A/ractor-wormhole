@@ -1,0 +1,6 @@
+name: ractor-wormhole-chat-server
+app_id: da_nYYILtXUDMZ7
+owner: '0x53a'
+package: .
+debug: false
+kind: wasmer.io/App.v0

@@ -12,33 +12,40 @@ ractor_cluster_derive = { version = "0.15", optional = true }
 # note: the introduction is json serialized
 serde = { version = "1.0", features = ["serde_derive"] }
 serde_json = "1.0"
-tokio = { version = "1.50", features = [
+tokio = { version = "1.52", features = [
     #"rt-multi-thread",
     #"net",
     #"time",
     #"macros",
     #"sync"
 ]}
-tokio-tungstenite = { version = "0.28", optional = true }
-tungstenite = { version = "0.28", optional = true }
+tokio-tungstenite = { version = "0.29", optional = true }
+tungstenite = { version = "0.29", optional = true }
 anyhow = { version = "1.0", features = ["backtrace"] }
 bincode = { version = "=2.0", features = [] }
 futures = "0.3"
 log = "0.4"
 tracing = "0.1"
-rand = "0.9"
-uuid = { version = "1.22", features = ["rng", "v4"] }
+rand = "0.10"
+uuid = { version = "1.23", features = ["rng", "v4"] }
 static_assertions = "1.1"
 async-trait = "0.1"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
-ewebsock = { version = "0.8", features = ["tls"], optional = true }
-tokio_with_wasm = "0.9"
+tokio_with_wasm = { version = "0.8", features = ["rt", "sync"], optional = true }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
+
+[dependencies.ewebsock]
+version = "0.8"
+features = ["tls"]
+optional = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
-russh = { version = "0.61", optional = true, default-features = false }
+russh = { version = "0.62", optional = true, default-features = false }
 
 
 [features]
@@ -48,7 +55,7 @@ derive = []
 serde = []
 bincode = []
 websocket_client = ["tungstenite", "tokio-tungstenite", "tokio-tungstenite/native-tls" ]
-websocket_client_wasm = ["ewebsock" ]
+websocket_client_wasm = ["ewebsock", "tokio/sync", "tokio/rt", "tokio_with_wasm", "uuid/js" ]
 websocket_server = ["tungstenite", "tokio-tungstenite"]
 unix_socket_client = ["tokio/net", "tokio/io-util"]
 unix_socket_server = ["tokio/net", "tokio/io-util"]

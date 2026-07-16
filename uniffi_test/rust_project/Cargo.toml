@@ -9,7 +9,7 @@ name = "uniffi_test"
 
 [dependencies]
 # UniFFI for FFI bindings
-uniffi = { version = "0.31", features = ["cli"] }
+uniffi = { version = "0.32", features = ["cli"] }
 
 # Core ractor-wormhole
 ractor_wormhole = { path = "../../ractor_wormhole", default-features = false, features = ["derive"] }
@@ -38,7 +38,7 @@ tokio-stream = "0.1"
 uuid = { version = "1", features = ["v4"] }
 
 [build-dependencies]
-uniffi = { version = "0.31", features = ["build"] }
+uniffi = { version = "0.32", features = ["build"] }
 
 [[bin]]
 name = "uniffi-bindgen"

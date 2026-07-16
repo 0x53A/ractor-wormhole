@@ -1,4 +1,4 @@
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "websocket_client_wasm")]
 pub mod ewebsock;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "websocket_client")]
 pub mod tokio_tungstenite;

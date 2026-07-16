@@ -1,0 +1,15 @@
+[package]
+name = "0x53a/ractor-wormhole-chat-server"
+version = "0.1.0-146"
+description = "Ractor Wormhole chat server for Wasmer Edge"
+license = "MIT OR Apache-2.0"
+
+[[module]]
+name = "server"
+source = "target/wasm32-wasmer-wasi/release/wasmer_chat_server.wasm"
+abi = "wasi"
+
+[[command]]
+name = "server"
+module = "server"
+runner = "https://webc.org/runner/wasi"

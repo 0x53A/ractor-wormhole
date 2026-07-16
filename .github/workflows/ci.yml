@@ -56,3 +56,51 @@ jobs:
       - name: Check WASM async-trait
         working-directory: ./chat_app/wasm_client
         run: cargo check -p wasm_client --target wasm32-unknown-unknown --features async-trait
+
+  deploy_wasmer_edge:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [build, check_wasm]
+    runs-on: ubuntu-latest
+    env:
+      WASMER_TOKEN: ${{ secrets.WASMER_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Set up Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          override-with: rustup
+
+      - name: Install Rust 1.85 Cargo
+        run: rustup toolchain install 1.85.0-x86_64-unknown-linux-gnu
+
+      - name: Install wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Trunk
+        run: cargo install --locked trunk
+
+      - name: Install Wasmer
+        run: |
+          curl https://get.wasmer.io -sSfL | sh -s v7.2.0
+          echo "$HOME/.wasmer/bin" >> "$GITHUB_PATH"
+
+      - name: Install Edge-compatible WASIX toolchain
+        working-directory: ./chat_app/wasmer_server
+        run: |
+          cargo install cargo-wasix --version 0.1.24 --root .cargo-wasix-0.1.24
+          ./.cargo-wasix-0.1.24/bin/cargo-wasix wasix download-toolchain v2025-03-17.2
+
+      - name: Build Wasmer Edge package
+        working-directory: ./chat_app/wasmer_server
+        run: ./scripts/build-edge-wasm.sh
+
+      - name: Deploy Wasmer Edge package
+        working-directory: ./chat_app/wasmer_server
+        run: wasmer deploy --owner 0x53a --publish-package --non-interactive

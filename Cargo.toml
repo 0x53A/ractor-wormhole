@@ -16,6 +16,9 @@ members = [
     "wasm_test_app",
     "uniffi_test/rust_project"
 ]
+exclude = [
+    "chat_app/wasmer_server"
+]
 
 
 [patch.crates-io]

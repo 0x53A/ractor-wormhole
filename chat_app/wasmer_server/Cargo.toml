@@ -1,0 +1,32 @@
+[package]
+name = "wasmer_chat_server"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[workspace.lints]
+
+[dependencies]
+anyhow = { version = "1.0", features = ["backtrace"] }
+env_logger = "0.11"
+http-body-util = "0.1"
+hyper = { version = "1.10", features = ["http1", "server"] }
+hyper-tungstenite = "0.20"
+hyper-util = { version = "0.1", features = ["tokio"] }
+log = "0.4"
+ractor = "0.15"
+ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_server"] }
+rust-embed = "8.11"
+server = { path = "../server" }
+tokio = { version = "1.52", features = ["macros", "net", "rt", "sync"] }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "wasi"))'.dependencies]
+getrandom = "0.3"
+wasi = "0.11.1"
+
+[features]
+async-trait = ["server/async-trait"]
+
+[replace]
+"tokio:1.52.3" = { path = ".wasix-deps/tokio/tokio" }

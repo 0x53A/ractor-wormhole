@@ -1,19 +1,10 @@
-#![cfg(target_arch = "wasm32")]
-
 use std::{
     ops::ControlFlow,
     sync::{Arc, Mutex},
 };
 
-#[cfg(not(target_arch = "wasm32"))]
-use tokio;
-
-#[cfg(target_arch = "wasm32")]
-use tokio_with_wasm::alias as tokio;
-
 use anyhow::anyhow;
 use ewebsock::{WsEvent, WsMessage, WsSender};
-use futures::{SinkExt, StreamExt};
 use log::{debug, error, info};
 use ractor::{ActorRef, ActorStatus};
 use ractor_wormhole::{
@@ -22,8 +13,23 @@ use ractor_wormhole::{
     portal::PortalActorMessage,
     util::{ActorRef_Ask, FnActor},
 };
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::{
+    sync::{
+        mpsc::{self, UnboundedReceiver},
+        oneshot,
+    },
+    task,
+};
 
-use tokio::sync::mpsc::UnboundedReceiver;
+#[cfg(target_arch = "wasm32")]
+use tokio_with_wasm::alias::{
+    sync::{
+        mpsc::{self, UnboundedReceiver},
+        oneshot,
+    },
+    task,
+};
 
 use futures::{
     Sink,
@@ -48,7 +54,7 @@ impl Sink<ConduitMessage> for WsSenderSink {
     }
 
     fn start_send(self: Pin<&mut Self>, item: ConduitMessage) -> Result<(), Self::Error> {
-        self.sender.send_message(item);
+        let _ = self.sender.send_message(item);
         Ok(())
     }
 
@@ -57,7 +63,8 @@ impl Sink<ConduitMessage> for WsSenderSink {
     }
 
     fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.sender
+        let _ = self
+            .sender
             .send_message(ConduitMessage::Close(Some("Closing the Sink".to_string())));
         Poll::Ready(Ok(()))
     }
@@ -66,9 +73,9 @@ impl Sink<ConduitMessage> for WsSenderSink {
 // note: WsSender is `struct { tx: Option<std::sync::mpsc::Sender<WsMessage>>, }`
 // note: ConduitSink is `Pin<Box<dyn Sink<ConduitMessage, Error = ConduitError> + Send>>`
 pub async fn adapt_WsSender_to_Conduit(sender: WsSender) -> Result<ConduitSink, ConduitError> {
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, mut rx) = mpsc::unbounded_channel();
 
-    tokio::task::spawn(async move {
+    task::spawn(async move {
         let mut sender = sender;
         while let Some(msg) = rx.recv().await {
             sender.send(msg);
@@ -112,9 +119,9 @@ pub async fn connect_to_server(
 ) -> Result<ActorRef<PortalActorMessage>, anyhow::Error> {
     info!("Connecting to WebSocket server at: {url}");
 
-    let (opened_tx, opened_rx) = tokio::sync::oneshot::channel();
+    let (opened_tx, opened_rx) = oneshot::channel();
 
-    let (_internal_tx, ws_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (_internal_tx, ws_rx) = mpsc::unbounded_channel();
     let opened_tx = Arc::new(Mutex::new(Some(opened_tx)));
     let handler: Box<dyn Send + Fn(WsEvent) -> ControlFlow<()>> = Box::new(move |evt| {
         match evt {
@@ -127,10 +134,10 @@ pub async fn connect_to_server(
             WsEvent::Message(ws_message) => {
                 match ws_message {
                     WsMessage::Text(text) => {
-                        _internal_tx.send(ConduitMessage::Text(text.to_string()));
+                        let _ = _internal_tx.send(ConduitMessage::Text(text.to_string()));
                     }
                     WsMessage::Binary(bin) => {
-                        _internal_tx.send(ConduitMessage::Binary(bin));
+                        let _ = _internal_tx.send(ConduitMessage::Binary(bin));
                     }
                     _ => {}
                 };
@@ -165,9 +172,9 @@ pub async fn connect_to_server(
     info!("Portal actor started for: {url}");
 
     let portal_actor_copy = portal.clone();
-    tokio::spawn(async move {
-        conduit::receive_loop(ws_rx, portal_identifier, portal_actor_copy).await
-    });
+    task::spawn(
+        async move { conduit::receive_loop(ws_rx, portal_identifier, portal_actor_copy).await },
+    );
 
     Ok(portal)
 }
