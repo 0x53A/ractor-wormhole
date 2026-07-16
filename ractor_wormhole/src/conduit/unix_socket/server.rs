@@ -73,7 +73,7 @@ async fn handle_connection(
 fn create_sink(mut writer: tokio::net::unix::OwnedWriteHalf) -> ConduitSink {
     let sink = futures::sink::unfold(writer, |mut writer, element: ConduitMessage| async move {
         let result = match element {
-            ConduitMessage::Text(text) => {
+            ConduitMessage::Handshake(text) => {
                 // Format: [type:1byte][length:4bytes][data]
                 let data = text.as_bytes();
                 let len = data.len() as u32;
@@ -89,7 +89,7 @@ fn create_sink(mut writer: tokio::net::unix::OwnedWriteHalf) -> ConduitSink {
                 }
                 writer.flush().await.map_err(ConduitError::from)
             }
-            ConduitMessage::Binary(bin) => {
+            ConduitMessage::Content(bin) => {
                 // Format: [type:1byte][length:4bytes][data]
                 let len = bin.len() as u32;
 
@@ -144,7 +144,7 @@ fn create_source(mut reader: tokio::net::unix::OwnedReadHalf) -> ConduitSource {
                 }
 
                 match String::from_utf8(buf) {
-                    Ok(text) => Some((Ok(ConduitMessage::Text(text)), reader)),
+                    Ok(text) => Some((Ok(ConduitMessage::Handshake(text)), reader)),
                     Err(e) => Some((Err(ConduitError::from(e)), reader)),
                 }
             }
@@ -160,7 +160,7 @@ fn create_source(mut reader: tokio::net::unix::OwnedReadHalf) -> ConduitSource {
                     return Some((Err(ConduitError::from(e)), reader));
                 }
 
-                Some((Ok(ConduitMessage::Binary(buf)), reader))
+                Some((Ok(ConduitMessage::Content(buf)), reader))
             }
             2 => {
                 // Close message

@@ -3,9 +3,10 @@ mod ui;
 use clap::Parser;
 use ractor::{ActorRef, concurrency::Duration};
 use ractor_wormhole::{
+    WormholeResult,
     conduit::websocket,
     nexus::start_nexus,
-    portal::{NexusResult, Portal, PortalActorMessage},
+    portal::{Portal, PortalActorMessage},
     util::{ActorRef_Ask, FnActor},
 };
 use shared::ChatClientMessage;
@@ -30,7 +31,7 @@ async fn main() {
 /// the local actor which receives messages from the server, converts them to the UI message type and just forwards them.
 pub async fn start_chatclient_actor(
     ui: ActorRef<UIMsg>,
-) -> NexusResult<ActorRef<ChatClientMessage>> {
+) -> WormholeResult<ActorRef<ChatClientMessage>> {
     let (actor_ref, _) = FnActor::<ChatClientMessage>::start_fn(async move |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
             match msg {

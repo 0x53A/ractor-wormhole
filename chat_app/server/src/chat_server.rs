@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use ractor::ActorRef;
 use ractor::{ActorId, RpcReplyPort};
 use ractor_wormhole::portal::PortalActorMessage;
-use ractor_wormhole::{portal::NexusResult, util::FnActor};
+use ractor_wormhole::{WormholeResult, util::FnActor};
 use shared::{ChatClientMessage, ChatServerMessage, UserAlias};
 
 use crate::alias_gen;
@@ -32,7 +32,7 @@ struct ChatServerState {
     // history: Vec<UserAlias, ChatMessage>,
 }
 
-pub async fn start_chatserver_actor() -> NexusResult<ActorRef<Msg>> {
+pub async fn start_chatserver_actor() -> WormholeResult<ActorRef<Msg>> {
     let (actor_ref, _) = FnActor::<Msg>::start_fn(async |mut ctx| {
         let mut alias_generator = alias_gen::AliasGenerator::new();
 

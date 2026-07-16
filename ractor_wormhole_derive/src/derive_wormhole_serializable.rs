@@ -550,6 +550,35 @@ fn derive_enum(input: venial::Enum) -> Result<proc_macro2::TokenStream, venial::
     );
     let (impl_generics, type_generics) = extract_generics(&input.generic_params);
 
+    // An uninhabited enum can never be instantiated, so immaterialize is trivially
+    // unreachable and rematerialize always fails. This needs to be special-cased,
+    // because the generic codegen below would emit code after a `match self {}`,
+    // which triggers an `unreachable_code` warning.
+    if input.variants.is_empty() {
+        let enum_name_str = enum_name.to_string();
+        let q = quote! {
+            #[::ractor_wormhole::transmaterialization::transmaterialization_proxies::async_trait]
+            impl #impl_generics ::ractor_wormhole::transmaterialization::ContextTransmaterializable for #enum_name #type_generics #extended_where_clause {
+                async fn immaterialize(
+                    self,
+                    _ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,
+                ) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Vec<u8>> {
+                    match self {}
+                }
+
+                async fn rematerialize(
+                    _ctx: &::ractor_wormhole::transmaterialization::TransmaterializationContext,
+                    _data: &[u8],
+                ) -> ::ractor_wormhole::transmaterialization::TransmaterializationResult<Self> {
+                    Err(::ractor_wormhole::transmaterialization::transmaterialization_proxies::anyhow!(
+                        "cannot rematerialize uninhabited enum `{}`", #enum_name_str
+                    ))
+                }
+            }
+        };
+        return Ok(q);
+    }
+
     // Identifiers for deserialization (enum variants use payload_data/payload_offset)
     let payload_data_ident = format_ident!("payload_data");
     let payload_offset_ident = format_ident!("payload_offset");

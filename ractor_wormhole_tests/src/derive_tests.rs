@@ -1,5 +1,3 @@
-#![allow(unreachable_code)] // 'unreachable' warning, todo: fix in 'WormholeSerializable'
-
 use ractor_wormhole::{
     WormholeTransmaterializable, transmaterialization::ContextTransmaterializable,
 };
@@ -68,8 +66,6 @@ pub struct TwoTupleStruct(f32, f64);
 
 // Enums
 // -----------------------------------------------------------------------------
-
-// note: this shows a 'unreachable' warning, todo: fix in 'WormholeSerializable'
 
 #[derive(Debug, Clone, WormholeTransmaterializable)]
 pub enum EmptyEnum {}

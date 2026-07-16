@@ -78,8 +78,8 @@ where
         let output = match element {
             Ok(msg) => {
                 let msg = match msg {
-                    Message::Text(text) => Some(ConduitMessage::Text(text.to_string())),
-                    Message::Binary(bin) => Some(ConduitMessage::Binary(bin.into())),
+                    Message::Text(text) => Some(ConduitMessage::Handshake(text.to_string())),
+                    Message::Binary(bin) => Some(ConduitMessage::Content(bin.into())),
                     Message::Close(Some(reason)) => Some(ConduitMessage::Close(Some(format!(
                         "Close code: {:?}, reason: {}",
                         reason.code, reason.reason
@@ -111,8 +111,8 @@ where
 {
     let sink = sink.with(|element: ConduitMessage| async {
         let msg = match element {
-            ConduitMessage::Text(text) => Message::text(text),
-            ConduitMessage::Binary(bin) => Message::binary(bin),
+            ConduitMessage::Handshake(text) => Message::text(text),
+            ConduitMessage::Content(bin) => Message::binary(bin),
             ConduitMessage::Close(_) => Message::Close(None),
         };
         Ok(msg)

@@ -27,9 +27,20 @@ use crate::{
 
 // -------------------------------------------------------------------------------------------------------
 
+/// The messages that flow through a conduit (transport).
+///
+/// The protocol has exactly two phases: first each side sends a single [Handshake](ConduitMessage::Handshake),
+/// after that all actor communication is [Content](ConduitMessage::Content).
+///
+/// How these are represented on the wire is up to the transport, e.g. the WebSocket
+/// transport maps them to text and binary frames, the byte-stream transports (unix socket, ssh)
+/// use a type tag + length prefix.
 pub enum ConduitMessage {
-    Text(String),
-    Binary(Vec<u8>),
+    /// the initial handshake message (a json-serialized `Introduction`).
+    /// It is sent exactly once, by each side, at the start of the connection.
+    Handshake(String),
+    /// a content message (bincode-serialized `CrossPortalMessage`), carrying the actual actor communication
+    Content(Vec<u8>),
     Close(Option<String>),
 }
 
@@ -53,15 +64,17 @@ pub async fn receive_loop(
     while let Some(msg) = receiver.next().await {
         match msg {
             Ok(msg) => match msg {
-                ConduitMessage::Text(text) => {
-                    if let Err(err) = actor_ref.cast(PortalActorMessage::Text(text.to_string())) {
-                        error!("Error sending text message to actor: {err}");
+                ConduitMessage::Handshake(text) => {
+                    if let Err(err) =
+                        actor_ref.cast(PortalActorMessage::Handshake(text.to_string()))
+                    {
+                        error!("Error sending handshake message to actor: {err}");
                         break;
                     }
                 }
-                ConduitMessage::Binary(data) => {
-                    if let Err(err) = actor_ref.cast(PortalActorMessage::Binary(data.to_vec())) {
-                        error!("Error sending binary message to actor: {err}");
+                ConduitMessage::Content(data) => {
+                    if let Err(err) = actor_ref.cast(PortalActorMessage::Content(data.to_vec())) {
+                        error!("Error sending content message to actor: {err}");
                         break;
                     }
                 }

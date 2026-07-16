@@ -2,7 +2,8 @@ use ractor::ActorRef;
 use shared::HubMessage;
 
 use ractor_wormhole::{
-    portal::{NexusResult, PortalActorMessage},
+    WormholeResult,
+    portal::PortalActorMessage,
     util::{ActorRef_Ask, ActorRef_Map, FnActor},
 };
 
@@ -10,7 +11,7 @@ use ractor_wormhole::{
 pub async fn spawn_hub(
     chat_server: ActorRef<crate::chat_server::Msg>,
     portal: ActorRef<PortalActorMessage>,
-) -> NexusResult<ActorRef<HubMessage>> {
+) -> WormholeResult<ActorRef<HubMessage>> {
     let (actor_ref, _) = FnActor::<HubMessage>::start_fn(async move |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
             match msg {

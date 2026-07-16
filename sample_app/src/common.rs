@@ -2,7 +2,7 @@
 
 use ractor::{ActorRef, concurrency::Duration};
 use ractor_wormhole::WormholeTransmaterializable;
-use ractor_wormhole::{portal::NexusResult, util::FnActor};
+use ractor_wormhole::{WormholeResult, util::FnActor};
 
 // ----------------------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ pub enum PingPongMsg {
 
 // ----------------------------------------------------------------------------------
 
-pub async fn start_pingpong_actor() -> NexusResult<ActorRef<PingPongMsg>> {
+pub async fn start_pingpong_actor() -> WormholeResult<ActorRef<PingPongMsg>> {
     let (local_pinpong, _) = FnActor::<PingPongMsg>::start_fn(async |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
             match msg {

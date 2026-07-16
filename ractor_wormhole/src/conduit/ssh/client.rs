@@ -148,7 +148,7 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
                 match handle
                     .authenticate_publickey_with(
                         config.username.clone(),
-                        pubkey.clone(),
+                        pubkey.public_key().into_owned(),
                         hash_alg,
                         &mut agent,
                     )
@@ -407,7 +407,7 @@ where
 {
     let sink = futures::sink::unfold(writer, |mut writer, element: ConduitMessage| async move {
         let result = match element {
-            ConduitMessage::Text(text) => {
+            ConduitMessage::Handshake(text) => {
                 // Format: [type:1byte][length:4bytes][data]
                 let data = text.as_bytes();
                 let len = data.len() as u32;
@@ -426,7 +426,7 @@ where
                 }
                 writer.flush().await.map_err(ConduitError::from)
             }
-            ConduitMessage::Binary(data) => {
+            ConduitMessage::Content(data) => {
                 // Format: [type:1byte][length:4bytes][data]
                 let len = data.len() as u32;
 
@@ -497,7 +497,7 @@ where
             0 => {
                 // Text message
                 match String::from_utf8(buffer) {
-                    Ok(text) => ConduitMessage::Text(text),
+                    Ok(text) => ConduitMessage::Handshake(text),
                     Err(e) => {
                         error!("Failed to decode text message: {}", e);
                         return Some((Err(ConduitError::from(e)), reader));
@@ -506,7 +506,7 @@ where
             }
             1 => {
                 // Binary message
-                ConduitMessage::Binary(buffer)
+                ConduitMessage::Content(buffer)
             }
             2 => {
                 // Close message

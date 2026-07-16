@@ -8,6 +8,7 @@ use ractor::{
 use std::{collections::HashMap, fmt::Display, pin::Pin};
 
 use crate::{
+    WormholeResult,
     conduit::{ConduitMessage, ConduitSink},
     nexus::{NexusActorMessage, RemoteActorId},
     transmaterialization::{
@@ -109,8 +110,6 @@ pub enum CrossPortalMessage {
 // Portal
 // -------------------------------------------------------------------------------------------------------
 
-pub type NexusResult<T> = Result<T, anyhow::Error>;
-
 /// helper object that wraps an Actor Message Type, rematerializes a message and then forwards it to the actor.
 /// That's neccessary because the ActorRef is strongly typed, but we lose the generic type information when storing the actor cell.
 #[async_trait]
@@ -120,7 +119,7 @@ pub trait MsgRematerializer {
         actor: ActorCell,
         data: &[u8],
         ctx: TransmaterializationContext,
-    ) -> NexusResult<()>;
+    ) -> WormholeResult<()>;
 
     fn clone_boxed(&self) -> Box<dyn MsgRematerializer + Send>;
 }
@@ -137,16 +136,18 @@ type TransmitMessageF = Box<
     dyn FnOnce(
             TransmaterializationContext,
         ) -> Pin<
-            Box<dyn futures::Future<Output = NexusResult<Vec<u8>>> + std::marker::Send + 'static>,
+            Box<
+                dyn futures::Future<Output = WormholeResult<Vec<u8>>> + std::marker::Send + 'static,
+            >,
         > + std::marker::Send
         + 'static,
 >;
 
 // Messages for the portal actor
 pub enum PortalActorMessage {
-    // data received from websocket
-    Text(String),
-    Binary(Vec<u8>),
+    // data received from the conduit (see `ConduitMessage`)
+    Handshake(String),
+    Content(Vec<u8>),
     Close,
 
     ImmaterializeMessage(RemoteActorId, TransmitMessageF),
@@ -174,7 +175,7 @@ pub enum PortalActorMessage {
     RegisterProxyForRemoteActor(RemoteActorId, ActorCell),
 
     /// looks up an actor by name on the **remote** side of the portal. Returns None if no actor was registered under that name.
-    QueryNamedRemoteActor(String, RpcReplyPort<NexusResult<RemoteActorId>>),
+    QueryNamedRemoteActor(String, RpcReplyPort<WormholeResult<RemoteActorId>>),
 
     /// waits until the portal is fully opened
     WaitForHandshake(RpcReplyPort<()>),
@@ -193,15 +194,15 @@ pub trait Portal {
     >(
         &self,
         remote_actor_id: RemoteActorId,
-    ) -> NexusResult<ActorRef<T>>;
+    ) -> WormholeResult<ActorRef<T>>;
 
     async fn publish_named_actor<T: ContextTransmaterializable + ractor::Message + Send + Sync>(
         &self,
         name: String,
         actor_ref: ActorRef<T>,
-    ) -> NexusResult<()>;
+    ) -> WormholeResult<()>;
 
-    async fn wait_for_opened(&self, timeout: Duration) -> NexusResult<()>;
+    async fn wait_for_opened(&self, timeout: Duration) -> WormholeResult<()>;
 }
 
 #[async_trait]
@@ -211,7 +212,7 @@ impl Portal for ActorRef<PortalActorMessage> {
     >(
         &self,
         remote_actor_id: RemoteActorId,
-    ) -> NexusResult<ActorRef<T>> {
+    ) -> WormholeResult<ActorRef<T>> {
         let portal_ref = self.clone();
 
         let (proxy_actor_ref, _handle) =
@@ -261,7 +262,7 @@ impl Portal for ActorRef<PortalActorMessage> {
         &self,
         name: String,
         actor_ref: ActorRef<T>,
-    ) -> NexusResult<()> {
+    ) -> WormholeResult<()> {
         let receiver = T::get_rematerializer();
 
         let response = self.send_message(PortalActorMessage::PublishNamedActor(
@@ -274,7 +275,7 @@ impl Portal for ActorRef<PortalActorMessage> {
         Ok(response)
     }
 
-    async fn wait_for_opened(&self, timeout: Duration) -> NexusResult<()> {
+    async fn wait_for_opened(&self, timeout: Duration) -> WormholeResult<()> {
         let response = self
             .ask(PortalActorMessage::WaitForHandshake, Some(timeout))
             .await?;
@@ -314,7 +315,7 @@ pub struct PortalActorState {
     named_actors: HashMap<String, OpaqueActorId>,
 
     next_request_id: u64,
-    open_requests: HashMap<CrossPortalMessageId, RpcReplyPort<NexusResult<RemoteActorId>>>,
+    open_requests: HashMap<CrossPortalMessageId, RpcReplyPort<WormholeResult<RemoteActorId>>>,
 
     waiting_for_handshake: Vec<RpcReplyPort<()>>,
 }
@@ -409,7 +410,7 @@ impl Actor for PortalActor {
         };
         let text = serde_json::to_string_pretty(&introduction)?;
 
-        args.sender.send(ConduitMessage::Text(text)).await?;
+        args.sender.send(ConduitMessage::Handshake(text)).await?;
         args.sender.flush().await?;
 
         Ok(PortalActorState {
@@ -433,9 +434,9 @@ impl Actor for PortalActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            PortalActorMessage::Text(text) => {
+            PortalActorMessage::Handshake(text) => {
                 debug!(
-                    "Received text message from {}: {}",
+                    "Received handshake message from {}: {}",
                     state.args.identifier, text
                 );
 
@@ -464,23 +465,34 @@ impl Actor for PortalActor {
                         }
                     }
                     PortalConduitState::Open { .. } => {
-                        panic!("Received text message after handshake: {text}");
+                        // protocol violation by the remote side; don't panic, just close the portal
+                        error!(
+                            "Received a second handshake message from {} after the handshake was already completed, closing the portal",
+                            state.args.identifier
+                        );
+                        myself.stop(Some(
+                            "protocol violation: handshake message after handshake".into(),
+                        ));
                     }
                 }
             }
-            PortalActorMessage::Binary(data) => {
+            PortalActorMessage::Content(data) => {
                 debug!(
-                    "Received binary message from {}: {} bytes",
+                    "Received content message from {}: {} bytes",
                     state.args.identifier,
                     data.len()
                 );
 
                 match &state.channel_state {
                     PortalConduitState::Opening { .. } => {
-                        panic!(
-                            "Received binary message before handshake: {} bytes",
-                            data.len()
+                        // protocol violation by the remote side; don't panic, just close the portal
+                        error!(
+                            "Received a content message from {} before the handshake was completed, closing the portal",
+                            state.args.identifier
                         );
+                        myself.stop(Some(
+                            "protocol violation: content message before handshake".into(),
+                        ));
                     }
                     PortalConduitState::Open { channel_id, .. } => {
                         let msg = CrossPortalMessage::rematerialize(&data)?;
@@ -543,7 +555,11 @@ impl Actor for PortalActor {
                                     response_msg,
                                     bincode::config::standard(),
                                 )?;
-                                state.args.sender.send(ConduitMessage::Binary(data)).await?;
+                                state
+                                    .args
+                                    .sender
+                                    .send(ConduitMessage::Content(data))
+                                    .await?;
                                 state.args.sender.flush().await?;
                             }
 
@@ -578,7 +594,7 @@ impl Actor for PortalActor {
                             CrossPortalMessage::ResponseActorByName(id, response) => {
                                 // Handle response to our earlier request
                                 if let Some(reply_port) = state.open_requests.remove(&id) {
-                                    let mapped: NexusResult<RemoteActorId> =
+                                    let mapped: WormholeResult<RemoteActorId> =
                                         response.map_err(|err| err.into());
                                     reply_port.send(mapped)?;
                                 } else {
@@ -589,7 +605,7 @@ impl Actor for PortalActor {
                             CrossPortalMessage::ResponseActorById(id, response) => {
                                 // Handle response to our earlier request
                                 if let Some(reply_port) = state.open_requests.remove(&id) {
-                                    let mapped: NexusResult<RemoteActorId> =
+                                    let mapped: WormholeResult<RemoteActorId> =
                                         response.map_err(|err| err.into());
                                     reply_port.send(mapped)?;
                                 } else {
@@ -729,7 +745,7 @@ impl Actor for PortalActor {
                 state
                     .args
                     .sender
-                    .send(ConduitMessage::Binary(bytes))
+                    .send(ConduitMessage::Content(bytes))
                     .await?;
                 state.args.sender.flush().await?;
             }
@@ -751,16 +767,26 @@ impl Actor for PortalActor {
                 let default_rpc_port_timeout = state.args.config.default_rpc_port_timeout;
                 let target_copy = target;
                 ractor::concurrency::spawn(async move {
-                    let bytes = msg_f(TransmaterializationContext {
+                    let result = msg_f(TransmaterializationContext {
                         connection: myself_copy.clone(),
                         default_rpc_port_timeout,
                     })
-                    .await
-                    .unwrap(); // todo: fix unwrap
-                    // info!("Serialized! Now sending ...");
+                    .await;
 
-                    let _ = myself_copy
-                        .send_message(PortalActorMessage::TransmitMessage(target_copy, bytes));
+                    match result {
+                        Ok(bytes) => {
+                            let _ = myself_copy.send_message(PortalActorMessage::TransmitMessage(
+                                target_copy,
+                                bytes,
+                            ));
+                        }
+                        Err(err) => {
+                            error!(
+                                "Failed to immaterialize message for remote actor {}: {err}",
+                                target_copy.id
+                            );
+                        }
+                    }
                 });
             }
 
@@ -775,7 +801,7 @@ impl Actor for PortalActor {
                 state
                     .args
                     .sender
-                    .send(ConduitMessage::Binary(bytes))
+                    .send(ConduitMessage::Content(bytes))
                     .await?;
                 state.args.sender.flush().await?;
             }
@@ -816,7 +842,7 @@ impl Actor for PortalActor {
                 state
                     .args
                     .sender
-                    .send(ConduitMessage::Binary(bytes))
+                    .send(ConduitMessage::Content(bytes))
                     .await?;
                 state.args.sender.flush().await?;
             }

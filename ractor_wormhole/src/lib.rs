@@ -7,6 +7,9 @@ pub mod portal;
 pub mod transmaterialization;
 pub mod util;
 
+/// crate-level result type
+pub type WormholeResult<T> = Result<T, anyhow::Error>;
+
 extern crate self as ractor_wormhole;
 
 // re-export the derive macro

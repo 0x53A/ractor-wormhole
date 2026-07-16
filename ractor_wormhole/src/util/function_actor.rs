@@ -178,8 +178,11 @@ impl<T: Message + Sync> FnActor<T> {
         let (ctx, handle) = Self::start().await?;
         let actor_ref = ctx.actor_ref.clone();
 
+        let actor_ref_clone = actor_ref.clone();
         ractor::concurrency::spawn(async move {
             f(ctx).await;
+            // the user function returned, so stop the actor
+            actor_ref_clone.stop(Some("function returned".to_string()));
         });
 
         Ok((actor_ref, handle))
@@ -199,8 +202,11 @@ impl<T: Message + Sync> FnActor<T> {
         let (ctx, handle) = Self::start_linked(supervisor).await?;
         let actor_ref = ctx.actor_ref.clone();
 
+        let actor_ref_clone = actor_ref.clone();
         ractor::concurrency::spawn(async move {
             f(ctx).await;
+            // the user function returned, so stop the actor
+            actor_ref_clone.stop(Some("function returned".to_string()));
         });
 
         Ok((actor_ref, handle))
@@ -217,8 +223,11 @@ impl<T: Message + Sync> FnActor<T> {
         let (ctx, handle) = Self::start_instant()?;
         let actor_ref = ctx.actor_ref.clone();
 
+        let actor_ref_clone = actor_ref.clone();
         ractor::concurrency::spawn(async move {
             f(ctx).await;
+            // the user function returned, so stop the actor
+            actor_ref_clone.stop(Some("function returned".to_string()));
         });
 
         Ok((actor_ref, handle))
@@ -270,6 +279,20 @@ pub mod fn_actor_tests {
         assert!(*i.lock().unwrap() == 666);
 
         Ok(())
+    }
+
+    #[tokio::test]
+    pub async fn test_actor_stops_when_fn_returns() {
+        let (actor_ref, _handle) = FnActor::<u32>::start_fn(|mut ctx| async move {
+            // process exactly one message, then return
+            let _ = ctx.rx.recv().await;
+        })
+        .await
+        .unwrap();
+
+        actor_ref.send_message(42).unwrap();
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        assert_eq!(actor_ref.get_status(), ractor::ActorStatus::Stopped);
     }
 
     #[tokio::test]

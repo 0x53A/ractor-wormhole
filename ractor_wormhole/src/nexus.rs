@@ -1,4 +1,3 @@
-#[cfg(feature = "async-trait")]
 use async_trait::async_trait;
 use log::{debug, info, warn};
 use ractor::{
@@ -8,11 +7,13 @@ use ractor::{
 use std::collections::HashMap;
 
 use crate::{
+    WormholeResult,
     conduit::ConduitSink,
     portal::{
         BoxedRematerializer, ConduitID, LocalPortalId, OpaqueActorId, PortalActor, PortalActorArgs,
         PortalActorMessage, PortalConfig,
     },
+    transmaterialization::{ContextTransmaterializable, GetRematerializer},
 };
 
 // -------------------------------------------------------------------------------------------------------
@@ -187,6 +188,38 @@ impl Actor for NexusActor {
             }
             _ => (),
         }
+
+        Ok(())
+    }
+}
+
+/// wrap the `ActorRef<NexusActorMessage>` in a more user-friendly interface
+#[async_trait]
+pub trait Nexus {
+    /// publish a local actor under a known name, making it available to the remote side
+    /// of **all** portals of this nexus, current and future.
+    /// On the remote side, it can be looked up by name.
+    async fn publish_named_actor<T: ContextTransmaterializable + ractor::Message + Send + Sync>(
+        &self,
+        name: String,
+        actor_ref: ActorRef<T>,
+    ) -> WormholeResult<()>;
+}
+
+#[async_trait]
+impl Nexus for ActorRef<NexusActorMessage> {
+    async fn publish_named_actor<T: ContextTransmaterializable + ractor::Message + Send + Sync>(
+        &self,
+        name: String,
+        actor_ref: ActorRef<T>,
+    ) -> WormholeResult<()> {
+        let rematerializer = T::get_rematerializer();
+
+        self.send_message(NexusActorMessage::PublishNamedActor(
+            name,
+            actor_ref.get_cell(),
+            rematerializer,
+        ))?;
 
         Ok(())
     }

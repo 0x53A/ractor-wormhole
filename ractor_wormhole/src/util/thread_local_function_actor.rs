@@ -193,8 +193,11 @@ impl<T: Message> ThreadLocalFnActor<T> {
 
         // For thread-local actors, we spawn using ractor's concurrency primitives
         // which handles the platform-specific spawning
+        let actor_ref_clone = actor_ref.clone();
         ractor::concurrency::spawn_local(async move {
             f(ctx).await;
+            // the user function returned, so stop the actor
+            actor_ref_clone.stop(Some("function returned".to_string()));
         });
 
         Ok((actor_ref, handle))
@@ -221,8 +224,11 @@ impl<T: Message> ThreadLocalFnActor<T> {
 
         // For thread-local actors, we spawn using ractor's concurrency primitives
         // which handles the platform-specific spawning
+        let actor_ref_clone = actor_ref.clone();
         ractor::concurrency::spawn_local(async move {
             f(ctx).await;
+            // the user function returned, so stop the actor
+            actor_ref_clone.stop(Some("function returned".to_string()));
         });
 
         Ok((actor_ref, handle))
@@ -258,8 +264,11 @@ impl<T: Message> ThreadLocalFnActor<T> {
         let (ctx, handle) = Self::start_instant(spawner)?;
         let actor_ref = ctx.actor_ref.clone();
 
+        let actor_ref_clone = actor_ref.clone();
         ractor::concurrency::spawn_local(async move {
             f(ctx).await;
+            // the user function returned, so stop the actor
+            actor_ref_clone.stop(Some("function returned".to_string()));
         });
 
         Ok((actor_ref, handle))

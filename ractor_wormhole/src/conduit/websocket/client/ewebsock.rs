@@ -72,6 +72,7 @@ impl Sink<ConduitMessage> for WsSenderSink {
 
 // note: WsSender is `struct { tx: Option<std::sync::mpsc::Sender<WsMessage>>, }`
 // note: ConduitSink is `Pin<Box<dyn Sink<ConduitMessage, Error = ConduitError> + Send>>`
+#[allow(non_snake_case)]
 pub async fn adapt_WsSender_to_Conduit(sender: WsSender) -> Result<ConduitSink, ConduitError> {
     let (tx, mut rx) = mpsc::unbounded_channel();
 
@@ -86,8 +87,10 @@ pub async fn adapt_WsSender_to_Conduit(sender: WsSender) -> Result<ConduitSink, 
     let (actor_ref, _handle) = FnActor::start_fn(async move |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
             match msg {
-                ConduitMessage::Text(text) => tx.send(WsMessage::Text(text.to_string())).unwrap(),
-                ConduitMessage::Binary(data) => tx.send(WsMessage::Binary(data.to_vec())).unwrap(),
+                ConduitMessage::Handshake(text) => {
+                    tx.send(WsMessage::Text(text.to_string())).unwrap()
+                }
+                ConduitMessage::Content(data) => tx.send(WsMessage::Binary(data.to_vec())).unwrap(),
                 ConduitMessage::Close(close_frame) => {
                     debug!("Closing the WebSocket connection: {close_frame:?}");
                     ctx.actor_ref.stop(None);
@@ -103,6 +106,7 @@ pub async fn adapt_WsSender_to_Conduit(sender: WsSender) -> Result<ConduitSink, 
 }
 
 // note: ConduitSource is `Pin<Box<dyn Stream<Item = Result<ConduitMessage, ConduitError>> + Send>>`
+#[allow(non_snake_case)]
 pub fn adapt_tokio_receiver_to_Conduit(rx: UnboundedReceiver<ConduitMessage>) -> ConduitSource {
     // Create a stream from the receiver
     let stream = futures::stream::unfold(rx, |mut rx| async move {
@@ -134,10 +138,10 @@ pub async fn connect_to_server(
             WsEvent::Message(ws_message) => {
                 match ws_message {
                     WsMessage::Text(text) => {
-                        let _ = _internal_tx.send(ConduitMessage::Text(text.to_string()));
+                        let _ = _internal_tx.send(ConduitMessage::Handshake(text.to_string()));
                     }
                     WsMessage::Binary(bin) => {
-                        let _ = _internal_tx.send(ConduitMessage::Binary(bin));
+                        let _ = _internal_tx.send(ConduitMessage::Content(bin));
                     }
                     _ => {}
                 };

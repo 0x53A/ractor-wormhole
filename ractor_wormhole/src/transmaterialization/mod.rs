@@ -10,8 +10,9 @@ pub use rpc_proxy::*;
 // -------------------------------------------------------------------------------------------------------
 
 use crate::{
+    WormholeResult,
     nexus::RemoteActorId,
-    portal::{BoxedRematerializer, MsgRematerializer, NexusResult, Portal, PortalActorMessage},
+    portal::{BoxedRematerializer, MsgRematerializer, Portal, PortalActorMessage},
     util::ActorRef_Ask,
 };
 use async_trait::async_trait;
@@ -83,7 +84,7 @@ impl<TMessage: ContextTransmaterializable + ractor::Message + Sync> MsgRemateria
         actor: ractor::ActorCell,
         data: &[u8],
         ctx: TransmaterializationContext,
-    ) -> NexusResult<()> {
+    ) -> WormholeResult<()> {
         let msg = <TMessage as ContextTransmaterializable>::rematerialize(&ctx, data).await?;
         let actor_ref = ActorRef::<TMessage>::from(actor);
         actor_ref.send_message(msg)?;

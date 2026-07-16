@@ -34,8 +34,8 @@ impl From<ractor_wormhole::conduit::ConduitMessage> for FfiConduitMessage {
     fn from(msg: ractor_wormhole::conduit::ConduitMessage) -> Self {
         use ractor_wormhole::conduit::ConduitMessage;
         match msg {
-            ConduitMessage::Text(s) => FfiConduitMessage::Text { content: s },
-            ConduitMessage::Binary(data) => FfiConduitMessage::Binary { data },
+            ConduitMessage::Handshake(s) => FfiConduitMessage::Text { content: s },
+            ConduitMessage::Content(data) => FfiConduitMessage::Binary { data },
             ConduitMessage::Close(reason) => FfiConduitMessage::Close { reason },
         }
     }
@@ -45,8 +45,8 @@ impl From<FfiConduitMessage> for ractor_wormhole::conduit::ConduitMessage {
     fn from(msg: FfiConduitMessage) -> Self {
         use ractor_wormhole::conduit::ConduitMessage;
         match msg {
-            FfiConduitMessage::Text { content } => ConduitMessage::Text(content),
-            FfiConduitMessage::Binary { data } => ConduitMessage::Binary(data),
+            FfiConduitMessage::Text { content } => ConduitMessage::Handshake(content),
+            FfiConduitMessage::Binary { data } => ConduitMessage::Content(data),
             FfiConduitMessage::Close { reason } => ConduitMessage::Close(reason),
         }
     }
