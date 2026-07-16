@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use async_trait::async_trait;
 use ractor::{Actor, ActorProcessingErr, ActorRef, concurrency::Duration};
 use ractor_wormhole::portal::PortalActorMessage;
 use ractor_wormhole::transmaterialization::{

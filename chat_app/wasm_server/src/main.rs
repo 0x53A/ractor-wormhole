@@ -1,5 +1,3 @@
-#![feature(fn_traits)]
-#![feature(try_find)]
 #![feature(never_type)]
 
 mod embedded_files;

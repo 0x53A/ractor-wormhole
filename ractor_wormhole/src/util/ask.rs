@@ -48,7 +48,7 @@ impl<TMessage: ractor::Message + 'static> ActorRef_Ask<TMessage> for ActorRef<TM
             send_msg_result?;
 
             if let Some(duration) = timeout_option {
-                #[cfg(all(all(target_arch = "wasm32", target_os = "unknown")))]
+                #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
                 {
                     // in wasm, timeout isn't Send, so use the timeout in an isolated task and push the result through a oneshot channel
                     let (tx_timeout, rx_timeout) = concurrency::oneshot();

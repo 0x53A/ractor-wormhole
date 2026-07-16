@@ -10,6 +10,10 @@ use async_trait::async_trait;
 
 // -------------------------------------------------------------------------------------------------------
 
+/// Handle returned by the `*_instant` spawn variants: resolves to the actor's
+/// actual `JoinHandle` once the spawn has completed.
+pub type InstantSpawnHandle = JoinHandle<Result<JoinHandle<()>, SpawnErr>>;
+
 /// this context is passed to the function that runs the actor.
 pub struct FnActorCtx<T> {
     pub rx: ractor::concurrency::MpscReceiver<T>,
@@ -141,8 +145,7 @@ impl<T: Message + Sync> FnActor<T> {
 
     /// start a new actor, and returns a Receive handle to its message queue.
     /// It's the obligation of the caller to poll the receive handle.
-    pub fn start_instant()
-    -> Result<(FnActorCtx<T>, JoinHandle<Result<JoinHandle<()>, SpawnErr>>), SpawnErr> {
+    pub fn start_instant() -> Result<(FnActorCtx<T>, InstantSpawnHandle), SpawnErr> {
         let (tx, rx) = tokio::sync::mpsc::channel::<T>(MAX_CHANNEL_SIZE);
 
         let args = FnActorArgs { tx };
@@ -205,9 +208,7 @@ impl<T: Message + Sync> FnActor<T> {
 
     /// starts a new actor based on a function that takes the Receive handle.
     /// The function will be executed as a task, it should loop and poll the receive handle.
-    pub fn start_fn_instant<F, Fut>(
-        f: F,
-    ) -> Result<(ActorRef<T>, JoinHandle<Result<JoinHandle<()>, SpawnErr>>), SpawnErr>
+    pub fn start_fn_instant<F, Fut>(f: F) -> Result<(ActorRef<T>, InstantSpawnHandle), SpawnErr>
     where
         F: FnOnce(FnActorCtx<T>) -> Fut + Send + 'static,
         Fut: std::future::Future<Output = ()> + Send,

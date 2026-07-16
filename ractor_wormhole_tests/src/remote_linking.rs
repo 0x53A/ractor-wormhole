@@ -57,7 +57,7 @@ pub async fn test_remote_linking_works() -> anyhow::Result<()> {
     )
     .await?;
 
-    let (hello_actor, hello_actor_handle) = FnActor::<HelloMsg>::start_fn(async move |mut ctx| {
+    let (hello_actor, _hello_actor_handle) = FnActor::<HelloMsg>::start_fn(async move |mut ctx| {
         while let Some(msg) = ctx.rx.recv().await {
             received.lock().unwrap().push(msg.msg);
         }
@@ -90,10 +90,12 @@ pub async fn test_remote_linking_works() -> anyhow::Result<()> {
     // wait for the message to be processed
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // validate
-    let received = received_clone.lock().unwrap();
-    assert_eq!(received.len(), 1);
-    assert_eq!(received[0], "Hello from side 2");
+    // validate (drop the guard before the awaits below)
+    {
+        let received = received_clone.lock().unwrap();
+        assert_eq!(received.len(), 1);
+        assert_eq!(received[0], "Hello from side 2");
+    }
 
     // kill the real actor and check that the proxy actor is also marked as dead
     hello_actor

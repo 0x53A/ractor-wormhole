@@ -432,7 +432,6 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
         }
         venial::Fields::Tuple(tuple_fields) => {
             // Handle tuple structs like `struct UserAlias(String)`
-            let field_count = tuple_fields.fields.len();
             let field_types: Vec<_> = tuple_fields
                 .fields
                 .iter()
@@ -441,8 +440,7 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
 
             // Generate serialization code for tuple fields
             let mut serialize_fields = Vec::new();
-            for i in 0..field_count {
-                let field_type = &field_types[i];
+            for (i, field_type) in field_types.iter().enumerate() {
                 let field_bytes_ident = format_ident!("field_bytes_{}", i);
                 let index = proc_macro2::Literal::usize_unsuffixed(i);
 
@@ -459,8 +457,7 @@ fn derive_struct(input: venial::Struct) -> Result<proc_macro2::TokenStream, veni
             // Generate deserialization code for tuple fields
             let mut deserialize_fields = Vec::new();
             let mut field_value_idents = Vec::new();
-            for i in 0..field_count {
-                let field_type = &field_types[i];
+            for (i, field_type) in field_types.iter().enumerate() {
                 let field_len_ident = format_ident!("field{}_len", i);
                 let field_bytes_ident = format_ident!("field{}_bytes", i);
                 let field_value_ident = format_ident!("field{}_value", i);

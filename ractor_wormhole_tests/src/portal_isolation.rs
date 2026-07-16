@@ -153,7 +153,7 @@ pub async fn test_portal_isolation_on_garbage_data() -> anyhow::Result<()> {
     // Query all portals from the nexus
     let all_portals = nexus
         .ask(
-            |rpc| ractor_wormhole::nexus::NexusActorMessage::GetAllPortals(rpc),
+            ractor_wormhole::nexus::NexusActorMessage::GetAllPortals,
             Some(Duration::from_secs(1)),
         )
         .await?;
@@ -258,7 +258,7 @@ pub async fn test_portal_isolation_garbage_during_handshake() -> anyhow::Result<
     // Check that only portal 2 remains
     let all_portals = nexus
         .ask(
-            |rpc| ractor_wormhole::nexus::NexusActorMessage::GetAllPortals(rpc),
+            ractor_wormhole::nexus::NexusActorMessage::GetAllPortals,
             Some(Duration::from_secs(1)),
         )
         .await?;

@@ -29,6 +29,8 @@ use crate::messages::{ChatClientMessage, ChatMessageContent, ChatServerMessage, 
 /// - Remote refs obtained via `WormholeConnection.get_remote_chat_client_actor()`
 #[derive(uniffi::Object)]
 pub struct FfiChatClientActorRef {
+    /// never read, but keeps the runtime alive as long as this ref exists
+    #[allow(dead_code)]
     pub(crate) runtime: Arc<WormholeRuntime>,
     pub(crate) actor_ref: ActorRef<ChatClientMessage>,
 }

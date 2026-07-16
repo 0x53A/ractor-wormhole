@@ -14,15 +14,14 @@ pub fn generate_deps(_input: TokenStream) -> TokenStream {
     let crates = from_cargo_toml(cargo_toml);
 
     // Build lines of generated module
-    let mut lines: Vec<String> = Vec::new();
-    lines.push("/// re-export all dependencies".to_string());
-    lines.push("pub mod deps {".to_string());
-    lines.push("    //! Re-exports of direct dependencies used by ractor_wormhole.".to_string());
-    lines.push(
+    let mut lines: Vec<String> = vec![
+        "/// re-export all dependencies".to_string(),
+        "pub mod deps {".to_string(),
+        "    //! Re-exports of direct dependencies used by ractor_wormhole.".to_string(),
         "    //! These are gated to match Cargo.toml (optional features / target-specific crates)."
             .to_string(),
-    );
-    lines.push("".to_string());
+        "".to_string(),
+    ];
 
     for (dep, cfg_expr) in crates {
         // skip the ractor_wormhole_derive path dep

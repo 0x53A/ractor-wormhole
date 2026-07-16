@@ -115,10 +115,8 @@ impl TemplateApp {
                         ));
                     }
                     UiUpdate::UserConnected(alias) => {
-                        self.messages.push((
-                            "System".to_string(),
-                            format!("{} joined.", alias.to_string()),
-                        ));
+                        self.messages
+                            .push(("System".to_string(), format!("{} joined.", alias)));
                     }
                     UiUpdate::MessageReceived(alias, msg) => {
                         self.messages.push((alias.to_string(), msg.to_string()));

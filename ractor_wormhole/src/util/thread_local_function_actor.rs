@@ -7,8 +7,7 @@ use ractor::{
     thread_local::{ThreadLocalActor, ThreadLocalActorSpawner},
 };
 
-#[cfg(feature = "async-trait")]
-use async_trait::async_trait;
+use super::function_actor::InstantSpawnHandle;
 
 // -------------------------------------------------------------------------------------------------------
 
@@ -233,13 +232,7 @@ impl<T: Message> ThreadLocalFnActor<T> {
     /// It's the obligation of the caller to poll the receive handle.
     pub fn start_instant(
         spawner: ThreadLocalActorSpawner,
-    ) -> Result<
-        (
-            ThreadLocalFnActorCtx<T>,
-            JoinHandle<Result<JoinHandle<()>, SpawnErr>>,
-        ),
-        SpawnErr,
-    > {
+    ) -> Result<(ThreadLocalFnActorCtx<T>, InstantSpawnHandle), SpawnErr> {
         let (tx, rx) = futures_mpsc::channel::<T>(MAX_CHANNEL_SIZE);
 
         let args = ThreadLocalFnActorArgs { tx };
@@ -256,7 +249,7 @@ impl<T: Message> ThreadLocalFnActor<T> {
     pub fn start_fn_instant<F, Fut>(
         spawner: ThreadLocalActorSpawner,
         f: F,
-    ) -> Result<(ActorRef<T>, JoinHandle<Result<JoinHandle<()>, SpawnErr>>), SpawnErr>
+    ) -> Result<(ActorRef<T>, InstantSpawnHandle), SpawnErr>
     where
         F: FnOnce(ThreadLocalFnActorCtx<T>) -> Fut + 'static,
         Fut: std::future::Future<Output = ()>,

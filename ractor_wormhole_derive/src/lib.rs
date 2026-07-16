@@ -1,6 +1,3 @@
-#![feature(cfg_boolean_literals)]
-#![feature(let_chains)]
-
 mod derive_generate_deps;
 mod derive_wormhole_serializable;
 mod util;

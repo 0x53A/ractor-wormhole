@@ -1,6 +1,3 @@
-#![feature(fn_traits)]
-#![feature(try_find)]
-
 mod common;
 
 pub mod client;

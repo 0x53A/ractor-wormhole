@@ -1,6 +1,3 @@
-#![feature(fn_traits)]
-#![feature(try_find)]
-
 mod ui;
 
 use clap::Parser;

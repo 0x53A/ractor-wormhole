@@ -293,7 +293,7 @@ impl UIState {
                 }
                 ChatEntry::UserConnected(user_alias) => {
                     // Simple connected message
-                    let text = format!("{} connected", user_alias.to_string());
+                    let text = format!("{} connected", user_alias);
                     let connected_text =
                         Paragraph::new(text).style(Style::default().fg(Color::Green));
 

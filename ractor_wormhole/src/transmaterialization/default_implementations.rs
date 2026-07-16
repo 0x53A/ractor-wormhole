@@ -422,9 +422,7 @@ where
             }
             None => {
                 // Capacity: 1 (discriminant)
-                let mut buffer = Vec::with_capacity(1);
-                buffer.push(0u8);
-                Ok(buffer)
+                Ok(vec![0u8])
             }
         }
     }

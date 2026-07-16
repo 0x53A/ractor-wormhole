@@ -14,9 +14,9 @@ impl From<UserAlias> for String {
     }
 }
 
-impl UserAlias {
-    pub fn to_string(&self) -> String {
-        self.0.clone()
+impl std::fmt::Display for UserAlias {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
@@ -29,9 +29,9 @@ impl From<ChatMessage> for String {
     }
 }
 
-impl ChatMessage {
-    pub fn to_string(&self) -> String {
-        self.0.clone()
+impl std::fmt::Display for ChatMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
