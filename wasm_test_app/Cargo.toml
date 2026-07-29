@@ -32,10 +32,10 @@ web-sys = { version = "0.3", features = [
 console_error_panic_hook = "0.1"
 getrandom = { version = "0.4", features = ["wasm_js"] }
 js-sys = "0.3"
-tokio = { version = "1.52", features = [] }
+tokio = { version = "1.53", features = [] }
 tokio_with_wasm = "0.8"
 async-trait = "0.1"
-uuid = { version = "1.23", features = ["js"] }
+uuid = { version = "1.24", features = ["js"] }
 
 
 

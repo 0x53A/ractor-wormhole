@@ -14,17 +14,17 @@ ractor_wormhole = { path = "../../ractor_wormhole", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
-tokio = { version = "1.52", features = [ ] }
+tokio = { version = "1.53", features = [ ] }
 tokio_with_wasm = "0.8"
 anyhow = "1.0"
 futures-util = "0.3"
 futures = "0.3"
 getrandom = { version = "0.4", features = ["wasm_js"] }
-uuid = { version = "1.23", features = ["js"] }
+uuid = { version = "1.24", features = ["js"] }
 async-trait = "0.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { version = "1.52", features = [ "rt", "rt-multi-thread" ] }
+tokio = { version = "1.53", features = [ "rt", "rt-multi-thread" ] }
 clap = { version = "4.6", features = ["derive"] }
 color-eyre = "0.6"
 tokio-tungstenite = { version = "0.29", features = ["native-tls"] }
