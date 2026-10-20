@@ -45,7 +45,7 @@ features = ["tls"]
 optional = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
-russh = { version = "0.62", optional = true, default-features = false }
+russh = { version = "0.64", optional = true, default-features = false }
 
 
 [features]
