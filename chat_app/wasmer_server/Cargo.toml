@@ -11,14 +11,15 @@ edition = "2024"
 anyhow = { version = "1.0", features = ["backtrace"] }
 env_logger = "0.11"
 http-body-util = "0.1"
-hyper = { version = "1.10", features = ["http1", "server"] }
-hyper-tungstenite = "0.20"
+hyper = { version = "1.12", features = ["http1", "server"] }
+hyper-tungstenite = "0.30"
 hyper-util = { version = "0.1", features = ["tokio"] }
 log = "0.4"
-ractor = "0.15"
+ractor = "0.16"
 ractor_wormhole = { path = "../../ractor_wormhole", features = ["websocket_server"] }
-rust-embed = "8.11"
+rust-embed = "8.13"
 server = { path = "../server" }
+# Must stay satisfiable by the wasix fork below, which prepare-wasix-tokio.sh labels 1.52.3.
 tokio = { version = "1.52", features = ["macros", "net", "rt", "sync"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "wasi"))'.dependencies]
@@ -28,8 +29,11 @@ wasi = "0.11.1"
 [features]
 async-trait = ["server/async-trait"]
 
-[replace]
-"tokio:1.52.3" = { path = ".wasix-deps/tokio/tokio" }
+# Use the wasix-org tokio fork (see scripts/prepare-wasix-tokio.sh). A [patch] keeps
+# applying after `cargo update`, unlike the previous `[replace] "tokio:1.52.3"`, which
+# silently stopped matching once the lock moved to a newer tokio.
+[patch.crates-io]
+tokio = { path = ".wasix-deps/tokio/tokio" }
 
 [profile.release]
 lto = "fat"

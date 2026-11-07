@@ -9,24 +9,31 @@ use tokio::time;
 
 use crate::common::{PingPongMsg, start_pingpong_actor};
 
-#[cfg(any(feature = "unix_socket", feature = "websocket"))]
-pub async fn run(
-    #[cfg(feature = "unix_socket")] socket_path: String,
-    #[cfg(feature = "websocket")] server_url: String,
-) -> Result<(), anyhow::Error> {
-    // Start the nexus actor
-    let nexus = start_nexus(None, None).await.unwrap();
-
-    // connect to the server
+pub enum Transport {
     #[cfg(feature = "unix_socket")]
-    let portal =
-        ractor_wormhole::conduit::unix_socket::client::connect_to_server(nexus, socket_path)
-            .await?;
+    UnixSocket(String),
     #[cfg(feature = "websocket")]
-    let portal = ractor_wormhole::conduit::websocket::client::tokio_tungstenite::connect_to_server(
-        nexus, server_url,
-    )
-    .await?;
+    WebSocket(String),
+}
+
+#[cfg(any(feature = "unix_socket", feature = "websocket"))]
+pub async fn run(transport: Transport) -> Result<(), anyhow::Error> {
+    let nexus = start_nexus(None, None)
+        .await
+        .map_err(|err| anyhow::anyhow!(err))?;
+    let portal = match transport {
+        #[cfg(feature = "unix_socket")]
+        Transport::UnixSocket(path) => {
+            ractor_wormhole::conduit::unix_socket::client::connect_to_server(nexus, path).await?
+        }
+        #[cfg(feature = "websocket")]
+        Transport::WebSocket(url) => {
+            ractor_wormhole::conduit::websocket::client::tokio_tungstenite::connect_to_server(
+                nexus, url,
+            )
+            .await?
+        }
+    };
 
     // wait for the portal to be ready (handshake)
     portal
@@ -78,6 +85,7 @@ pub async fn run_ssh(
             "Invalid SSH connection string format. Expected: user@host:port/path/to/socket"
         )
     })?;
+    let socket_path = format!("/{socket_path}");
 
     let (user_host, port_str) = if let Some((uh, p)) = connection.rsplit_once(':') {
         (uh, p)
@@ -116,7 +124,7 @@ pub async fn run_ssh(
         let found_key = default_keys.iter()
             .find(|path| std::path::Path::new(path).exists())
             .ok_or_else(|| anyhow::anyhow!(
-                "No SSH key found in default locations. Use --ssh-key to specify a key, --ssh-password for password auth, or load keys into ssh-agent and use --ssh-agent"
+                "No SSH key found in default locations. Use --ssh-key to specify a key, --ssh-password for password auth"
             ))?;
 
         SshAuthMethod::PublicKey {

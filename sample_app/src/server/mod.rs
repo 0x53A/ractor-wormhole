@@ -1,3 +1,4 @@
+#[cfg(feature = "websocket")]
 use std::net::SocketAddr;
 
 use anyhow::anyhow;
@@ -10,10 +11,14 @@ use ractor_wormhole::{
 
 use crate::common::start_pingpong_actor;
 
-pub async fn run(
-    #[cfg(feature = "unix_socket")] socket_path: String,
-    #[cfg(feature = "websocket")] bind: SocketAddr,
-) -> Result<(), anyhow::Error> {
+pub enum Transport {
+    #[cfg(feature = "unix_socket")]
+    UnixSocket(String),
+    #[cfg(feature = "websocket")]
+    WebSocket(SocketAddr),
+}
+
+pub async fn run(transport: Transport) -> Result<(), anyhow::Error> {
     // create a callback for when a client connects
     let (mut ctx_on_client_connected, _) = FnActor::start().await?;
 
@@ -23,11 +28,19 @@ pub async fn run(
         .await
         .map_err(|err| anyhow!(err))?;
 
-    #[cfg(feature = "unix_socket")]
-    ractor_wormhole::conduit::unix_socket::server::start_server(nexus, socket_path).await?;
-    #[cfg(feature = "websocket")]
-    ractor_wormhole::conduit::websocket::server::tokio_tungstenite::start_server(nexus, bind)
-        .await?;
+    match transport {
+        #[cfg(feature = "unix_socket")]
+        Transport::UnixSocket(path) => {
+            ractor_wormhole::conduit::unix_socket::server::start_server(nexus, path).await?
+        }
+        #[cfg(feature = "websocket")]
+        Transport::WebSocket(bind) => {
+            ractor_wormhole::conduit::websocket::server::tokio_tungstenite::start_server(
+                nexus, bind,
+            )
+            .await?
+        }
+    }
 
     let pinpong = start_pingpong_actor().await?;
 

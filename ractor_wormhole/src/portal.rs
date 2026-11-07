@@ -3,13 +3,13 @@ use futures::SinkExt;
 use log::{debug, error, info, trace, warn};
 use ractor::{
     Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent,
-    concurrency::Duration,
+    concurrency::{Duration, Instant, JoinHandle},
 };
 use std::{collections::HashMap, fmt::Display, pin::Pin};
 
 use crate::{
     WormholeResult,
-    conduit::{ConduitMessage, ConduitSink},
+    conduit::{CONNECTION_SETUP_TIMEOUT, ConduitMessage, ConduitSink},
     nexus::{NexusActorMessage, RemoteActorId},
     transmaterialization::{
         ContextTransmaterializable, GetRematerializer, TransmaterializationContext,
@@ -181,6 +181,8 @@ pub enum PortalActorMessage {
     WaitForHandshake(RpcReplyPort<()>),
 
     LocalActorExited(ractor::ActorId),
+    #[doc(hidden)]
+    Maintenance,
 }
 
 #[cfg(feature = "ractor_cluster")]
@@ -307,6 +309,11 @@ pub struct Introduction {
     pub this_side_id: LocalPortalId,
 }
 
+struct PendingRequest {
+    reply: RpcReplyPort<WormholeResult<RemoteActorId>>,
+    deadline: Instant,
+}
+
 pub struct PortalActorState {
     args: PortalActorArgs,
     channel_state: PortalConduitState,
@@ -315,9 +322,17 @@ pub struct PortalActorState {
     named_actors: HashMap<String, OpaqueActorId>,
 
     next_request_id: u64,
-    open_requests: HashMap<CrossPortalMessageId, RpcReplyPort<WormholeResult<RemoteActorId>>>,
+    open_requests: HashMap<CrossPortalMessageId, PendingRequest>,
+    opening_since: Instant,
+    maintenance: JoinHandle<()>,
 
     waiting_for_handshake: Vec<RpcReplyPort<()>>,
+}
+
+impl Drop for PortalActorState {
+    fn drop(&mut self) {
+        self.maintenance.abort();
+    }
 }
 
 pub struct PortalActorArgs {
@@ -389,7 +404,7 @@ impl Actor for PortalActor {
 
     async fn pre_start(
         &self,
-        _myself: ActorRef<Self::Msg>,
+        myself: ActorRef<Self::Msg>,
         mut args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
         const MOTIVATIONAL_MESSAGES: [&str; 5] = [
@@ -410,8 +425,13 @@ impl Actor for PortalActor {
         };
         let text = serde_json::to_string_pretty(&introduction)?;
 
-        args.sender.send(ConduitMessage::Handshake(text)).await?;
-        args.sender.flush().await?;
+        args.sender = crate::util::with_timeout(CONNECTION_SETUP_TIMEOUT, async move {
+            let mut sender = args.sender;
+            sender.send(ConduitMessage::Handshake(text)).await?;
+            sender.flush().await?;
+            Ok::<_, anyhow::Error>(sender)
+        })
+        .await??;
 
         Ok(PortalActorState {
             args,
@@ -422,6 +442,9 @@ impl Actor for PortalActor {
             proxies_for_remote_actors: HashMap::new(),
             named_actors: HashMap::new(),
             open_requests: HashMap::new(),
+            opening_since: Instant::now(),
+            maintenance: myself
+                .send_interval(Duration::from_secs(1), || PortalActorMessage::Maintenance),
             next_request_id: 1,
             waiting_for_handshake: Vec::new(),
         })
@@ -434,6 +457,20 @@ impl Actor for PortalActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
+            PortalActorMessage::Maintenance => {
+                if matches!(state.channel_state, PortalConduitState::Opening { .. })
+                    && state.opening_since.elapsed() >= CONNECTION_SETUP_TIMEOUT
+                {
+                    myself.stop(Some("Wormhole handshake timed out".into()));
+                }
+                let now = Instant::now();
+                state
+                    .open_requests
+                    .retain(|_, request| !request.reply.is_closed() && request.deadline > now);
+                state
+                    .waiting_for_handshake
+                    .retain(|reply| !reply.is_closed());
+            }
             PortalActorMessage::Handshake(text) => {
                 debug!(
                     "Received handshake message from {}: {}",
@@ -596,9 +633,12 @@ impl Actor for PortalActor {
                                 if let Some(reply_port) = state.open_requests.remove(&id) {
                                     let mapped: WormholeResult<RemoteActorId> =
                                         response.map_err(|err| err.into());
-                                    reply_port.send(mapped)?;
+                                    // The caller may have timed out or cancelled the request.
+                                    let _ = reply_port.reply.send(mapped);
                                 } else {
-                                    error!("Received response for unknown request ID: {id}");
+                                    debug!(
+                                        "Ignoring response for expired or unknown request ID: {id}"
+                                    );
                                 }
                             }
 
@@ -607,9 +647,11 @@ impl Actor for PortalActor {
                                 if let Some(reply_port) = state.open_requests.remove(&id) {
                                     let mapped: WormholeResult<RemoteActorId> =
                                         response.map_err(|err| err.into());
-                                    reply_port.send(mapped)?;
+                                    let _ = reply_port.reply.send(mapped);
                                 } else {
-                                    error!("Received response for unknown request ID: {id}");
+                                    debug!(
+                                        "Ignoring response for expired or unknown request ID: {id}"
+                                    );
                                 }
                             }
 
@@ -666,7 +708,7 @@ impl Actor for PortalActor {
                         state.waiting_for_handshake.push(reply);
                     }
                     PortalConduitState::Open { .. } => {
-                        reply.send(())?;
+                        let _ = reply.send(());
                     }
                 }
                 return Ok(());
@@ -696,9 +738,9 @@ impl Actor for PortalActor {
                             side: state.args.local_id,
                             id: opaque_actor_id,
                         };
-                        rpc.send(Some(remote_actor_id))?;
+                        let _ = rpc.send(Some(remote_actor_id));
                     } else {
-                        rpc.send(None)?;
+                        let _ = rpc.send(None);
                     };
                 }
             }
@@ -725,7 +767,7 @@ impl Actor for PortalActor {
                         id: opaque_actor_id,
                     };
 
-                    rpc.send(remote_actor_id)?;
+                    let _ = rpc.send(remote_actor_id);
                 }
             }
 
@@ -738,7 +780,18 @@ impl Actor for PortalActor {
                 let request_id = state.next_request_id;
                 state.next_request_id += 1;
 
-                state.open_requests.insert(request_id, reply);
+                if reply.is_closed() {
+                    return Ok(());
+                }
+                let timeout = reply
+                    .get_timeout()
+                    .unwrap_or(state.args.config.default_rpc_port_timeout);
+                let deadline = Instant::now()
+                    .checked_add(timeout)
+                    .ok_or_else(|| anyhow::anyhow!("Request timeout exceeds clock range"))?;
+                state
+                    .open_requests
+                    .insert(request_id, PendingRequest { reply, deadline });
 
                 let request = CrossPortalMessage::RequestActorByName(request_id, name);
                 let bytes = request.immaterialize()?;
@@ -872,5 +925,117 @@ impl Actor for PortalActor {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+
+    struct Mailbox;
+    #[cfg_attr(feature = "async-trait", async_trait)]
+    impl Actor for Mailbox {
+        type Msg = PortalActorMessage;
+        type State = ();
+        type Arguments = ();
+        async fn pre_start(&self, _: ActorRef<Self::Msg>, _: ()) -> Result<(), ActorProcessingErr> {
+            Ok(())
+        }
+        async fn handle(
+            &self,
+            _: ActorRef<Self::Msg>,
+            _: Self::Msg,
+            _: &mut (),
+        ) -> Result<(), ActorProcessingErr> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn maintenance_expires_unanswered_requests_and_cancelled_waiters() {
+        let nexus = crate::nexus::start_nexus(None, None).await.unwrap();
+        let (myself, handle) = Actor::spawn(None, Mailbox, ()).await.unwrap();
+        let args = PortalActorArgs {
+            identifier: "maintenance-test".into(),
+            sender: Box::pin(futures::sink::drain().sink_map_err(|never| match never {})),
+            local_id: LocalPortalId(1),
+            config: PortalConfig {
+                default_rpc_port_timeout: Duration::from_secs(2),
+            },
+            parent: nexus.clone(),
+        };
+        let mut state = PortalActor.pre_start(myself.clone(), args).await.unwrap();
+        let (tx, rx) = ractor::concurrency::oneshot();
+        PortalActor
+            .handle(
+                myself.clone(),
+                PortalActorMessage::WaitForHandshake(tx.into()),
+                &mut state,
+            )
+            .await
+            .unwrap();
+        drop(rx);
+        PortalActor
+            .handle(myself.clone(), PortalActorMessage::Maintenance, &mut state)
+            .await
+            .unwrap();
+        assert!(state.waiting_for_handshake.is_empty());
+        state.channel_state = PortalConduitState::Open {
+            channel_id: ConduitID(1),
+        };
+        let (tx, rx) = ractor::concurrency::oneshot();
+        PortalActor
+            .handle(
+                myself.clone(),
+                PortalActorMessage::QueryNamedRemoteActor("missing".into(), tx.into()),
+                &mut state,
+            )
+            .await
+            .unwrap();
+        assert_eq!(state.open_requests.len(), 1);
+        tokio::time::advance(Duration::from_secs(3)).await;
+        PortalActor
+            .handle(myself.clone(), PortalActorMessage::Maintenance, &mut state)
+            .await
+            .unwrap();
+        assert!(state.open_requests.is_empty());
+        assert!(rx.await.is_err());
+        let response =
+            CrossPortalMessage::ResponseActorByName(1, Err(ActorRequestError::ActorNotFound));
+        PortalActor
+            .handle(
+                myself.clone(),
+                PortalActorMessage::Content(response.immaterialize().unwrap()),
+                &mut state,
+            )
+            .await
+            .unwrap();
+        drop(state);
+        myself.stop(None);
+        handle.await.unwrap();
+        nexus.stop(None);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn portal_without_peer_handshake_stops() {
+        let nexus = crate::nexus::start_nexus(None, None).await.unwrap();
+        let sink = Box::pin(futures::sink::drain().sink_map_err(|never| match never {}));
+        let portal = nexus
+            .ask(
+                |reply| NexusActorMessage::Connected("silent".into(), sink, reply),
+                None,
+            )
+            .await
+            .unwrap();
+        // Awaiting the actor allows Tokio's paused clock to advance to the timer.
+        tokio::time::timeout(
+            CONNECTION_SETUP_TIMEOUT + Duration::from_secs(2),
+            portal.wait(None),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(portal.get_status(), ractor::ActorStatus::Stopped);
+        nexus.stop(None);
     }
 }

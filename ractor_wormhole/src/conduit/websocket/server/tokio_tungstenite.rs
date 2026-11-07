@@ -3,7 +3,7 @@
 use futures::{SinkExt, StreamExt, future};
 use log::{debug, error, info};
 use ractor::ActorRef;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Message};
 
@@ -25,10 +25,21 @@ pub async fn start_server(
 
     // Accept connections
     let nexus_copy = nexus.clone();
+    let slots = Arc::new(tokio::sync::Semaphore::new(
+        conduit::MAX_PENDING_CONNECTIONS,
+    ));
     tokio::spawn(async move {
         while let Ok((stream, addr)) = listener.accept().await {
             debug!("New connection from: {addr}");
-            let _ = handle_connection(stream, addr, nexus_copy.clone()).await;
+            let Ok(permit) = slots.clone().try_acquire_owned() else {
+                debug!("Connection setup limit reached; rejecting {addr}");
+                continue;
+            };
+            let nexus = nexus_copy.clone();
+            tokio::spawn(async move {
+                let _permit = permit;
+                handle_connection(stream, addr, nexus).await;
+            });
         }
     });
 
@@ -41,10 +52,19 @@ pub async fn handle_connection(
     nexus: ActorRef<NexusActorMessage>,
 ) {
     // Upgrade the TCP connection to a WebSocket connection
-    let ws_stream = match tokio_tungstenite::accept_async(stream).await {
-        Ok(ws_stream) => ws_stream,
-        Err(e) => {
-            error!("Error during WebSocket handshake: {e}");
+    let ws_stream = match tokio::time::timeout(
+        conduit::CONNECTION_SETUP_TIMEOUT,
+        tokio_tungstenite::accept_async(stream),
+    )
+    .await
+    {
+        Ok(Ok(ws_stream)) => ws_stream,
+        Ok(Err(err)) => {
+            error!("Error during WebSocket handshake: {err}");
+            return;
+        }
+        Err(_) => {
+            error!("WebSocket handshake timed out for {addr}");
             return;
         }
     };

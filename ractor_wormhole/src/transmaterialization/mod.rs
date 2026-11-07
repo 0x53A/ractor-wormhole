@@ -290,7 +290,7 @@ pub mod transmaterialization_proxies {
         pub fn rematerialize<T: bincode::Decode<()>>(data: &[u8]) -> TransmaterializationResult<T> {
             let (deserialized, consumed) =
                 bincode::decode_from_slice::<T, _>(data, bincode::config::standard())?;
-            assert!(consumed == data.len());
+            require_buffer_size(data, consumed)?;
             Ok(deserialized)
         }
     }

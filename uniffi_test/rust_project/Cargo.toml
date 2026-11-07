@@ -13,7 +13,7 @@ uniffi = { version = "0.32", features = ["cli"] }
 
 # Core ractor-wormhole
 ractor_wormhole = { path = "../../ractor_wormhole", default-features = false, features = ["derive"] }
-ractor = "0.15"
+ractor = "0.16"
 
 # Async runtime
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }

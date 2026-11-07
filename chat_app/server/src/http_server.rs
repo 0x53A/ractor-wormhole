@@ -48,9 +48,11 @@ pub async fn hello(
     if hyper_tungstenite::is_upgrade_request(&req) {
         let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)?;
 
-        if let Err(e) = serve_websocket(nexus, websocket).await {
-            eprintln!("Error in websocket connection: {e}");
-        }
+        tokio::spawn(async move {
+            if let Err(e) = serve_websocket(nexus, websocket).await {
+                eprintln!("Error in websocket connection: {e}");
+            }
+        });
         // Return the response so the spawned future can continue.
         Ok(response)
     } else if req.method() == hyper::Method::GET {
@@ -87,4 +89,42 @@ pub async fn serve_websocket(
     conduit::from_sink_source(nexus, identifier, tx, rx).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn websocket_upgrade_returns_response() {
+        let nexus = ractor_wormhole::nexus::start_nexus(None, None)
+            .await
+            .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server_nexus = nexus.clone();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            hyper::server::conn::http1::Builder::new()
+                .serve_connection(
+                    TokioIo::new(stream),
+                    hyper::service::service_fn(move |req| hello(server_nexus.clone(), req)),
+                )
+                .with_upgrades()
+                .await
+                .unwrap();
+        });
+
+        let (socket, response) = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            ractor_wormhole::deps::tokio_tungstenite::connect_async(format!("ws://{addr}")),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(response.status(), hyper::StatusCode::SWITCHING_PROTOCOLS);
+        drop(socket);
+        nexus.stop(None);
+        server.abort();
+    }
 }

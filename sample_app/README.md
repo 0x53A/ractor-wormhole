@@ -32,3 +32,7 @@ scp /home/lukas/src/ractor-wormhole/target/release/ractor_wormhole_sample_app lu
 # build a client with ssh and connect
 cargo run --features ssh -- client --ssh "lukas@nixos-server/tmp/ractor_wormhole_sample_app" --ssh-key /home/lukas/.ssh/id_ed25519
 ```
+
+When multiple transport features are enabled, select exactly one client endpoint
+(`--url`, `--socket`, or `--ssh`) or server endpoint (`--bind` or `--socket`).
+SSH is client-only; its authentication flags require `--ssh`.

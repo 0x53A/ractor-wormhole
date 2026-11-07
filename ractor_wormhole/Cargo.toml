@@ -6,35 +6,38 @@ edition = "2024"
 [dependencies]
 ractor_wormhole_derive = { path = "../ractor_wormhole_derive" }
 
-ractor = { version = "0.15", features = [] }
-ractor_cluster_derive = { version = "0.15", optional = true }
+# >= 0.16.4: earlier versions let only one `wait()` return after an actor stopped
+# (ractor#468); the portal receive loop and Nexus startup rely on repeated waits.
+ractor = { version = "0.16.4", features = [] }
+ractor_cluster_derive = { version = "0.16", optional = true }
 
 # note: the introduction is json serialized
 serde = { version = "1.0", features = ["serde_derive"] }
 serde_json = "1.0"
-tokio = { version = "1.53", features = [
+# Keep at 1.52 or lower: chat_app/wasmer_server patches in the wasix tokio fork, labelled 1.52.3.
+tokio = { version = "1.52", features = [
     #"rt-multi-thread",
     #"net",
     #"time",
     #"macros",
     #"sync"
 ]}
-tokio-tungstenite = { version = "0.29", optional = true }
-tungstenite = { version = "0.29", optional = true }
+tokio-tungstenite = { version = "0.30", optional = true }
+tungstenite = { version = "0.30", optional = true }
 anyhow = { version = "1.0", features = ["backtrace"] }
 bincode = { version = "=2.0", features = [] }
 futures = "0.3"
 log = "0.4"
 tracing = "0.1"
 rand = "0.10"
-uuid = { version = "1.24", features = ["rng", "v4"] }
+uuid = { version = "1.29", features = ["rng", "v4"] }
 static_assertions = "1.1"
 async-trait = "0.1"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
-tokio_with_wasm = { version = "0.8", features = ["rt", "sync"], optional = true }
+tokio_with_wasm = { version = "0.9", features = ["rt", "sync"], optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.4", features = ["wasm_js"] }
@@ -45,7 +48,7 @@ features = ["tls"]
 optional = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
-russh = { version = "0.62", optional = true, default-features = false }
+russh = { version = "0.65", optional = true, default-features = false }
 
 
 [features]
@@ -63,3 +66,6 @@ ssh_client = ["russh", "tokio/io-util"]
 russh_aws_lc_rs = ["russh/aws-lc-rs"]
 russh_ring = ["russh/ring"]
 async-trait = ["ractor/async-trait"]
+
+[dev-dependencies]
+tokio = { version = "1.54", features = ["test-util", "macros", "rt"] }

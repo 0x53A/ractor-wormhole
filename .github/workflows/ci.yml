@@ -28,10 +28,19 @@ jobs:
           override-with: rustup
 
       - name: Build
-        run: cargo build --workspace --verbose ${{ matrix.feature_async_trait && '--features async-trait' || '' }}
+        run: cargo build --locked --workspace --verbose ${{ matrix.feature_async_trait && '--features async-trait' || '' }}
 
       - name: Run tests
-        run: cargo test --workspace --verbose ${{ matrix.feature_async_trait && '--features async-trait' || '' }}
+        run: cargo test --locked --workspace --verbose ${{ matrix.feature_async_trait && '--features async-trait' || '' }}
+
+      - name: Check ewebsock transport with cluster support (native)
+        run: cargo check --locked -p ractor_wormhole --features websocket_client_wasm,ractor_cluster ${{ matrix.feature_async_trait && '--features async-trait' || '' }}
+
+      - name: Test transport lifecycle and cluster support
+        run: cargo test --locked -p ractor_wormhole --lib --features websocket_client_wasm,websocket_server,unix_socket_client,unix_socket_server,ssh_client,russh_ring,ractor_cluster,serde,bincode ${{ matrix.feature_async_trait && '--features async-trait' || '' }}
+
+      - name: Test sample transport selection
+        run: cargo test --locked -p ractor_wormhole_sample_app --features ssh,unix_socket ${{ matrix.feature_async_trait && '--features async-trait' || '' }}
 
   check_wasm:
     runs-on: ubuntu-latest
@@ -51,11 +60,19 @@ jobs:
 
       - name: Check WASM default
         working-directory: ./chat_app/wasm_client
-        run: cargo check -p wasm_client --target wasm32-unknown-unknown
+        run: cargo check --locked -p wasm_client --target wasm32-unknown-unknown
 
       - name: Check WASM async-trait
         working-directory: ./chat_app/wasm_client
-        run: cargo check -p wasm_client --target wasm32-unknown-unknown --features async-trait
+        run: cargo check --locked -p wasm_client --target wasm32-unknown-unknown --features async-trait
+
+      # ractor_cluster is not checked for wasm: ractor's `cluster` feature does
+      # not currently compile for wasm32-unknown-unknown.
+      - name: Check browser transport
+        run: cargo check --locked -p ractor_wormhole --target wasm32-unknown-unknown --features websocket_client_wasm
+
+      - name: Check browser transport with async-trait
+        run: cargo check --locked -p ractor_wormhole --target wasm32-unknown-unknown --features websocket_client_wasm,async-trait
 
   deploy_wasmer_edge:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'

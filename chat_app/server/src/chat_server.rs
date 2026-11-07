@@ -79,7 +79,7 @@ pub async fn start_chatserver_actor() -> WormholeResult<ActorRef<Msg>> {
 
                     // send a message to all (other) clients about the new connection
                     for (id, (ref_, _)) in &state.clients {
-                        if id != &new_client.get_id() {
+                        if id != &portal.get_id() {
                             let _ = ref_
                                 .send_message(ChatClientMessage::UserConnected(user_alias.clone()));
                         }

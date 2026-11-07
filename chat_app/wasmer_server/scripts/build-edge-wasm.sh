@@ -13,7 +13,7 @@ fi
 
 (
   cd ../wasm_client
-  env -u NO_COLOR trunk build --release --public-url /
+  env -u NO_COLOR trunk build --locked --release --public-url /
   printf '*\n!.gitignore\n' > dist/.gitignore
 )
 
@@ -37,6 +37,14 @@ EOF
   exit 1
 fi
 
+if awk '/^\[\[/{unused = ($0 == "[[patch.unused]]")} unused && /^name = "tokio"$/{found = 1} END{exit !found}' Cargo.lock; then
+  cat >&2 <<'EOF'
+The wasix tokio fork is not used: some crate requires a newer tokio than the
+fork's 1.52.3 label (see the tokio comments in Cargo.toml).
+EOF
+  exit 1
+fi
+
 wasix_sysroot="$(rustc +wasix --print sysroot)"
 target_dir="${CARGO_TARGET_DIR:-target-edge-compatible}"
 host_linker="$(command -v clang || command -v cc)"
@@ -45,14 +53,14 @@ RUSTC="$wasix_sysroot/bin/rustc" \
 RUSTFLAGS='--cfg getrandom_backend="custom" -Aunexpected_cfgs' \
 CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$host_linker" \
 CARGO_TARGET_DIR="$target_dir" \
-cargo +1.90.0 build --target wasm32-wasmer-wasi --release
+cargo +1.90.0 build --locked --target wasm32-wasmer-wasi --release
 
 mkdir -p target/wasm32-wasmer-wasi/release
 cp "$target_dir/wasm32-wasmer-wasi/release/wasmer_chat_server.wasm" \
   target/wasm32-wasmer-wasi/release/wasmer_chat_server.wasm
 
-if wasmer inspect target/wasm32-wasmer-wasi/release/wasmer_chat_server.wasm \
-  | grep -E 'proc_exec4|thread_spawn'; then
+imports="$(wasmer inspect target/wasm32-wasmer-wasi/release/wasmer_chat_server.wasm)"
+if grep -E 'proc_exec4|thread_spawn' <<< "$imports"; then
   echo "Built artifact imports Edge-incompatible WASIX symbols." >&2
   exit 1
 fi

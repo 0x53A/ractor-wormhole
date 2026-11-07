@@ -1,4 +1,4 @@
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use ractor::ActorRef;
 use russh::ChannelStream;
 use russh::client::{self, Handle, Msg};
@@ -41,7 +41,7 @@ pub enum SshAuthMethod {
         private_key_path: String,
         passphrase: Option<String>,
     },
-    /// Agent-based authentication
+    /// Agent-based authentication (not implemented; returns an error).
     Agent,
 }
 
@@ -56,7 +56,7 @@ impl client::Handler for Client {
 
     fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::ssh_key::PublicKey,
+        _server_public_key: &russh::keys::PublicKeyOrCertificate,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         // TODO: Implement proper host key verification
         // For now, accept all keys
@@ -112,75 +112,9 @@ pub async fn connect_ssh(config: SshConfig) -> Result<Handle<Client>, anyhow::Er
                 .map_err(|e| anyhow::anyhow!("Public key authentication failed: {}", e))?
         }
         SshAuthMethod::Agent => {
-            todo!("Agent-based authentication hasn't been fully tested yet.");
-
-            // Connect to SSH agent
-            let mut agent = russh::keys::agent::client::AgentClient::connect_env()
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to connect to SSH agent: {}. Make sure SSH_AUTH_SOCK is set and ssh-agent is running.", e))?;
-
-            // Request identities from the agent
-            let identities = agent.request_identities().await.map_err(|e| {
-                anyhow::anyhow!("Failed to request identities from SSH agent: {}", e)
-            })?;
-
-            if identities.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "SSH agent has no identities. Add keys using 'ssh-add'."
-                ));
-            }
-
-            debug!("SSH agent provided {} identities", identities.len());
-
-            // Get the best supported RSA hash algorithm
-            let hash_alg = handle
-                .best_supported_rsa_hash()
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to get RSA hash algorithm: {}", e))?
-                .flatten();
-
-            // Try each identity until one succeeds
-            let mut last_error = None;
-            let mut auth_result = None;
-            for (i, pubkey) in identities.iter().enumerate() {
-                debug!("Trying identity {} of {}", i + 1, identities.len());
-
-                match handle
-                    .authenticate_publickey_with(
-                        config.username.clone(),
-                        pubkey.public_key().into_owned(),
-                        hash_alg,
-                        &mut agent,
-                    )
-                    .await
-                {
-                    Ok(result) if result.success() => {
-                        debug!("Successfully authenticated with identity {}", i + 1);
-                        auth_result = Some(result);
-                        break;
-                    }
-                    Ok(_) => {
-                        warn!("Identity {} rejected by server", i + 1);
-                        last_error = Some(anyhow::anyhow!("Identity {} rejected", i + 1));
-                    }
-                    Err(e) => {
-                        warn!("Failed to authenticate with identity {}: {:?}", i + 1, e);
-                        last_error = Some(anyhow::anyhow!("Authentication error: {:?}", e));
-                    }
-                }
-            }
-
-            match auth_result {
-                Some(result) => result,
-                None => {
-                    return Err(last_error.unwrap_or_else(|| {
-                        anyhow::anyhow!(
-                            "All {} identities were rejected by the server",
-                            identities.len()
-                        )
-                    }));
-                }
-            }
+            return Err(anyhow::anyhow!(
+                "SSH agent authentication is not implemented"
+            ));
         }
     };
 
@@ -477,6 +411,11 @@ where
             }
         };
 
+        // Close frames contain only their type byte, just like the Unix transport.
+        if msg_type == 2 {
+            return Some((Ok(ConduitMessage::Close(None)), reader));
+        }
+
         // Read message length (4 bytes)
         let len = match reader.read_u32().await {
             Ok(l) => l as usize,
@@ -508,12 +447,6 @@ where
                 // Binary message
                 ConduitMessage::Content(buffer)
             }
-            2 => {
-                // Close message
-                let reason = String::from_utf8(buffer).ok();
-                debug!("Received close message: {:?}", reason);
-                return Some((Ok(ConduitMessage::Close(reason)), reader));
-            }
             _ => {
                 error!("Unknown message type: {}", msg_type);
                 return Some((
@@ -530,4 +463,23 @@ where
     });
 
     Box::pin(stream)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::StreamExt;
+
+    #[tokio::test]
+    async fn close_frame_needs_no_length_or_eof() {
+        let (mut writer, reader) = tokio::io::duplex(64);
+        let mut source = create_source(reader);
+        writer.write_u8(2).await.unwrap();
+        let message = tokio::time::timeout(std::time::Duration::from_secs(2), source.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(matches!(message, ConduitMessage::Close(None)));
+    }
 }
